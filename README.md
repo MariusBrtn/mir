@@ -22,7 +22,7 @@ The same hardware modules can be used to build different robotic systems, includ
 
 Traditional educational robots are often designed for a single purpose. MIR follows a different approach : the same hardware modules can be reused to build different robotic systems. This allows students, teachers and researchers to explore a wide range of robotics topics without redesigning the platform.
 
-
 <p align="center">
   <img src="assets/modules.jpg" width="450">
 </p>
+
