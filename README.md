@@ -1,4 +1,4 @@
-# MIR (Modular Intelligent Robot)
+# MIR : Modular Intelligent Robot
 
 > **MIR** is an open-source modular robotics platform for education, research and experimentation.
 
