@@ -26,3 +26,9 @@ Traditional educational robots are often designed for a single purpose. MIR foll
   <img src="assets/modules.jpg" width="450">
 </p>
 
+
+## Project status
+
+This repository documents the development of MIR from its first functional prototype.
+
+New hardware modules, documentation and software will be added progressively.
