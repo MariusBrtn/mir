@@ -12,6 +12,7 @@ The platform is compatible with the LeRobot ecosystem for robot learning, while 
 </p>
 
 ## Examples
+The same hardware modules can be used to build different robotic systems, including :
 
 - Robot arms
 - Mobile platform with Lidar
