@@ -24,5 +24,5 @@ Traditional educational robots are often designed for a single purpose. MIR foll
 
 
 <p align="center">
-  <img src="assets/modules.png" width="450">
+  <img src="assets/modules.jpg" width="450">
 </p>
