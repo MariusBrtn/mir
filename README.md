@@ -39,5 +39,14 @@ Traditional educational robots are often designed for a single purpose. MIR foll
 
 This repository documents the development of MIR from its first functional prototype.
 
+
+## License
+
+MIR is released under the Apache License 2.0.
+
+This project is intended to encourage learning, research and collaboration. Commercial use is permitted under the terms of the Apache 2.0 License.
+
+See the [LICENSE](LICENSE) file for details.
+
 New hardware modules, documentation and software will be added progressively.
 
