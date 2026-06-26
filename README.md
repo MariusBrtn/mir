@@ -11,6 +11,9 @@ Modular Intelligent Robot
   </a>
 </p>
 
+<p align="center">
+  <em>Build robots in just a few clicks.</em>
+</p>
 
 Designed around interchangeable hardware modules, MIR makes it possible to build different robots while sharing a common hardware and software architecture. 
 The platform is compatible with the LeRobot ecosystem for robot learning, while remaining suitable for more traditional robotics applications such as kinematics, control, teleoperation, perception and navigation.
