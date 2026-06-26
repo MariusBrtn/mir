@@ -5,14 +5,9 @@ Modular Intelligent Robot
 > **MIR** is an open-source modular robotics platform for education, research and experimentation.
 
 
-
-<p align="center">
-  <i>Click the image to watch the introduction video.</i>
-</p>
-
 <p align="center">
   <a href="https://youtube.com/shorts/KHZeTSOmVA4">
-    <img src="./assets/screen_video.png" width="380" alt="Watch the MIR introduction">
+    <img src="./assets/screen_video.png" width="300" alt="Watch the MIR introduction">
   </a>
 </p>
 
