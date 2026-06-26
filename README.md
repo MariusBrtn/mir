@@ -41,9 +41,3 @@ This repository documents the development of MIR from its first functional proto
 
 New hardware modules, documentation and software will be added progressively.
 
-
-## License
-
-MIR is released under the Apache 2.0 License.
-
-The goal is to encourage learning, research and collaboration while allowing commercial use under the terms of the license.
