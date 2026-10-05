@@ -19,7 +19,7 @@ Designed around interchangeable hardware modules, MIR makes it possible to build
 The platform is compatible with the LeRobot ecosystem for robot learning, while remaining suitable for more traditional robotics applications such as kinematics, control, teleoperation, perception and navigation.
 
 <p align="center">
-  <img src="assets/module.png" width="450">
+  <img src="assets/module.png" width="350">
 </p>
 
 ## Examples
@@ -34,7 +34,7 @@ The same hardware modules can be used to build different robotic systems, includ
 Traditional educational robots are often designed for a single purpose. MIR follows a different approach : the same hardware modules can be reused to build different robotic systems. This allows students, teachers and researchers to explore a wide range of robotics topics without redesigning the platform.
 
 <p align="center">
-  <img src="assets/configs.png" width="450">
+  <img src="assets/configs.png" width="600">
 </p>
 
 
