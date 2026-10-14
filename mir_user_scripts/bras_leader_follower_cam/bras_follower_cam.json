@@ -1,0 +1,129 @@
+{
+    "id": "mir_robot",
+    "calibration_dir": null,
+    "motor_bus": {
+        "motor_port": "/dev/cu.usbmodem5B3D0492331",
+        "motors": {
+            "joint_1": {
+                "id": 1,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 200,
+                "torque_limit": 500
+            },
+            "joint_2": {
+                "id": 2,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 200,
+                "torque_limit": 500
+            },
+            "joint_3": {
+                "id": 3,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 200,
+                "torque_limit": 500
+            },
+            "joint_4": {
+                "id": 4,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 200,
+                "torque_limit": 400
+            },
+            "joint_5": {
+                "id": 5,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            }
+        },
+        "calibration": {
+            "joint_1": {
+                "id": 1,
+                "drive_mode": 0,
+                "homing_offset": 795,
+                "range_min": 1161,
+                "range_max": 2975
+            },
+            "joint_2": {
+                "id": 2,
+                "drive_mode": 0,
+                "homing_offset": -1009,
+                "range_min": 1079,
+                "range_max": 3045
+            },
+            "joint_3": {
+                "id": 3,
+                "drive_mode": 0,
+                "homing_offset": 84,
+                "range_min": 1090,
+                "range_max": 2942
+            },
+            "joint_4": {
+                "id": 4,
+                "drive_mode": 0,
+                "homing_offset": 1654,
+                "range_min": 1222,
+                "range_max": 3017
+            },
+            "joint_5": {
+                "id": 5,
+                "drive_mode": 0,
+                "homing_offset": 1914,
+                "range_min": 1901,
+                "range_max": 2219
+            }
+        }
+    },
+    "sensors": {    "cam_1": {
+      "sensor_type": "pi_camera",
+      "ip": "192.168.1.241",
+      "width": 640,
+      "height": 480,
+      "fps": 20,
+      "enable_stats": false,
+      "frame_stats_size": 0
+    }},
+    "observations": {
+        "cam_1": [480,640,3],
+        "joint_1.position": "float",
+        "joint_2.position": "float",
+        "joint_3.position": "float",
+        "joint_4.position": "float",
+        "joint_5.position": "float"
+    },
+    "path": "/home/michel/Documents/projets/mir/mir_robot_editor/motor_configuration/bras_follower.json"
+}

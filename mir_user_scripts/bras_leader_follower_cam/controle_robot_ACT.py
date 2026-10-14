@@ -1,0 +1,378 @@
+
+"""
+Inférence ACT sur le robot MIR
+Environnement : Conda robot312
+LeRobot : 0.5.1
+
+À lancer depuis bras_leader_follower_cam.
+"""
+
+from pathlib import Path
+import time
+
+import cv2
+import numpy as np
+import torch
+
+from mir_robot.mir_robot import mirRobot, mirRobotConfig
+from mir_utils.period_waiters import PeriodWaiterExact
+
+from lerobot.datasets import LeRobotDatasetMetadata
+from lerobot.policies.act.modeling_act import ACTPolicy
+from lerobot.policies.factory import make_pre_post_processors
+
+
+# ============================================================
+# CONFIGURATION
+# ============================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+
+DATASET_REPO_ID = "local/mir_4ddl_cam_dice"
+DATASET_ROOT = BASE_DIR / "dataset_dice"
+
+MODEL_ROOT = (
+    BASE_DIR
+    / "outputs"
+    / "train"
+    / "act_batch4_chunk20"
+    / "checkpoints"
+    / "last"
+    / "pretrained_model"
+)
+
+LEADER_CONFIG = BASE_DIR / "bras_leader.json"
+FOLLOWER_CONFIG = BASE_DIR / "bras_follower_cam.json"
+
+DEVICE = torch.device("mps")
+
+FPS = 20
+EPISODE_TIME = 6
+NUM_STEPS = FPS * EPISODE_TIME
+
+EXPECTED_CHUNK_SIZE = 20
+EXPECTED_N_ACTION_STEPS = 10
+
+EXECUTE_ACTIONS = True
+
+#INITIAL_POSITION = [
+ #   -55.912086486816406,
+ #   28.30769157409668,
+ #   -80.70330047607422,
+ #   78.63735961914062,
+ #   12.04395580291748,
+#]
+
+INITIAL_POSITION = [-55.384617,  31.912088, -80.7033,    78.54945,   11.692307]
+
+ROTATE_IMAGE_180 = False
+
+period_waiter = PeriodWaiterExact(1 / FPS)
+
+
+# ============================================================
+# VALIDATION
+# ============================================================
+
+if not MODEL_ROOT.is_dir():
+    raise FileNotFoundError(
+        f"Checkpoint ACT introuvable : {MODEL_ROOT}"
+    )
+
+if not (MODEL_ROOT / "config.json").is_file():
+    raise FileNotFoundError(
+        f"config.json absent dans {MODEL_ROOT}"
+    )
+
+if not DATASET_ROOT.is_dir():
+    raise FileNotFoundError(
+        f"Dataset introuvable : {DATASET_ROOT}"
+    )
+
+
+# ============================================================
+# MÉTADONNÉES DU DATASET
+# ============================================================
+
+print("\nChargement des métadonnées...")
+
+dataset_metadata = LeRobotDatasetMetadata(
+    repo_id=DATASET_REPO_ID,
+    root=DATASET_ROOT,
+)
+
+print("FPS dataset :", dataset_metadata.fps)
+print("Features :")
+
+for key, feature in dataset_metadata.features.items():
+    print(f"  {key}: {feature}")
+
+
+# ============================================================
+# CHARGEMENT ACT
+# ============================================================
+
+print("\nChargement de la politique ACT...")
+
+policy = ACTPolicy.from_pretrained(str(MODEL_ROOT))
+policy.config.device = str(DEVICE)
+policy = policy.to(DEVICE)
+policy.eval()
+
+print("Device :", DEVICE)
+print("Chunk size :", policy.config.chunk_size)
+print("n_action_steps :", policy.config.n_action_steps)
+
+if policy.config.chunk_size != EXPECTED_CHUNK_SIZE:
+    raise RuntimeError(
+        f"Chunk size inattendu : {policy.config.chunk_size}"
+    )
+
+if policy.config.n_action_steps != EXPECTED_N_ACTION_STEPS:
+    raise RuntimeError(
+        f"n_action_steps inattendu : "
+        f"{policy.config.n_action_steps}"
+    )
+
+preprocessor, postprocessor = make_pre_post_processors(
+    policy_cfg=policy.config,
+    pretrained_path=str(MODEL_ROOT),
+    dataset_stats=dataset_metadata.stats,
+)
+
+print("Politique et processeurs chargés.")
+
+
+# ============================================================
+# CONNEXION AU ROBOT
+# ============================================================
+
+leader = mirRobot(
+    mirRobotConfig.load(str(LEADER_CONFIG))
+)
+
+follower = mirRobot(
+    mirRobotConfig.load(str(FOLLOWER_CONFIG))
+)
+
+print("\nConnexion au leader...")
+leader.connect()
+leader.configure()
+leader.enable_all_observations()
+
+print("\nConnexion au follower...")
+follower.connect()
+follower.configure()
+follower.enable_all_observations()
+
+
+# ============================================================
+# CONSTRUCTION DE L'OBSERVATION
+# ============================================================
+
+def build_observation(observation):
+    """
+    Prépare l'image et les positions articulaires.
+
+    L'image est fournie en CHW et float32, sans division par 255.
+    Le pipeline LeRobot applique ensuite ses transformations.
+    """
+
+    image = observation["cam_1"]
+
+    if ROTATE_IMAGE_180:
+        image = cv2.rotate(image, cv2.ROTATE_180)
+
+    image_tensor = torch.from_numpy(
+        np.ascontiguousarray(image)
+    ).permute(2, 0, 1).to(torch.float32)
+
+    state = torch.tensor(
+        [
+            observation[f"joint_{j}.position"]
+            for j in range(1, 6)
+        ],
+        dtype=torch.float32,
+    )
+
+    return {
+        "observation.images.cam_1": image_tensor,
+        "observation.state": state,
+    }
+
+
+# ============================================================
+# PRÉDICTION
+# ============================================================
+
+def predict_action(observation):
+
+    observation_frame = build_observation(observation)
+
+    observation_processed = preprocessor(
+        observation_frame
+    )
+
+    with torch.inference_mode():
+        action_processed = policy.select_action(
+            observation_processed
+        )
+
+    action_unprocessed = postprocessor(
+        action_processed
+    )
+
+    if isinstance(action_unprocessed, dict):
+        action_tensor = action_unprocessed["action"]
+    else:
+        action_tensor = action_unprocessed
+
+    action_values = (
+        action_tensor.detach()
+        .cpu()
+        .reshape(-1)
+        .numpy()
+    )
+
+    if len(action_values) != 5:
+        raise RuntimeError(
+            f"Action de dimension {len(action_values)}, "
+            f"5 attendues. Forme : {tuple(action_tensor.shape)}"
+        )
+
+    if not np.isfinite(action_values).all():
+        raise RuntimeError("Action ACT non finie.")
+
+    action = {
+        f"joint_{j}.position": float(action_values[j - 1])
+        for j in range(1, 6)
+    }
+
+    state = np.array(
+        [
+            observation[f"joint_{j}.position"]
+            for j in range(1, 6)
+        ],
+        dtype=np.float32,
+    )
+
+    return state, action
+
+
+# ============================================================
+# POSITION INITIALE
+# ============================================================
+
+def move_to_initial_position():
+
+    initial_action = {
+        f"joint_{j}.position": float(INITIAL_POSITION[j - 1])
+        for j in range(1, 6)
+    }
+
+    print("\nConsigne initiale :", INITIAL_POSITION)
+
+    follower.send_action(initial_action)
+
+    time.sleep(2)
+
+    observation = follower.get_observation()
+
+    current_position = np.array(
+        [
+            observation[f"joint_{j}.position"]
+            for j in range(1, 6)
+        ],
+        dtype=np.float32,
+    )
+
+    print("Position mesurée :", current_position)
+    print(
+        "Écart à la cible :",
+        current_position - np.array(
+            INITIAL_POSITION, dtype=np.float32
+        ),
+    )
+
+
+# ============================================================
+# BOUCLE D'INFÉRENCE
+# ============================================================
+
+try:
+
+    print("\n" + "=" * 55)
+    print("EXECUTE_ACTIONS :", EXECUTE_ACTIONS)
+    print("Fréquence :", FPS, "Hz")
+    print("Durée :", EPISODE_TIME, "s")
+    print("Itérations :", NUM_STEPS)
+    print("Chunk :", policy.config.chunk_size)
+    print("Actions par chunk :", policy.config.n_action_steps)
+    print("=" * 55)
+
+    while True:
+
+        command = input(
+            "\nEntrée : lancer un essai ; q : quitter : "
+        )
+
+        if command.strip().lower() == "q":
+            break
+
+        if EXECUTE_ACTIONS:
+
+            confirmation = input(
+                "\nVérifie la zone et l'arrêt d'urgence. "
+                "Tape O pour confirmer : "
+            )
+
+            if confirmation.strip().upper() != "O":
+                print("Essai annulé.")
+                continue
+
+            move_to_initial_position()
+
+        policy.reset()
+
+        print("\nDébut de l'essai...")
+        start_time = time.perf_counter()
+        period_waiter.start()
+
+        try:
+
+            for i in range(NUM_STEPS):
+
+                observation = follower.get_observation()
+
+                state, action = predict_action(observation)
+
+                if i % FPS == 0:
+                    print(
+                        f"\nTemps : {i / FPS:.1f} / "
+                        f"{EPISODE_TIME} s"
+                    )
+                    print("État :", state)
+                    print("Action :", list(action.values()))
+
+                if EXECUTE_ACTIONS:
+                    follower.send_action(action)
+
+                period_waiter.wait()
+
+        except KeyboardInterrupt:
+            print("\nInterruption demandée.")
+            break
+
+        duration = time.perf_counter() - start_time
+
+        print(
+            f"\nEssai terminé en {duration:.2f} s "
+            f"(cible : {EPISODE_TIME} s)."
+        )
+
+finally:
+    print("\nFin du programme.")
+    print(
+        "Vérifie l'état des moteurs et déconnecte le robot "
+        "selon les procédures habituelles du MIR."
+    )
