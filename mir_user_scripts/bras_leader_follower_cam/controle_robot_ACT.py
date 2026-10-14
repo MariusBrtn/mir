@@ -65,7 +65,9 @@ EXECUTE_ACTIONS = True
 
 INITIAL_POSITION = [-55.384617,  31.912088, -80.7033,    78.54945,   11.692307]
 
-ROTATE_IMAGE_180 = False
+# Même préparation d'image que lors de l'enregistrement (dataset.py)
+ROTATE_IMAGE_180 = True
+IMAGE_SIZE = (320, 240)  # (largeur, hauteur)
 
 period_waiter = PeriodWaiterExact(1 / FPS)
 
@@ -174,8 +176,11 @@ def build_observation(observation):
     """
     Prépare l'image et les positions articulaires.
 
-    L'image est fournie en CHW et float32, sans division par 255.
-    Le pipeline LeRobot applique ensuite ses transformations.
+    Reproduit la chaîne de l'enregistrement puis de la lecture du dataset :
+    rotation 180°, redimensionnement en 320x240 (dataset.py),
+    puis CHW float32 dans [0, 1] (division par 255 faite par le décodeur
+    vidéo de LeRobotDataset). Le preprocessor ne fait que la normalisation
+    moyenne / écart-type, il ne divise pas par 255.
     """
 
     image = observation["cam_1"]
@@ -183,9 +188,15 @@ def build_observation(observation):
     if ROTATE_IMAGE_180:
         image = cv2.rotate(image, cv2.ROTATE_180)
 
+    image = cv2.resize(
+        image,
+        IMAGE_SIZE,
+        interpolation=cv2.INTER_AREA,
+    )
+
     image_tensor = torch.from_numpy(
         np.ascontiguousarray(image)
-    ).permute(2, 0, 1).to(torch.float32)
+    ).permute(2, 0, 1).to(torch.float32) / 255.0
 
     state = torch.tensor(
         [
