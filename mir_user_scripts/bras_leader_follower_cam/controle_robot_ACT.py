@@ -307,8 +307,81 @@ def move_to_initial_position():
 
 
 # ============================================================
+# PRÉCHAUFFAGE DU MODÈLE
+# ============================================================
+
+def warmup_policy():
+    """
+    Le premier appel sur MPS prend ~400 ms (initialisation du GPU).
+    Avec PeriodWaiterExact, ce retard serait rattrapé en enchaînant
+    les cycles suivants sans pause : début de mouvement brusque.
+    On fait donc un appel à vide avant l'essai, puis on vide le cache.
+    """
+
+    fake_observation = {
+        "cam_1": np.zeros((480, 640, 3), dtype=np.uint8),
+        **{
+            f"joint_{j}.position": float(INITIAL_POSITION[j - 1])
+            for j in range(1, 6)
+        },
+    }
+
+    start = time.perf_counter()
+    predict_action(fake_observation)
+    policy.reset()
+
+    print(
+        f"Préchauffage du modèle : "
+        f"{(time.perf_counter() - start) * 1000:.0f} ms"
+    )
+
+
+# ============================================================
+# MESURE DES DURÉES DE CYCLE
+# ============================================================
+
+def print_timing_summary(timings):
+    """
+    Affiche la durée des étapes de chaque cycle (en ms).
+    Un cycle doit tenir dans 1000 / FPS ms.
+    """
+
+    budget_ms = 1000 / FPS
+    timings = np.asarray(timings) * 1000
+    observation_ms, inference_ms, send_ms = timings.T
+    cycle_ms = timings.sum(axis=1)
+    late = int((cycle_ms > budget_ms).sum())
+
+    print(f"\nDurées par cycle (budget : {budget_ms:.0f} ms)")
+
+    for name, values in [
+        ("Observation", observation_ms),
+        ("Inférence", inference_ms),
+        ("Envoi", send_ms),
+        ("Total", cycle_ms),
+    ]:
+        print(
+            f"  {name:<12}: moyenne {values.mean():5.1f} ms | "
+            f"max {values.max():5.1f} ms"
+        )
+
+    print(f"  Cycles en retard : {late} / {len(cycle_ms)}")
+
+    if late:
+        slowest = np.argsort(cycle_ms)[-3:][::-1]
+        print(
+            "  Cycles les plus lents : "
+            + ", ".join(
+                f"n°{i} ({cycle_ms[i]:.0f} ms)" for i in slowest
+            )
+        )
+
+
+# ============================================================
 # BOUCLE D'INFÉRENCE
 # ============================================================
+
+warmup_policy()
 
 try:
 
@@ -345,6 +418,8 @@ try:
 
         policy.reset()
 
+        timings = []
+
         print("\nDébut de l'essai...")
         start_time = time.perf_counter()
         period_waiter.start()
@@ -353,9 +428,15 @@ try:
 
             for i in range(NUM_STEPS):
 
+                t0 = time.perf_counter()
+
                 observation = follower.get_observation()
 
+                t1 = time.perf_counter()
+
                 state, action = predict_action(observation)
+
+                t2 = time.perf_counter()
 
                 if i % FPS == 0:
                     print(
@@ -367,6 +448,9 @@ try:
 
                 if EXECUTE_ACTIONS:
                     follower.send_action(action)
+
+                t3 = time.perf_counter()
+                timings.append((t1 - t0, t2 - t1, t3 - t2))
 
                 period_waiter.wait()
 
@@ -380,6 +464,9 @@ try:
             f"\nEssai terminé en {duration:.2f} s "
             f"(cible : {EPISODE_TIME} s)."
         )
+
+        if timings:
+            print_timing_summary(timings)
 
 finally:
     print("\nFin du programme.")
