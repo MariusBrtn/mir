@@ -1,0 +1,42 @@
+{
+    "description": "Module servo MIR (STS3215). Stator : douille baïonnette femelle (axe x CAO). Rotor : embout mâle (axe z CAO), à 90° de la douille ; les deux axes se coupent en (12.5, 0, 1.016). Repère de la CAO, en mm.",
+    "unit_scale": 0.001,
+    "parts": {
+        "stator": {
+            "mass": 0.1,
+            "geoms": [
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SERVO_STATOR_SIMU.stl",
+                    "visual_only": true,
+                    "rgba": [0.08, 0.08, 0.09, 1],
+                    "select": {"axis": [1, 0, 0], "min": -30.05}
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SERVO_STATOR_SIMU.stl",
+                    "visual_only": true,
+                    "rgba": [0.87, 0.78, 0.64, 1],
+                    "select": {"axis": [1, 0, 0], "max": -30.05}
+                },
+                {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 3.85], "size": [25.0, 27.85]},
+                {"type": "cylinder", "collision_only": true, "pos": [-13.175, 0, 1.016], "zaxis": [1, 0, 0], "size": [24.66, 25.675]}
+            ]
+        },
+        "rotor": {
+            "mass": 0.025,
+            "geoms": [
+                {"type": "mesh", "file": "../STL/MIR_SIMU_SERVO_ROTOR.stl", "visual_only": true, "rgba": [0.08, 0.08, 0.09, 1]},
+                {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 36.0], "size": [25.0, 4.0]},
+                {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 44.35], "size": [16.0, 4.35]}
+            ]
+        }
+    },
+    "joints": {
+        "axe": {"parent": "stator", "child": "rotor", "pos": [12.5, 0, 40.0], "axis": [0, 0, 1]}
+    },
+    "connectors": {
+        "stator": {"part": "stator", "gender": "female", "pos": [-38.85, 0, 1.016], "zaxis": [-1, 0, 0], "xaxis": [0, 0, 1]},
+        "rotor": {"part": "rotor", "gender": "male", "pos": [12.5, 0, 40.0], "zaxis": [0, 0, 1], "xaxis": [1, 0, 0]}
+    }
+}

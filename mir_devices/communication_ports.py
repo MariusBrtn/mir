@@ -6,8 +6,14 @@ from queue import Queue
 from PySide6.QtCore import QObject
 import socket
 from concurrent.futures import Future
-import glob
 from pathlib import Path
+
+# Préfixes des ports série selon le type d'adaptateur USB :
+#   ACM : périphérique USB CDC (carte des servos Feetech) -> Linux /dev/ttyACM*, macOS /dev/cu.usbmodem*
+#   USB : convertisseur USB-série (FTDI, CP210x, CH340 : ESP32) -> Linux /dev/ttyUSB*, macOS /dev/cu.usbserial-*...
+# Sur macOS on prend les /dev/cu.* : l'ouverture d'un /dev/tty.* attend le signal DCD et peut bloquer.
+ACM_PORT_PREFIXES = ("/dev/ttyACM", "/dev/cu.usbmodem")
+USB_PORT_PREFIXES = ("/dev/ttyUSB", "/dev/cu.usbserial", "/dev/cu.wchusbserial", "/dev/cu.SLAB_USBtoUART")
 
 def find_available_ports(filter: str|None = None):
     from serial.tools import list_ports  # Part of pyserial library
@@ -16,28 +22,28 @@ def find_available_ports(filter: str|None = None):
         # List COM ports using pyserial
         ports = [port.device for port in list_ports.comports()]
     else:  # Linux/macOS
-        # List /dev/tty* ports for Unix-based systems
+        # List /dev/tty* (et /dev/cu* sur macOS) ports for Unix-based systems
         ports = [str(path) for path in Path("/dev").glob("tty*")]
-    return ports
+        ports += [str(path) for path in Path("/dev").glob("cu.*")]
+    return sorted(ports)
 
 def find_usb_serial_ports():
     if platform.system() == "Windows":
         return find_available_ports()
-    return [port for port in find_available_ports() if port.startswith("/dev/ttyUSB")]
+    return [port for port in find_available_ports() if port.startswith(USB_PORT_PREFIXES)]
 
 def find_acm_serial_ports():
     if platform.system() == "Windows":
         return find_available_ports()
-    return [port for port in find_available_ports() if port.startswith("/dev/ttyACM")]
+    return [port for port in find_available_ports() if port.startswith(ACM_PORT_PREFIXES)]
 
 def find_all_serial_ports():
     if platform.system() == "Windows":
         return find_available_ports()
-    return [port for port in find_available_ports() if port.startswith("/dev/ttyACM") or port.startswith("/dev/ttyUSB")]
-    
+    return [port for port in find_available_ports() if port.startswith(ACM_PORT_PREFIXES + USB_PORT_PREFIXES)]
+
 def serial_get_available_ports() -> list[str]:
-    candidates = glob.glob("/dev/ttyUSB*") + glob.glob("/dev/ttyACM*")
-    return sorted(candidates)
+    return find_all_serial_ports()
 
 class CommPort(QObject):
     def __init__(self, end_of_line:str="\n", command_prefix="#", connect_timeout=5.0, command_timeout=1.0):

@@ -1,0 +1,19 @@
+{
+    "description": "Bloc jonction MIR : disque avec un embout baïonnette mâle sur chaque face, pour relier deux douilles femelles. Repère de la CAO, en mm.",
+    "unit_scale": 0.001,
+    "parts": {
+        "corps": {
+            "mass": 0.02,
+            "geoms": [
+                {"type": "mesh", "file": "../STL/MIR_SIMU_JONCTION.stl", "visual_only": true, "rgba": [0.08, 0.08, 0.09, 1]},
+                {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 32.0], "size": [25.0, 8.0]},
+                {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 19.15], "size": [16.0, 4.85]},
+                {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 44.87], "size": [16.0, 4.87]}
+            ]
+        }
+    },
+    "connectors": {
+        "face_a": {"part": "corps", "gender": "male", "pos": [12.5, 0, 24.0], "zaxis": [0, 0, -1], "xaxis": [1, 0, 0]},
+        "face_b": {"part": "corps", "gender": "male", "pos": [12.5, 0, 40.0], "zaxis": [0, 0, 1], "xaxis": [1, 0, 0]}
+    }
+}

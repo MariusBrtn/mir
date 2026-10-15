@@ -22,6 +22,9 @@ class mirRobotConfig(RobotConfig):
     motor_bus : mirMotorBusConfiguration | None = None
     sensors: dict[str, mirSensorConfiguration] =field(default_factory=lambda: { })
     observations: dict[str, Any] = field(default_factory=lambda: { })
+    # structure mécanique du robot (modules du catalogue mir_sim et leurs branchements), facultative :
+    # sert à construire le modèle de simulation. Voir mir_sim/README.md
+    structure: dict[str, Any] | None = None
     path: str |None = None
     
     def save(self):
@@ -32,10 +35,17 @@ class mirRobotConfig(RobotConfig):
     def save_as(self, path):
         self.path = path
         with open(path, "w") as f:
-            json.dump(JsonParseHelper.to_dict(self), f, indent=4)
+            json.dump(self._to_dict(), f, indent=4)
 
     def to_json(self):
-        return json.dumps(JsonParseHelper.to_dict(self))
+        return json.dumps(self._to_dict())
+
+    def _to_dict(self) -> dict[str, Any]:
+        data = JsonParseHelper.to_dict(self)
+        if data.get("structure") is None:
+            # pas de structure : fichier identique à celui des versions qui ne la connaissent pas
+            data.pop("structure", None)
+        return data
 
     @staticmethod
     def from_dict(data: dict[str, Any], path: str | None = None) -> mirRobotConfig:

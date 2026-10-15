@@ -1,0 +1,15 @@
+# mir/mir_sim/pyproject.toml
+[project]
+name = "mir_sim"
+version = "0.1.0"
+dependencies = ["mir_devices", "mir_robot", "mir_utils", "mujoco>=3.2", "gymnasium"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mir_sim"]
+
+[tool.setuptools.package-dir]
+"mir_sim" = "."

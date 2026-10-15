@@ -573,21 +573,29 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
                 bus.disconnect()
 
     @staticmethod
+    def mir_scan_motor_buses() -> list[tuple[str, list[int]]]:
+        """
+        Scanne tous les ports série ACM disponibles pour chercher des bus Feetech
+        (plusieurs robots branchés sur le même ordinateur).
+        Retourne la liste des (port, IDs des moteurs) de chaque bus trouvé.
+        """
+        buses = []
+        for port in find_acm_serial_ports():
+            logger.info(f"scan du port {port}...")
+            try:
+                buses.append((port, mirFeetechMotorsBus.mir_scan_motors(port)))
+            except ConnectionError:
+                continue
+        return buses
+
+    @staticmethod
     def mir_scan_motors_on_all_ports() -> tuple[str, list[int]] | tuple[None, None]:
         """
         Scanne tous les ports série ACM disponibles pour chercher un bus Feetech 
         Retourne le premier port trouvé avec les IDs des moteurs, 
         sinon retourne (None, None)
         """
-        ports = find_acm_serial_ports()
-        print(ports)
-        for port in ports:
-            print(f"scanning port {port}...")
-            try:
-                motors_ids = mirFeetechMotorsBus.mir_scan_motors(port)
-                return (port, motors_ids)
-            except ConnectionError:
-                continue
-        return (None, None)
+        buses = mirFeetechMotorsBus.mir_scan_motor_buses()
+        return buses[0] if buses else (None, None)
 
         

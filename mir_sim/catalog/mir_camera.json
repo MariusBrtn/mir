@@ -1,0 +1,20 @@
+{
+    "description": "Module caméra MIR : embout baïonnette mâle en dessous, objectif sur la face arrondie côté -x. Objectif grand angle 120° (diagonale) -> fovy 92.2° (champ vertical, image 4:3, sans distorsion). Repère de la CAO, en mm.",
+    "unit_scale": 0.001,
+    "parts": {
+        "boitier": {
+            "mass": 0.04,
+            "geoms": [
+                {"type": "mesh", "file": "../STL/MIR_SIMU_CAMERA.stl", "visual_only": true, "rgba": [0.08, 0.08, 0.09, 1]},
+                {"type": "cylinder", "collision_only": true, "pos": [0, 0, 17.5], "size": [25.0, 22.5]},
+                {"type": "box", "collision_only": true, "pos": [12.5, 0, 20.0], "size": [12.5, 40.0, 20.0]}
+            ]
+        }
+    },
+    "connectors": {
+        "embout": {"part": "boitier", "gender": "male", "pos": [0, 0, -5.0], "zaxis": [0, 0, -1], "xaxis": [-1, 0, 0]}
+    },
+    "sensors": {
+        "objectif": {"type": "camera", "part": "boitier", "pos": [-25.5, 0, 16.0], "zaxis": [1, 0, 0], "xaxis": [0, 1, 0], "fovy": 92.2}
+    }
+}

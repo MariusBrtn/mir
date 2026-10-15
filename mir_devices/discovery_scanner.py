@@ -35,7 +35,7 @@ l'id sera la clé du dictionnaire de mirSensor accédée par le robot
 @dataclass
 class DiscoveryScannerResult:
     sensors:dict[str, mirSensorConfiguration]
-    motor_bus:mirMotorBusConfiguration | None
+    motor_buses:list[mirMotorBusConfiguration]
 
 class DiscoveryScanner():
     def __init__(self):
@@ -171,15 +171,15 @@ class DiscoveryScanner():
     def stop_scan(self):
         self._stop_scan = True
         
-    def _scan_motors(self) -> mirMotorBusConfiguration | None:
-        port, motors_ids = mirFeetechMotorsBus.mir_scan_motors_on_all_ports()
-        if port is None or motors_ids is None:
-            return None
-        motors = {f"joint_{index+1}": mirMotor(id=id, model="sts3215", norm_mode=MotorNormMode.DEGREES) for index, id in enumerate(motors_ids)}        
-        cfg = mirMotorBusConfiguration(motor_port=port, motors=motors, calibration={})
-        if self._progress_callback is not None:
-            self._progress_callback(cfg)
-        return cfg
+    def _scan_motors(self) -> list[mirMotorBusConfiguration]:
+        buses = []
+        for port, motors_ids in mirFeetechMotorsBus.mir_scan_motor_buses():
+            motors = {f"joint_{index+1}": mirMotor(id=id, model="sts3215", norm_mode=MotorNormMode.DEGREES) for index, id in enumerate(motors_ids)}        
+            cfg = mirMotorBusConfiguration(motor_port=port, motors=motors, calibration={})
+            if self._progress_callback is not None:
+                self._progress_callback(cfg)
+            buses.append(cfg)
+        return buses
     
     def _execute_all_scans(self) -> DiscoveryScannerResult:
         with ThreadPoolExecutor(max_workers=2) as ex:
@@ -263,6 +263,6 @@ if __name__ == "__main__":
     print("\r\n=== équipements découverts ===")
     for device_id, device in result.sensors.items():
         print(f"{device_id} : {str(device)}")
-    if result.motor_bus:
-        print(f"moteurs : {str(result.motor_bus)}")
+    for motor_bus in result.motor_buses:
+        print(f"moteurs : {str(motor_bus)}")
 

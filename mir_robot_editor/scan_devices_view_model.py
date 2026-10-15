@@ -195,8 +195,8 @@ class ScanDevicesViewModel(ViewModelBase[ScanDevicesVMAction]):
         scanner_result: DiscoveryScannerResult = result[0]
         scanner_info = result[1]
         self._devices = [DiscoveredSensorViewModel(key, sensor_cfg) for key, sensor_cfg in scanner_result.sensors.items()]
-        if scanner_result.motor_bus is not None:
-            self._devices.append(DiscoveredMotorBusViewModel("", scanner_result.motor_bus))
+        for motor_bus in scanner_result.motor_buses:
+            self._devices.append(DiscoveredMotorBusViewModel("", motor_bus))
         
         self.scan_completed.emit(self._devices)
         if self._devices is not None and len(self._devices) > 0:
@@ -227,13 +227,15 @@ class ScanDevicesViewModel(ViewModelBase[ScanDevicesVMAction]):
             self._dialogProvider.information("Aucun appareil sélectionné", "Veuillez sélectionner au moins un appareil.")
             return False
 
-        self._accepted_config = mirRobotConfig()
         motor_bus = [discovered_device._device 
                         for discovered_device in accepted_devices 
                         if isinstance(discovered_device._device, mirMotorBusConfiguration)]
-        if motor_bus is not None and len(motor_bus) > 0:
-            if len(motor_bus) > 1:
-                raise RuntimeError("Plusieurs bus moteurs détectés. La configuration d'un robot ne peut contenir qu'un seul bus moteur.")
+        if len(motor_bus) > 1:
+            self._dialogProvider.information("Plusieurs ports moteurs sélectionnés",
+                                             "Sélectionnez un seul port moteur.")
+            return False
+        self._accepted_config = mirRobotConfig()
+        if len(motor_bus) == 1:
             self._accepted_config.motor_bus = motor_bus[0]
         sensors = {discovered_device._key : discovered_device._device 
                         for discovered_device in accepted_devices 

@@ -4,6 +4,8 @@ from mir_robot_editor.motor_configuration.motor_configuration_view_model import 
 from mir_robot_editor.scan_devices_view_model import ScanDevicesViewModel
 from mir_robot_editor.robot_monitor_view_model import RobotMonitorViewModel
 from mir_robot_editor.edit_configuration_view_model import EditConfigurationViewModel
+from mir_robot_editor.robot_model.robot_model_view_model import RobotModelViewModel
+from mir_robot_editor.robot_model.structure_editor_view_model import StructureEditorViewModel
 from mir_utils.ui.dialogs import DialogResult
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
 from mir_utils.ui.dialogs import IDialogProvider
@@ -22,6 +24,8 @@ class MainVMAction(Enum):
     SCAN = auto()
     EDIT_CONFIGURATION = auto()
     MOTOR_CFG = auto()
+    ROBOT_MODEL = auto()
+    STRUCTURE = auto()
     QUIT = auto()
 
 class MainViewModelState(Enum):
@@ -50,6 +54,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.SCAN] = VMAction("Découvrir les appareils...", "Ouvrir la fenêtre de découverte des appareils")
         self._actions[MainVMAction.EDIT_CONFIGURATION] = VMAction("Éditer la configuration...", "Ouvrir la fenêtre d'édition de la configuration du robot")
         self._actions[MainVMAction.MOTOR_CFG] = VMAction("Configuration moteurs...", "Ouvrir la fenêtre de configuration des moteurs")
+        self._actions[MainVMAction.STRUCTURE] = VMAction("Structure du robot...", "Assembler les modules du robot (modèle numérique utilisé en simulation)")
+        self._actions[MainVMAction.ROBOT_MODEL] = VMAction("Modèle 3D...", "Afficher le modèle 3D du robot décrit par la structure de la configuration")
         self._actions[MainVMAction.QUIT] = VMAction("Quitter", "Quitter l'application")
         self._robot: mirRobot | None = None
         self._current_configuration: mirRobotConfig | None = None
@@ -217,10 +223,45 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             new_configuration: mirRobotConfig = vm.get_current_configuration()
             if not self._current_configuration.is_equal(new_configuration):
                 self._current_configuration = new_configuration
+                self._set_state(self._state)
                 if self._dialogProvider.question_yes_no("Configuration modifiée", "La configuration a été modifiée\r\nSouhaitez-vous la sauvegarder maintenant?"):
                     self._configuration_dirty = not self.save()
                 else:
                     self._configuration_dirty = True
+        except BaseException as e:
+            self._dialogProvider.exception(e)
+
+    def execute_robot_model(self, open_view):
+        try:
+            if self._current_configuration is None:
+                raise RuntimeError("Aucune configuration chargée")
+            if not self._current_configuration.structure:
+                self._dialogProvider.information("Modèle 3D", "La configuration active ne contient pas de structure du robot")
+                return
+            vm = RobotModelViewModel(self._dialogProvider, self._current_configuration.get_deep_copy())
+            with vm:
+                open_view(vm)
+        except BaseException as e:
+            self._dialogProvider.exception(e)
+
+    def execute_structure_editor(self, open_view):
+        try:
+            if self._current_configuration is None:
+                raise RuntimeError("Aucune configuration chargée")
+            vm = StructureEditorViewModel(self._dialogProvider, self._current_configuration.get_deep_copy())
+            with vm:
+                open_view(vm)
+            if not vm.accepted():
+                return
+            new_structure = vm.get_structure()
+            if new_structure == self._current_configuration.structure:
+                return
+            self._current_configuration.structure = new_structure
+            self._set_state(self._state)   # « Modèle 3D » dépend de la présence d'une structure
+            if self._dialogProvider.question_yes_no("Configuration modifiée", "La structure du robot a été modifiée\r\nSouhaitez-vous sauvegarder la configuration maintenant?"):
+                self._configuration_dirty = not self.save()
+            else:
+                self._configuration_dirty = True
         except BaseException as e:
             self._dialogProvider.exception(e)
 
@@ -254,5 +295,10 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.SCAN].set_enabled(self._state == MainViewModelState.INIT)
         self._actions[MainVMAction.MOTOR_CFG].set_enabled(self._state ==  MainViewModelState.LOADED)
         self._actions[MainVMAction.EDIT_CONFIGURATION].set_enabled(self._state == MainViewModelState.LOADED)
+        self._actions[MainVMAction.STRUCTURE].set_enabled(self._state == MainViewModelState.LOADED)
+        has_structure = self._current_configuration is not None and bool(self._current_configuration.structure)
+        self._actions[MainVMAction.ROBOT_MODEL].set_enabled(has_structure and self._state in (MainViewModelState.LOADED,
+                                                                                              MainViewModelState.CONNECTED,
+                                                                                              MainViewModelState.RUNNING))
         self._actions[MainVMAction.QUIT].set_enabled(self._state not in (MainViewModelState.CONNECTED, 
                                                                         MainViewModelState.RUNNING))

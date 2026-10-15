@@ -6,6 +6,8 @@ from mir_robot_editor.motor_configuration.motor_configuration_view_model import 
 from mir_robot_editor.scan_devices_view import ScanDevicesView
 from mir_robot_editor.main_viewmodel import MainViewModel, MainVMAction, MainViewModelState
 from mir_robot_editor.robot_monitor_view import RobotMonitorView
+from mir_robot_editor.robot_model.robot_model_view import RobotModelView
+from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
 from mir_utils.ui.view_base import ViewBase
 
 
@@ -24,6 +26,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._scan_action = self._make_action(MainVMAction.SCAN, self.on_action_scan, "scan")                
         self._edit_configuration_action = self._make_action(MainVMAction.EDIT_CONFIGURATION, self.on_action_edit_configuration, "edit")
         self._motor_cfg_action = self._make_action(MainVMAction.MOTOR_CFG, self.on_action_motor_cfg, "gear")                
+        self._structure_action = self._make_action(MainVMAction.STRUCTURE, self.on_action_structure, "structure")
+        self._robot_model_action = self._make_action(MainVMAction.ROBOT_MODEL, self.on_action_robot_model, "robot")
         self._quit_action = self._make_action(MainVMAction.QUIT, self.on_quit, "")
 
         toolbar = QToolBar("Main toolbar")
@@ -35,7 +39,9 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                         self._disconnect_action, 
                         self._scan_action, 
                         self._edit_configuration_action, 
-                        self._motor_cfg_action]:
+                        self._motor_cfg_action,
+                        self._structure_action,
+                        self._robot_model_action]:
               toolbar.addAction(action)
 
         menu = self.menuBar()
@@ -51,6 +57,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         robot_menu.addAction(self._connect_action)
         robot_menu.addAction(self._disconnect_action)
         robot_menu.addAction(self._scan_action)
+        robot_menu.addAction(self._structure_action)
+        robot_menu.addAction(self._robot_model_action)
         
         self.robot_monitor_view = RobotMonitorView(self, view_model.get_robot_monitor_view_model(), self)
         self.robot_monitor_view.restore_state()
@@ -85,5 +93,11 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
            return dlg.exec()
         self._view_model.execute_motor_configuration(open_dialog)
         
+    def on_action_structure(self):
+        self._view_model.execute_structure_editor(lambda vm: StructureEditorView(self, vm).exec())
+
+    def on_action_robot_model(self):
+        self._view_model.execute_robot_model(lambda vm: RobotModelView(self, vm).exec())
+
     def _on_state_changed(self, state: MainViewModelState, description: str):
         self._status_state.setText(description)

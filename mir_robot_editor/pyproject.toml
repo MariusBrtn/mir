@@ -2,7 +2,7 @@
 [project]
 name = "mir_robot_editor"
 version = "0.1.0"
-dependencies = ["mir_robot", "mir_devices", "mir_utils"]
+dependencies = ["mir_robot", "mir_devices", "mir_utils", "mir_sim"]
 
 [build-system]
 requires = ["setuptools"]

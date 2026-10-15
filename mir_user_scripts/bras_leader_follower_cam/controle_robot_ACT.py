@@ -7,7 +7,9 @@ LeRobot : 0.5.1
 À lancer depuis bras_leader_follower_cam.
 """
 
+from datetime import datetime
 from pathlib import Path
+import json
 import time
 
 import cv2
@@ -68,6 +70,11 @@ INITIAL_POSITION = [-55.384617,  31.912088, -80.7033,    78.54945,   11.692307]
 # Même préparation d'image que lors de l'enregistrement (dataset.py)
 ROTATE_IMAGE_180 = True
 IMAGE_SIZE = (320, 240)  # (largeur, hauteur)
+
+# Enregistrement de chaque essai (images vues par le modèle, états, actions)
+# pour l'analyser ensuite avec analyse_essai_ACT.py
+SAVE_LOGS = True
+LOG_DIR = BASE_DIR / "logs_essais_ACT"
 
 period_waiter = PeriodWaiterExact(1 / FPS)
 
@@ -206,10 +213,12 @@ def build_observation(observation):
         dtype=torch.float32,
     )
 
-    return {
+    observation_frame = {
         "observation.images.cam_1": image_tensor,
         "observation.state": state,
     }
+
+    return observation_frame, image
 
 
 # ============================================================
@@ -218,7 +227,7 @@ def build_observation(observation):
 
 def predict_action(observation):
 
-    observation_frame = build_observation(observation)
+    observation_frame, image = build_observation(observation)
 
     observation_processed = preprocessor(
         observation_frame
@@ -267,7 +276,7 @@ def predict_action(observation):
         dtype=np.float32,
     )
 
-    return state, action
+    return state, action, image
 
 
 # ============================================================
@@ -378,6 +387,49 @@ def print_timing_summary(timings):
 
 
 # ============================================================
+# ENREGISTREMENT D'UN ESSAI
+# ============================================================
+
+def save_log(log, timings):
+    """
+    Sauvegarde l'essai dans LOG_DIR/essai_<date>.npz (+ .json lisible).
+    image : exactement ce que le modèle a vu (après rotation et redimensionnement).
+    """
+
+    LOG_DIR.mkdir(exist_ok=True)
+    name = "essai_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+    note = input(
+        "Note sur cet essai (ce que tu as vu, position du dé...) : "
+    )
+
+    np.savez_compressed(
+        LOG_DIR / f"{name}.npz",
+        time=np.asarray(log["time"], dtype=np.float32),
+        state=np.asarray(log["state"], dtype=np.float32),
+        action=np.asarray(log["action"], dtype=np.float32),
+        image=np.asarray(log["image"], dtype=np.uint8),
+        new_chunk=np.asarray(log["new_chunk"], dtype=bool),
+        timings=np.asarray(timings, dtype=np.float32),
+    )
+
+    meta = {
+        "note": note,
+        "model": str(MODEL_ROOT),
+        "dataset": str(DATASET_ROOT),
+        "fps": FPS,
+        "initial_position": INITIAL_POSITION,
+        "execute_actions": EXECUTE_ACTIONS,
+        "chunk_size": policy.config.chunk_size,
+        "n_action_steps": policy.config.n_action_steps,
+    }
+    (LOG_DIR / f"{name}.json").write_text(
+        json.dumps(meta, indent=2, ensure_ascii=False)
+    )
+
+    print(f"Essai enregistré : {LOG_DIR / name}.npz")
+
+
+# ============================================================
 # BOUCLE D'INFÉRENCE
 # ============================================================
 
@@ -418,7 +470,9 @@ try:
 
         policy.reset()
 
+        interrupted = False
         timings = []
+        log = {"time": [], "state": [], "action": [], "image": [], "new_chunk": []}
 
         print("\nDébut de l'essai...")
         start_time = time.perf_counter()
@@ -434,7 +488,9 @@ try:
 
                 t1 = time.perf_counter()
 
-                state, action = predict_action(observation)
+                new_chunk = len(policy._action_queue) == 0
+
+                state, action, image = predict_action(observation)
 
                 t2 = time.perf_counter()
 
@@ -452,11 +508,17 @@ try:
                 t3 = time.perf_counter()
                 timings.append((t1 - t0, t2 - t1, t3 - t2))
 
+                log["time"].append(t0 - start_time)
+                log["state"].append(state)
+                log["action"].append(list(action.values()))
+                log["image"].append(image)
+                log["new_chunk"].append(new_chunk)
+
                 period_waiter.wait()
 
         except KeyboardInterrupt:
             print("\nInterruption demandée.")
-            break
+            interrupted = True
 
         duration = time.perf_counter() - start_time
 
@@ -467,6 +529,12 @@ try:
 
         if timings:
             print_timing_summary(timings)
+
+        if SAVE_LOGS and log["time"]:
+            save_log(log, timings)
+
+        if interrupted:
+            break
 
 finally:
     print("\nFin du programme.")

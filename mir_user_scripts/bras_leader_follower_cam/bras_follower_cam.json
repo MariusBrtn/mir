@@ -108,22 +108,40 @@
             }
         }
     },
-    "sensors": {    "cam_1": {
-      "sensor_type": "pi_camera",
-      "ip": "192.168.1.241",
-      "width": 640,
-      "height": 480,
-      "fps": 20,
-      "enable_stats": false,
-      "frame_stats_size": 0
-    }},
+    "sensors": {
+        "cam_1": {
+            "sensor_type": "pi_camera",
+            "ip": "192.168.1.241",
+            "width": 640,
+            "height": 480,
+            "fps": 20,
+            "enable_stats": false,
+            "frame_stats_size": 0
+        }
+    },
     "observations": {
-        "cam_1": [480,640,3],
+        "cam_1": [
+            480,
+            640,
+            3
+        ],
         "joint_1.position": "float",
         "joint_2.position": "float",
         "joint_3.position": "float",
         "joint_4.position": "float",
         "joint_5.position": "float"
     },
-    "path": "/home/michel/Documents/projets/mir/mir_robot_editor/motor_configuration/bras_follower.json"
+    "path": "/home/michel/Documents/projets/mir/mir_robot_editor/motor_configuration/bras_follower.json",
+    "structure": {
+        "modules": {
+            "socle": {"type": "mir_socle", "fixed": true},
+            "servo_1": {"type": "mir_servo", "on": "socle.dessus", "connector": "rotor", "motor": "joint_1", "direction": -1},
+            "servo_2": {"type": "mir_servo", "on": "servo_1.stator", "connector": "rotor", "motor": "joint_2"},
+            "jonction": {"type": "mir_jonction", "on": "servo_2.stator", "connector": "face_a"},
+            "servo_3": {"type": "mir_servo", "on": "jonction.face_b", "connector": "stator", "motor": "joint_3"},
+            "servo_4": {"type": "mir_servo", "on": "servo_3.rotor", "connector": "stator", "motor": "joint_4"},
+            "pince": {"type": "mir_pince", "on": "servo_4.rotor", "connector": "stator", "motor": "joint_5", "direction": -1},
+            "camera": {"type": "mir_camera", "on": "pince.camera", "connector": "embout", "sensors": {"objectif": "cam_1"}}
+        }
+    }
 }
