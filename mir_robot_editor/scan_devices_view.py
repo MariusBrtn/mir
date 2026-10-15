@@ -1,5 +1,7 @@
 from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QVBoxLayout,
     QHBoxLayout,
@@ -19,6 +21,9 @@ from mir_robot_editor.scan_devices_view_model import DiscoveredMotorBusViewModel
 from mir_robot_editor.motor_configuration.motor_configure_IDs_view import MotorConfigureIDsView
 from mir_robot_editor.scan_devices_view_model import ObservationsSelectionViewModel
 from mir_devices.mir_device import ObservableProperty
+from mir_robot_editor.robot_model.thumbnails import module_icon
+
+THUMBNAIL_SIZE = 40
 
 class ObservationsSelectionView(DialogBase):
     def __init__(self, parent, view_model:ObservationsSelectionViewModel):
@@ -136,7 +141,9 @@ class ScanDevicesView(DialogBase, ViewBase[ScanDevicesViewModel, ScanDevicesVMAc
         # grille des appareils découverts
         self.frame = QFrame()
         self.frame.setFrameShape(QFrame.Shape.NoFrame)
-        self.frame.setStyleSheet("background-color: #f8f8f8")       
+        # sélecteur explicite : sans lui, le style s'appliquerait aussi aux listes déroulantes (texte illisible sur macOS)
+        self.frame.setObjectName("devicesFrame")
+        self.frame.setStyleSheet("QFrame#devicesFrame { background-color: #f8f8f8 }")
         self.devices_layout = QGridLayout(self.frame)
         self.devices_layout.setSpacing(10)  # Espace entre les blocs d'éléments
         self.devices_layout.setContentsMargins(10, 10, 10, 10)
@@ -176,6 +183,7 @@ class ScanDevicesView(DialogBase, ViewBase[ScanDevicesViewModel, ScanDevicesVMAc
                 widget.deleteLater()
                 
         # Génération dynamique des widgets
+        # colonnes : 0 avertissement | 1 case à cocher (type) | 2 miniature | 3 identifiant | 4 description | 5 configurer
         if data is not None:
             row = 0
             for device in data:
@@ -191,21 +199,66 @@ class ScanDevicesView(DialogBase, ViewBase[ScanDevicesViewModel, ScanDevicesVMAc
                 checkbox.setEnabled(warning == "")
                 checkbox.toggled.connect(lambda checked, d=device: d.set_selected(checked))
                 self.devices_layout.addWidget(checkbox, row, 1)
-                #id
-                id = QLabel(device.key())
-                self.devices_layout.addWidget(id, row, 2)
-                #desc
-                description = QLabel(device.info())
-                self.devices_layout.addWidget(description, row, 3)
+                if isinstance(device, DiscoveredMotorBusViewModel):
+                    #port du bus, puis une ligne par moteur
+                    self.devices_layout.addWidget(QLabel(device.port()), row, 3, 1, 2)
+                else:
+                    self.devices_layout.addWidget(self._thumbnail(device.module_type()), row, 2)
+                    self.devices_layout.addWidget(QLabel(device.key()), row, 3)
+                    self.devices_layout.addWidget(QLabel(device.info()), row, 4)
                 #button
                 if enable_configure and warning == "":
                     button = QToolButton(self)
-                    self.devices_layout.addWidget(button, row, 4)
+                    self.devices_layout.addWidget(button, row, 5)
                     button.setDefaultAction(self._configure_device_action)
                     button.clicked.connect(lambda *_, d=device: self._on_configure_clicked(d))
                 row += 1
-            self.devices_layout.setColumnStretch(5, 1)
+                if isinstance(device, DiscoveredMotorBusViewModel):
+                    row = self._add_motor_rows(device, row)
+            self.devices_layout.setColumnStretch(6, 1)
             self.devices_layout.setRowStretch(row, 1)
+
+    def _add_motor_rows(self, bus: DiscoveredMotorBusViewModel, row: int) -> int:
+        """Une ligne par moteur : miniature du module, ID, et le module qui le contient (servo, pince...)."""
+        choices = bus.module_type_choices()
+        for motor, motor_id in bus.motors():
+            thumbnail = self._thumbnail(bus.motor_type(motor))
+            self.devices_layout.addWidget(thumbnail, row, 2)
+            self.devices_layout.addWidget(QLabel(f"ID {motor_id}"), row, 3)
+            combo = QComboBox()
+            for module_type in choices:
+                combo.addItem(module_type.removeprefix("mir_"), module_type)
+            combo.setCurrentIndex(max(0, combo.findData(bus.motor_type(motor))))
+            combo.setToolTip(f"Module qui contient le moteur {motor}")
+            combo.currentIndexChanged.connect(
+                lambda _, m=motor, c=combo, t=thumbnail: self._on_motor_type_changed(bus, m, c.currentData(), t))
+            line = QHBoxLayout()
+            line.setContentsMargins(0, 0, 0, 0)
+            line.addWidget(QLabel(motor))
+            line.addWidget(combo)
+            line.addStretch()
+            cell = QFrame()
+            cell.setLayout(line)
+            self.devices_layout.addWidget(cell, row, 4)
+            row += 1
+        return row
+
+    def _on_motor_type_changed(self, bus: DiscoveredMotorBusViewModel, motor: str, module_type: str, thumbnail: QLabel):
+        bus.set_motor_type(motor, module_type)
+        icon = module_icon(module_type, THUMBNAIL_SIZE)
+        if icon is not None:
+            thumbnail.setPixmap(icon.pixmap(THUMBNAIL_SIZE, THUMBNAIL_SIZE))
+
+    @staticmethod
+    def _thumbnail(module_type: str | None) -> QLabel:
+        label = QLabel()
+        label.setFixedSize(THUMBNAIL_SIZE, THUMBNAIL_SIZE)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon = module_icon(module_type, THUMBNAIL_SIZE) if module_type else None
+        if icon is not None:
+            label.setPixmap(icon.pixmap(THUMBNAIL_SIZE, THUMBNAIL_SIZE))
+            label.setToolTip(module_type.removeprefix("mir_"))
+        return label
 
     def _on_configure_clicked(self, device: DiscoveredDeviceViewModel):
         if isinstance(device, DiscoveredSensorViewModel):

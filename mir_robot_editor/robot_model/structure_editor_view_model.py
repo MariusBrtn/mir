@@ -17,15 +17,13 @@ import mujoco
 import numpy as np
 from PySide6.QtCore import Signal
 from mir_robot.mir_robot_config import mirRobotConfig
-from mir_sim.model_builder import (MATING_GENDERS, BuiltModel, ModelBuilder, StructureError, check_structure,
-                                   load_catalog, motor_params_from_config)
+from mir_sim.model_builder import (MATING_GENDERS, ROOT_TYPE, BuiltModel, ModelBuilder, StructureError, check_structure,
+                                   hardware_module_name, load_catalog, module_sensor_key, motor_module_types,
+                                   motor_params_from_config, sensor_module_types)
 from mir_utils.ui.dialogs import IDialogProvider
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
 from mir_robot_editor.robot_model.joint_sliders_widget import JointSlider
 
-ROOT_TYPE = "mir_socle"
-# type de capteur de la configuration -> type de capteur des modules du catalogue
-SENSOR_KINDS = {"pi_camera": "camera"}
 MARKER_RGBA = [0.2, 0.6, 1.0, 0.9]              # connecteur libre
 MARKER_COMPATIBLE_RGBA = [0.1, 0.85, 0.2, 1.0]  # connecteur où le module en cours de placement peut se brancher
 MARKER_DIMMED_RGBA = [0.5, 0.5, 0.5, 0.25]      # connecteur libre mais incompatible
@@ -46,7 +44,7 @@ class StructureEditorVMAction(Enum):
 @dataclass
 class PaletteItem:
     """Élément de la liste de gauche."""
-    key: str                    # "motor:joint_1", "sensor:cam_1" ou "block:mir_jonction"
+    key: str                    # "unplaced:<module>", "motor:joint_1", "sensor:cam_1" ou "block:mir_jonction"
     label: str
     types: list[str]            # types de module possibles (plusieurs : choix au dépôt, ex. servo ou pince)
     placed_as: str | None       # module de la structure qui le représente déjà (modules détectés seulement)
@@ -84,6 +82,7 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._catalog = load_catalog()
         self._structure: dict[str, Any] = deepcopy(config.structure) if config.structure else {"modules": {}}
         self._structure.setdefault("modules", {})
+        self._structure.setdefault("unplaced", {})   # modules détectés pas encore branchés
         self._motors = list(config.motor_bus.motors) if config.motor_bus is not None else []
         self._sensors = list(config.sensors)
         self._motor_params = motor_params_from_config(config)
@@ -117,13 +116,17 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
     def modules(self) -> dict[str, dict[str, Any]]:
         return self._structure["modules"]
 
+    @property
+    def unplaced(self) -> dict[str, dict[str, Any]]:
+        return self._structure["unplaced"]
+
     def catalog(self) -> dict[str, dict[str, Any]]:
         return self._catalog
 
     def start(self) -> None:
         """À appeler une fois la vue prête : socle par défaut si la structure est vide, puis modèle initial."""
         if not self.modules and ROOT_TYPE in self._catalog:
-            self.modules["socle"] = {"type": ROOT_TYPE, "fixed": True}
+            self.modules[self._unique_name("socle")] = {"type": ROOT_TYPE, "fixed": True}
         self._rebuild()
         self._update_status()
 
@@ -131,36 +134,54 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         return self._accepted
 
     def get_structure(self) -> dict[str, Any] | None:
-        return deepcopy(self._structure) if self.modules else None
+        if not self.modules:
+            return None
+        structure = deepcopy(self._structure)
+        if not structure["unplaced"]:
+            del structure["unplaced"]
+        return structure
 
     # ------------------------------------------------------------------ liste de gauche
     def palette(self) -> list[PaletteItem]:
-        motorized = [t for t, m in self._catalog.items() if len(m.get("joints", {})) == 1]
+        """Un élément par moteur et par caméra de la configuration (bijection), puis les blocs de structure.
+        Le module qui représente un matériel vient de la découverte ("unplaced", type déjà choisi) ; à défaut
+        (configuration plus ancienne), le type est demandé au dépôt."""
         items: list[PaletteItem] = []
-        for motor in self._motors:
-            motor_id = self._config.motor_bus.motors[motor].id if self._config.motor_bus is not None else "?"
-            items.append(PaletteItem(f"motor:{motor}", f"{motor}  (ID {motor_id})", motorized,
-                                     self._module_of_motor(motor), False))
+        hardware = [(f"motor:{motor}", self._motor_label(motor), {"motor": motor}, motor_module_types(self._catalog))
+                    for motor in self._motors]
         for sensor in self._sensors:
-            kind = SENSOR_KINDS.get(self._config.sensors[sensor].sensor_type)
-            types = [t for t, m in self._catalog.items()
-                     if kind is not None and any(s.get("type") == kind for s in m.get("sensors", {}).values())]
+            types = sensor_module_types(self._catalog, self._config.sensors[sensor].sensor_type)
             if types:
-                items.append(PaletteItem(f"sensor:{sensor}", sensor, types, self._module_of_sensor(sensor), False))
+                hardware.append((f"sensor:{sensor}", sensor, {"sensor": sensor}, types))
+        for fallback_key, label, match, types in hardware:
+            placed = next((name for name, inst in self.modules.items() if self._carries(inst, match)), None)
+            waiting = next((name for name, inst in self.unplaced.items() if self._carries(inst, match)), None)
+            if placed is not None:
+                items.append(PaletteItem(f"placed:{placed}", label, [self.modules[placed]["type"]], placed, False))
+            elif waiting is not None:
+                module_type = self.unplaced[waiting]["type"]
+                items.append(PaletteItem(f"unplaced:{waiting}", f"{label} · {module_type.removeprefix('mir_')}",
+                                         [module_type], None, False))
+            else:
+                items.append(PaletteItem(fallback_key, label, types, None, False))
         for module_type, module in self._catalog.items():
             if not module.get("joints") and not module.get("sensors"):
                 items.append(PaletteItem(f"block:{module_type}", module_type.removeprefix("mir_"), [module_type], None, True))
         return items
 
+    def _motor_label(self, motor: str) -> str:
+        if self._config.motor_bus is None or motor not in self._config.motor_bus.motors:
+            return motor
+        return f"{motor}  (ID {self._config.motor_bus.motors[motor].id})"
+
+    @staticmethod
+    def _carries(inst: dict[str, Any], match: dict[str, str]) -> bool:
+        if "motor" in match:
+            return inst.get("motor") == match["motor"] or match["motor"] in inst.get("motors", {}).values()
+        return match["sensor"] in inst.get("sensors", {}).values()
+
     def _palette_item(self, key: str) -> PaletteItem:
         return next(item for item in self.palette() if item.key == key)
-
-    def _module_of_motor(self, motor: str) -> str | None:
-        return next((name for name, inst in self.modules.items()
-                     if inst.get("motor") == motor or motor in inst.get("motors", {}).values()), None)
-
-    def _module_of_sensor(self, sensor: str) -> str | None:
-        return next((name for name, inst in self.modules.items() if sensor in inst.get("sensors", {}).values()), None)
 
     # ------------------------------------------------------------------ dépôt d'un module
     def compatible_targets(self, module_type: str) -> list[str]:
@@ -237,19 +258,21 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         target_gender = self._connector(target)["gender"]
         connector = next(name for name, conn in self._catalog[module_type]["connectors"].items()
                          if (conn["gender"], target_gender) in MATING_GENDERS)
-        kind, _, hardware = item_key.partition(":")
-        short = module_type.removeprefix("mir_")
-        instance: dict[str, Any] = {"type": module_type, "on": target, "connector": connector}
-        if kind == "motor":
-            name = self._unique_name(f"{short}_{hardware}")
-            instance["motor"] = hardware
+        kind, _, ref = item_key.partition(":")
+        instance: dict[str, Any] = {"type": module_type}
+        if kind == "unplaced":
+            # module détecté, type choisi à la découverte du matériel
+            name = ref
+            instance.update(self.unplaced.pop(ref))
+        elif kind == "motor":
+            name = self._unique_name(hardware_module_name(module_type, ref))
+            instance["motor"] = ref
         elif kind == "sensor":
-            name = self._unique_name(f"{short}_{hardware}")
-            sensor_key = next(key for key, s in self._catalog[module_type]["sensors"].items()
-                              if s.get("type") == SENSOR_KINDS.get(self._config.sensors[hardware].sensor_type))
-            instance["sensors"] = {sensor_key: hardware}
+            name = self._unique_name(hardware_module_name(module_type, ref))
+            instance["sensors"] = {module_sensor_key(self._catalog[module_type], self._config.sensors[ref].sensor_type): ref}
         else:
-            name = self._unique_name(short)
+            name = self._unique_name(module_type.removeprefix("mir_"))
+        instance.update({"on": target, "connector": connector})
         self.modules[name] = instance
         self._placing = None
         self._selected = name
@@ -269,10 +292,11 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         return self._catalog[self.modules[name]["type"]]["connectors"][conn]
 
     def _unique_name(self, base: str) -> str:
-        if base not in self.modules:
+        taken = set(self.modules) | set(self.unplaced)
+        if base not in taken:
             return base
         index = 2
-        while f"{base}_{index}" in self.modules:
+        while f"{base}_{index}" in taken:
             index += 1
         return f"{base}_{index}"
 
@@ -326,7 +350,7 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         new_name = new_name.strip()
         if old is None or new_name == old:
             return True
-        if not new_name or "." in new_name or new_name in self.modules:
+        if not new_name or "." in new_name or new_name in self.modules or new_name in self.unplaced:
             self._dialogProvider.information("Nom invalide", "Le nom doit être unique, non vide et sans point.")
             self._emit_selection()
             return False
@@ -349,8 +373,11 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
             return
         self._push_undo()
         for name in removed:
-            motor = self.modules.pop(name).get("motor")
-            self._joint_values.pop(motor, None)
+            inst = self.modules.pop(name)
+            self._joint_values.pop(inst.get("motor"), None)
+            if "motor" in inst or "motors" in inst or "sensors" in inst:
+                # module qui représente du matériel détecté : il retourne dans la liste, avec son type
+                self.unplaced[name] = {k: v for k, v in inst.items() if k not in ("on", "connector")}
         self._selected = None
         self._rebuild()
         self._update_status()
@@ -412,6 +439,7 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
             self._dialogProvider.warning("Structure invalide", "La structure ne peut pas être enregistrée :\n\n" + "\n".join(errors))
             return
         missing = [item.label.split()[0] for item in self.palette() if not item.is_block and item.placed_as is None]
+        # les modules non placés restent dans la configuration ("unplaced") : on pourra les placer plus tard
         if missing and not self._dialogProvider.question_yes_no(
                 "Modules non placés",
                 f"Ces modules détectés ne sont pas placés : {', '.join(missing)}.\nEnregistrer quand même ?"):

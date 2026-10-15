@@ -32,6 +32,24 @@ class StateSavedView:
             self.restoreGeometry(geometry) # type: ignore
         else:
             self.resize(self.default_width, self.default_height) # type: ignore
+        self._fit_to_screen()
+
+    def _fit_to_screen(self):
+        """Ramène la fenêtre dans l'écran (une géométrie mémorisée sur un écran plus grand rendrait ses bords inaccessibles)."""
+        screen = self.screen() # type: ignore
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        # le cadre (barre de titre, bordures) s'ajoute à la taille de la fenêtre
+        frame_w = self.frameGeometry().width() - self.width() # type: ignore
+        frame_h = self.frameGeometry().height() - self.height() # type: ignore
+        width = min(self.width(), available.width() - frame_w) # type: ignore
+        height = min(self.height(), available.height() - frame_h) # type: ignore
+        self.resize(width, height) # type: ignore
+        # move() place le coin du cadre
+        x = min(max(self.frameGeometry().x(), available.left()), available.left() + available.width() - width - frame_w) # type: ignore
+        y = min(max(self.frameGeometry().y(), available.top()), available.top() + available.height() - height - frame_h) # type: ignore
+        self.move(x, y) # type: ignore
 
     def closeEvent(self, event):
         self._save_state()
@@ -69,6 +87,7 @@ class DialogBase(StateSavedView, QDialog):
     def __init__(self, parent, default_width=400, default_height=300, disable_esc:bool=False, name:str|None=None, *args, **kwargs):
         QDialog.__init__(self, parent, *args, **kwargs)
         self._disable_esc = disable_esc
+        self.setSizeGripEnabled(True)   # poignée de redimensionnement en bas à droite
         if name is None:
             name = self.__class__.__name__
         self._init_state(name, default_width, default_height)

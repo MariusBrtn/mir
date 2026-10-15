@@ -47,6 +47,10 @@ robot = mirRobot(config, devices_factory=SimDevicesFactory(scene="scene_de.json"
 | `zero_offset_deg` | angle simu correspondant au 0° du moteur réel (= milieu de la plage calibrée) |
 | `sensors` | `{capteur du module: capteur de la config}`, ex. `{"objectif": "cam_1"}` |
 
+Les modules détectés mais pas encore branchés sont rangés dans `"unplaced"` (même format, sans `on` ni
+`connector`) : la découverte du matériel y met un module par moteur (servo ou pince, choisi à la découverte) et
+par caméra, et l'éditeur de structure les y prend pour les placer. Ils ne sont pas construits en simulation.
+
 Un module peut être branché par n'importe lequel de ses connecteurs : un servo branché par son **rotor** a son
 **stator** mobile (le sens du moteur est conservé). Un mâle ne se branche que sur une femelle ; la structure est
 vérifiée (genres, connecteurs déjà pris, moteurs et capteurs présents dans la config) avant la construction.

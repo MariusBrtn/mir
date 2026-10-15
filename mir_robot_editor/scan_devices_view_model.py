@@ -14,6 +14,18 @@ from mir_robot_editor.motor_configuration.motor_configure_IDs_view_model import 
 from mir_devices.discovery_scanner import DiscoveryScanner, DiscoveryScannerResult
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
 from mir_utils.ui.dialogs import IDialogProvider
+from mir_sim.model_builder import initial_structure, load_catalog, motor_module_types, sensor_module_types
+
+DEFAULT_MOTOR_MODULE = "mir_servo"
+_catalog: dict | None = None
+
+
+def _get_catalog() -> dict:
+    """Catalogue des modules MIR (simulation), lu une seule fois."""
+    global _catalog
+    if _catalog is None:
+        _catalog = load_catalog()
+    return _catalog
 
 class DiscoveredDeviceViewModel():
     def __init__(self, key: str, device_cfg: mirSensorConfiguration|mirMotorBusConfiguration, warning: str=""):
@@ -45,16 +57,61 @@ class DiscoveredDeviceViewModel():
     def get_warning(self):
         return self._warning
 
+    def module_type(self) -> str | None:
+        """Module MIR qui représente l'appareil (miniature 3D), None s'il n'y en a pas dans le catalogue."""
+        return None
+
+    def identity(self) -> str:
+        """Ce qui identifie l'appareil d'une recherche à l'autre (IP, port...)."""
+        return self._info
+
+    def copy_choices_from(self, other: "DiscoveredDeviceViewModel") -> None:
+        """Reprend les choix de l'utilisateur faits sur le même appareil pendant la recherche."""
+        self._selected = other._selected
+
 class DiscoveredSensorViewModel(DiscoveredDeviceViewModel):
     def __init__(self, key: str, device_cfg: mirSensorConfiguration):
         super().__init__(key, device_cfg)
         self._type = device_cfg.sensor_type
+        types = sensor_module_types(_get_catalog(), device_cfg.sensor_type)
+        self._module_type = types[0] if types else None
+
+    def module_type(self) -> str | None:
+        return self._module_type
 
 class DiscoveredMotorBusViewModel(DiscoveredDeviceViewModel):
     def __init__(self, key: str, device_cfg: mirMotorBusConfiguration):
         warning = "Bus moteur sans aucun moteur connecté" if len(device_cfg.motors) == 0 else ""
         super().__init__(key, device_cfg, warning)
         self._type = "motors"
+        choices = self.module_type_choices()
+        default = DEFAULT_MOTOR_MODULE if DEFAULT_MOTOR_MODULE in choices else (choices[0] if choices else None)
+        # module MIR de chaque moteur : le bus ne permet pas de distinguer un servo d'une pince
+        self._motor_types: dict[str, str | None] = {motor: default for motor in device_cfg.motors}
+
+    def motors(self) -> list[tuple[str, int]]:
+        return [(name, motor.id) for name, motor in self._device.motors.items()]
+
+    def port(self) -> str:
+        return self._device.motor_port
+
+    @staticmethod
+    def module_type_choices() -> list[str]:
+        return motor_module_types(_get_catalog())
+
+    def motor_type(self, motor: str) -> str | None:
+        return self._motor_types.get(motor)
+
+    def set_motor_type(self, motor: str, module_type: str) -> None:
+        self._motor_types[motor] = module_type
+
+    def identity(self) -> str:
+        return self._device.motor_port
+
+    def copy_choices_from(self, other: DiscoveredDeviceViewModel) -> None:
+        super().copy_choices_from(other)
+        if isinstance(other, DiscoveredMotorBusViewModel):
+            self._motor_types.update({m: t for m, t in other._motor_types.items() if m in self._motor_types})
 
 class ScanDevicesVMAction(Enum):
     SCAN = 1
@@ -175,6 +232,8 @@ class ScanDevicesViewModel(ViewModelBase[ScanDevicesVMAction]):
         
     def _do_scan(self) -> tuple[DiscoveryScannerResult, str]:
         found_devices : list[DiscoveredDeviceViewModel] = []
+        # appareils affichés pendant la recherche : l'utilisateur peut déjà les cocher
+        self._progress_devices = found_devices
         timeout = 5.0
 
         def callback(device:mirSensorConfiguration|mirMotorBusConfiguration):
@@ -197,6 +256,11 @@ class ScanDevicesViewModel(ViewModelBase[ScanDevicesVMAction]):
         self._devices = [DiscoveredSensorViewModel(key, sensor_cfg) for key, sensor_cfg in scanner_result.sensors.items()]
         for motor_bus in scanner_result.motor_buses:
             self._devices.append(DiscoveredMotorBusViewModel("", motor_bus))
+        # reprendre les choix (cases cochées, servo/pince) faits sur les appareils affichés pendant la recherche
+        previous = {device.identity(): device for device in getattr(self, "_progress_devices", [])}
+        for device in self._devices:
+            if device.identity() in previous:
+                device.copy_choices_from(previous[device.identity()])
         
         self.scan_completed.emit(self._devices)
         if self._devices is not None and len(self._devices) > 0:
@@ -241,6 +305,14 @@ class ScanDevicesViewModel(ViewModelBase[ScanDevicesVMAction]):
                         for discovered_device in accepted_devices 
                         if isinstance(discovered_device._device, mirSensorConfiguration)}
         self._accepted_config.sensors = sensors    
+        # ébauche de la structure du robot : socle + un module à placer par moteur et par caméra détectés
+        motor_types = {motor: module_type
+                       for device in accepted_devices if isinstance(device, DiscoveredMotorBusViewModel)
+                       for motor, _ in device.motors() if (module_type := device.motor_type(motor)) is not None}
+        sensor_types = {device.key(): (device.device_configuration().sensor_type, module_type)
+                        for device in accepted_devices
+                        if isinstance(device, DiscoveredSensorViewModel) and (module_type := device.module_type()) is not None}
+        self._accepted_config.structure = initial_structure(_get_catalog(), motor_types, sensor_types)
 
         return True
         

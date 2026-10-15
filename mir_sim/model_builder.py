@@ -50,6 +50,8 @@ DEFAULT_STALL_TORQUE = 2.9  # N.m, STS3215 alimenté en 12V (≈1.9 N.m en 7.4V)
 # un connecteur branché sur un autre : demi-tour autour de x (z opposés, détrompeurs alignés)
 FLIP_X = np.array([0.0, 1.0, 0.0, 0.0])
 MATING_GENDERS = {("male", "female"), ("female", "male")}
+# type de capteur de la configuration -> type de capteur porté par les modules du catalogue
+SENSOR_KINDS = {"pi_camera": "camera"}
 # pastilles des connecteurs libres (éditeur de structure) : groupe de géométries masqué par défaut au rendu
 CONNECTOR_MARKER_GROUP = 4
 CONNECTOR_MARKER_PREFIX = "connecteur:"
@@ -199,10 +201,50 @@ def load_catalog(catalog_dir: str | Path = CATALOG_DIR) -> dict[str, dict[str, A
     return {path.stem: json.loads(path.read_text()) for path in sorted(Path(catalog_dir).glob("*.json"))}
 
 
+def motor_module_types(catalog: dict[str, dict[str, Any]]) -> list[str]:
+    """Types de module qui contiennent un moteur (une articulation) : servo, pince..."""
+    return [t for t, module in catalog.items() if len(module.get("joints", {})) == 1]
+
+
+def sensor_module_types(catalog: dict[str, dict[str, Any]], sensor_type: str) -> list[str]:
+    """Types de module qui portent un capteur de ce type de la configuration (ex. pi_camera -> module caméra)."""
+    kind = SENSOR_KINDS.get(sensor_type)
+    return [t for t, module in catalog.items()
+            if kind is not None and any(s.get("type") == kind for s in module.get("sensors", {}).values())]
+
+
+def module_sensor_key(module: dict[str, Any], sensor_type: str) -> str | None:
+    """Capteur du module qui correspond à ce type de capteur de la configuration."""
+    kind = SENSOR_KINDS.get(sensor_type)
+    return next((key for key, s in module.get("sensors", {}).items() if s.get("type") == kind), None)
+
+
+ROOT_TYPE = "mir_socle"
+
+
+def hardware_module_name(module_type: str, hardware: str) -> str:
+    """Nom du module qui représente un moteur ou un capteur de la config, ex. servo_joint_1, camera_cam_1."""
+    return f"{module_type.removeprefix('mir_')}_{hardware}"
+
+
+def initial_structure(catalog: dict[str, dict[str, Any]], motor_types: dict[str, str],
+                      sensor_types: dict[str, tuple[str, str]]) -> dict[str, Any]:
+    """Ébauche de structure après la découverte du matériel : le socle (bâti) et un module non placé par
+    moteur {moteur: type de module} et par capteur {capteur: (type de capteur config, type de module)}."""
+    unplaced: dict[str, dict[str, Any]] = {}
+    for motor, module_type in motor_types.items():
+        unplaced[hardware_module_name(module_type, motor)] = {"type": module_type, "motor": motor}
+    for sensor, (sensor_type, module_type) in sensor_types.items():
+        key = module_sensor_key(catalog[module_type], sensor_type)
+        unplaced[hardware_module_name(module_type, sensor)] = {"type": module_type, "sensors": {key: sensor}}
+    return {"modules": {"socle": {"type": ROOT_TYPE, "fixed": True}}, "unplaced": unplaced}
+
+
 def check_structure(structure: dict[str, Any] | None, catalog: dict[str, dict[str, Any]],
                     motors: list[str] | None = None, sensors: list[str] | None = None) -> list[str]:
     """Liste des problèmes de la structure (vide si elle est valide).
-    motors / sensors : moteurs et capteurs de la config, pour vérifier les associations (None : pas de vérification)."""
+    motors / sensors : moteurs et capteurs de la config, pour vérifier les associations (None : pas de vérification).
+    Les modules de "unplaced" (détectés mais pas encore branchés) sont vérifiés mais pas construits."""
     if not structure or not structure.get("modules"):
         return ["aucun module dans la structure"]
     instances: dict[str, dict[str, Any]] = structure["modules"]
@@ -212,7 +254,11 @@ def check_structure(structure: dict[str, Any] | None, catalog: dict[str, dict[st
         errors.append(f"il faut exactement un module racine (sans \"on\"), trouvés : {roots or 'aucun'}")
     used_connectors: dict[str, str] = {}
     used_motors: dict[str, str] = {}
-    for name, inst in instances.items():
+    unplaced: dict[str, dict[str, Any]] = structure.get("unplaced", {})
+    for name in unplaced:
+        if name in instances:
+            errors.append(f"{name} : nom utilisé à la fois par un module placé et un module non placé")
+    for name, inst in list(instances.items()) + list(unplaced.items()):
         module = catalog.get(inst.get("type", ""))
         if module is None:
             errors.append(f"{name} : type de module inconnu '{inst.get('type')}'")
@@ -237,7 +283,7 @@ def check_structure(structure: dict[str, Any] | None, catalog: dict[str, dict[st
                 errors.append(f"{name} : capteur '{key}' inconnu pour {inst['type']}")
             if sensors is not None and sensor not in sensors:
                 errors.append(f"{name} : capteur '{sensor}' absent de la configuration")
-        if "on" not in inst:
+        if "on" not in inst or name in unplaced:
             continue
         own = inst.get("connector")
         if own not in module.get("connectors", {}):
