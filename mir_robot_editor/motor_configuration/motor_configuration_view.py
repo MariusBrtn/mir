@@ -20,7 +20,7 @@ class MotorConfigurationView(DialogBase, ViewBase[MotorConfigurationViewModel, V
         self.on_property_changed("is_calibrated", self._view_model.is_calibrated)
         
     def setup_ui(self):
-        self.setWindowTitle("Réglages des moteurs")
+        self.setWindowTitle("Régler les servos")
         main_layout = QVBoxLayout(self)
         #toolbar
         toolbar = QHBoxLayout()
@@ -31,7 +31,7 @@ class MotorConfigurationView(DialogBase, ViewBase[MotorConfigurationViewModel, V
         btnCalibrate.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
         btnCalibrate.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
         btnCalibrate.clicked.connect(self.calibrate_motors)
-        # la calibration se fait au montage (guide), ou moteur par moteur (« Recalibrer un moteur »)
+        # la calibration se fait au montage (guide), ou servo par servo (« Recalibrer un servo »)
         btnCalibrate.setVisible(False)
         toolbar.addWidget(btnCalibrate)
 

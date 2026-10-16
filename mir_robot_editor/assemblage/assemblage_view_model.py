@@ -227,6 +227,9 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
         self._commencer_etape()
         self._timer.start()
 
+    def titre(self) -> str:
+        return "Recalibrer un servo" if self._partiel else "Construire le robot"
+
     def configuration(self) -> mirRobotConfig:
         """Configuration complétée par le montage (port, ID, calibrations, adresses, sens)."""
         return self._config

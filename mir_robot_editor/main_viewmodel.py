@@ -63,13 +63,13 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.DISCONNECT] = VMAction("Déconnecter", "Déconnecter le robot")
         self._actions[MainVMAction.SCAN] = VMAction("Découvrir les appareils...", "Ouvrir la fenêtre de découverte des appareils")
         self._actions[MainVMAction.EDIT_CONFIGURATION] = VMAction("Éditer la configuration...", "Ouvrir la fenêtre d'édition de la configuration du robot")
-        self._actions[MainVMAction.MOTOR_CFG] = VMAction("Réglages des moteurs...", "Mode, PID, vitesse et couple max des moteurs du robot branché")
-        self._actions[MainVMAction.STRUCTURE] = VMAction("Structure du robot...", "Créer le robot, ou modifier celui qui est ouvert : modules et branchements")
+        self._actions[MainVMAction.MOTOR_CFG] = VMAction("Régler les servos...", "Mode, PID, vitesse et couple max des servos du robot construit et branché")
+        self._actions[MainVMAction.STRUCTURE] = VMAction("Concevoir la structure...", "Choisir les modules du robot et leurs branchements")
         self._actions[MainVMAction.ROBOT_MODEL] = VMAction("Modèle 3D...", "Afficher le modèle 3D du robot décrit par la structure de la configuration")
         self._actions[MainVMAction.SIMULATION] = VMAction("Simulé", "Choisir entre le robot réel et le robot simulé (à faire avant la connexion)")
-        self._actions[MainVMAction.ASSEMBLE] = VMAction("Assembler le robot...", "Guide de montage du robot physique, module par module")
-        self._actions[MainVMAction.RECALIBRATE] = VMAction("Recalibrer un moteur...", "Refaire la calibration d'un servo du robot construit")
-        self._actions[MainVMAction.ADVANCED] = VMAction("Paramètres avancés...", "Outils techniques : réglages des moteurs, ID des servos, fichier de configuration")
+        self._actions[MainVMAction.ASSEMBLE] = VMAction("Construire le robot...", "Guide de montage du robot réel, module par module")
+        self._actions[MainVMAction.RECALIBRATE] = VMAction("Recalibrer un servo...", "Refaire le milieu et les butées d'un servo du robot construit")
+        self._actions[MainVMAction.ADVANCED] = VMAction("Paramètres avancés...", "Outils techniques pour régler ou dépanner le robot à la main")
         self._actions[MainVMAction.SERVO_ID] = VMAction("Changer l'ID d'un servo...", "Donner un nouvel ID à un servo branché seul, même sans robot construit")
         self._actions[MainVMAction.CLOSE] = VMAction("Fermer ce robot", "Fermer le robot ouvert pour en créer ou en ouvrir un autre (rien n'est supprimé)")
         self._actions[MainVMAction.RESET_SIMULATION] = VMAction("Remettre à zéro", "Replacer le robot simulé dans sa position de départ")
@@ -96,12 +96,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._configuration_dirty = False
 
     def set_title(self):
-        mode = "SIMULÉ" if self._simulation else "RÉEL"
-        if self._current_configuration is None or self._current_configuration.path is None:
-            self.title_changed.emit(f"MirRobotEditor [{mode}]")
-        else:
-            filename = os.path.basename(self._current_configuration.path)
-            self.title_changed.emit(f"MirRobotEditor - {filename} [{mode}]")
+        # le robot ouvert et le mode réel / simulé sont affichés dans l'en-tête de la fenêtre
+        self.title_changed.emit("MIR")
 
     def get_robot_name(self) -> str | None:
         """Nom du robot ouvert (nom du fichier de configuration), None si aucun robot n'est ouvert."""
@@ -480,7 +476,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         """Guide de montage : la configuration est complétée (port, ID, calibrations, adresses des caméras, sens)."""
         try:
             if self._current_configuration is None or not self._current_configuration.structure:
-                raise RuntimeError("Le robot n'a pas de structure : concevez-la d'abord (Structure du robot)")
+                raise RuntimeError("Le robot n'a pas de structure : concevez-la d'abord (Concevoir la structure)")
             vm = AssemblageViewModel(self._dialogProvider, self._current_configuration, modules)
             with vm:
                 accepted = bool(open_view(vm))
@@ -581,7 +577,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             try:
                 self._robot.configure()
             except Exception as e:
-                self._dialogProvider.warning("Réglages des moteurs", f"Les réglages de MIR n'ont pas pu être "
+                self._dialogProvider.warning("Régler les servos", f"Les réglages de MIR n'ont pas pu être "
                                              f"réécrits dans les moteurs : {e}\r\nIls le seront à la prochaine connexion.")
         self._essais_view_model.robot_changed.emit()        # les champs reprennent les réglages de MIR
 
@@ -628,12 +624,12 @@ class MainViewModel(ViewModelBase[MainVMAction]):
     def get_state_description(self) -> str:
         state, sim = self._state, self._simulation
         if state == MainViewModelState.INIT:
-            return "Aucun robot ouvert : créez-en un avec « Structure du robot », ou ouvrez-en un"
+            return "Aucun robot ouvert : créez-en un avec « Concevoir la structure », ou ouvrez-en un"
         if state == MainViewModelState.LOADED and self._configuring:
             return "Robot ouvert : configurez-le, puis passez à l'étape Piloter"
         if state == MainViewModelState.LOADED:
             if sim:
-                return "Pas de structure : concevez-la (Configurer le robot → Structure du robot) pour simuler ce robot"
+                return "Pas de structure : concevez-la (Configurer le robot → Concevoir la structure) pour simuler ce robot"
             return "Robot ouvert : Connecter pour utiliser le robot réel"
         if state == MainViewModelState.CONNECTED:
             return ("Simulation prête : allez dans Piloter pour faire bouger le robot simulé" if sim

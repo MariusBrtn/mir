@@ -70,7 +70,7 @@ class DropViewport(MujocoWidget):
 class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, StructureEditorVMAction]):
     def __init__(self, parent, view_model: StructureEditorViewModel):
         super().__init__(parent, default_width=1200, default_height=760, disable_esc=True, view_model=view_model)
-        self.setWindowTitle("Structure du robot")
+        self.setWindowTitle("Concevoir la structure")
         vm = self._view_model
         vm.model_changed.connect(self._on_model_changed)
         vm.model_message.connect(self._on_model_message)

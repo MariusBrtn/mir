@@ -16,7 +16,7 @@ class AssemblageView(DialogBase):
 
     def __init__(self, parent, view_model: AssemblageViewModel, essai_sans_materiel: bool = False):
         super().__init__(parent, default_width=1200, default_height=760)
-        self.setWindowTitle("Assembler le robot")
+        self.setWindowTitle(view_model.titre())
         self._vm = view_model
         self._essai_sans_materiel = essai_sans_materiel
         view_model.changed.connect(self._refresh)
@@ -42,7 +42,7 @@ class AssemblageView(DialogBase):
     def _make_start_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        title = QLabel("Assembler le robot")
+        title = QLabel(self._vm.titre())
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
         layout.addWidget(title)
         texte = QLabel("Le guide montre, module après module, où poser chaque module. Les servos sont détectés et "
