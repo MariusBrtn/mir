@@ -3,6 +3,7 @@ from mir_robot.mir_robot import mirRobotConfig, mirRobot, DOSSIER_ROBOTS
 from mir_sim.sim_devices_factory import SimDevicesFactory
 from mir_sim.config_from_structure import complete_config_from_structure
 from mir_robot_editor.motor_configuration.motor_configuration_view_model import MotorConfigurationViewModel
+from mir_robot_editor.motor_configuration.servo_id_view_model import ServoIdViewModel
 from mir_robot_editor.scan_devices_view_model import ScanDevicesViewModel
 from mir_robot_editor.robot_monitor_view_model import RobotMonitorViewModel
 from mir_robot_editor.essais.essais_view_model import EssaisViewModel
@@ -35,13 +36,16 @@ class MainVMAction(Enum):
     RESET_SIMULATION = auto()
     ASSEMBLE = auto()
     RECALIBRATE = auto()
+    ADVANCED = auto()
+    SERVO_ID = auto()
+    CLOSE = auto()
     QUIT = auto()
 
 class MainViewModelState(Enum):
     INIT = 1
     LOADED = 2
     CONNECTED = 3
-    RUNNING = 4,
+    RUNNING = 4
 
 class MainViewModel(ViewModelBase[MainVMAction]):
     state_changed = Signal(MainViewModelState, str)
@@ -65,6 +69,9 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.SIMULATION] = VMAction("Simulé", "Choisir entre le robot réel et le robot simulé (à faire avant la connexion)")
         self._actions[MainVMAction.ASSEMBLE] = VMAction("Assembler le robot...", "Guide de montage du robot physique, module par module")
         self._actions[MainVMAction.RECALIBRATE] = VMAction("Recalibrer un moteur...", "Refaire la calibration d'un servo du robot construit")
+        self._actions[MainVMAction.ADVANCED] = VMAction("Paramètres avancés...", "Outils techniques : réglages des moteurs, ID des servos, fichier de configuration")
+        self._actions[MainVMAction.SERVO_ID] = VMAction("Changer l'ID d'un servo...", "Donner un nouvel ID à un servo branché seul, même sans robot construit")
+        self._actions[MainVMAction.CLOSE] = VMAction("Fermer ce robot", "Fermer le robot ouvert pour en créer ou en ouvrir un autre (rien n'est supprimé)")
         self._actions[MainVMAction.RESET_SIMULATION] = VMAction("Remettre à zéro", "Replacer le robot simulé dans sa position de départ")
         self._actions[MainVMAction.QUIT] = VMAction("Quitter", "Quitter l'application")
         self._simulation = False
@@ -82,6 +89,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._essais_view_model.busy_state_changed.connect(self.on_observations_vm_busy_state_changed)
         self._robot_monitor_view_model.set_other_busy(self._essais_view_model.is_running)
         self._worker = BackgroundWorker()
+        # réglages modifiés pendant les essais : temporaires, MIR remet les siens en quittant les essais
+        self._essai_originaux: dict[str, dict[str, int]] = {}      # {moteur: {réglage: valeur de la configuration}}
         self.set_title()
         self._set_state(MainViewModelState.INIT)
         self._configuration_dirty = False
@@ -127,6 +136,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             raise RuntimeError("Déconnecter le robot avant de changer de mode")
         if simulation == self._simulation:
             return
+        self.restore_essai_settings()
         if not simulation and not self.is_built():
             raise RuntimeError("Le robot n'est pas construit : seul le robot simulé est disponible")
         self._stop_simulation()
@@ -147,6 +157,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         if configuring and self._state == MainViewModelState.RUNNING:
             return False
         self._configuring = configuring
+        if configuring:
+            self.restore_essai_settings()
         if configuring and self._state == MainViewModelState.CONNECTED:
             self.disconnect_robot()
         self._set_state(self._state)
@@ -232,6 +244,22 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             self._set_state(MainViewModelState.LOADED)
         return True
 
+    def close_robot(self) -> bool:
+        """Ferme le robot ouvert : retour à « aucun robot ouvert ». Le fichier et les servos ne sont pas modifiés.
+        False si l'utilisateur annule (modifications non enregistrées) ou si des mesures sont en cours."""
+        if self._state == MainViewModelState.INIT or self._state == MainViewModelState.RUNNING:
+            return False
+        if not self._ask_save_if_dirty():
+            return False
+        self.restore_essai_settings()
+        if self._state == MainViewModelState.CONNECTED:
+            self.disconnect_robot()
+        self._current_configuration = None
+        self._configuration_dirty = False
+        self.set_title()
+        self._set_state(MainViewModelState.INIT)
+        return True
+
     def load_configuration(self):
         if not self._ask_save_if_dirty():
             return
@@ -255,7 +283,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         if self._current_configuration.path is None:
             return self.save_as()
         else:
-            self._current_configuration.save()
+            with self._reglages_mir():
+                self._current_configuration.save()
             self._configuration_dirty = False
             return True
 
@@ -277,7 +306,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
                 return False
             if not path.endswith(".json"):
                 path += ".json"
-            self._current_configuration.save_as(path)
+            with self._reglages_mir():
+                self._current_configuration.save_as(path)
             self.set_title()
             self._configuration_dirty = False
             return True
@@ -310,6 +340,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             self.disconnect_robot()
 
     def disconnect_robot(self):
+        if self._robot is not None and not self._simulation:
+            self.restore_essai_settings()       # le moteur réel garde les réglages de MIR
         if self._robot is not None:
             self._robot.disconnect()
             self._robot = None
@@ -359,6 +391,15 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         except BaseException as e:
             self._dialogProvider.exception(e)
     
+    def execute_servo_id(self, open_view):
+        try:
+            bus = self._current_configuration.motor_bus if self._current_configuration is not None else None
+            ids = {nom: m.id for nom, m in bus.motors.items()} if bus is not None else {}
+            with ServoIdViewModel(self._dialogProvider, ids) as vm:
+                open_view(vm)
+        except BaseException as e:
+            self._dialogProvider.exception(e)
+
     def execute_edit_configuration(self, open_view):
         try:
             if self._current_configuration is None:
@@ -502,17 +543,63 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         return {attr: int(getattr(m, attr)) for attr in ("P", "I", "D", "position_mode_velocity", "torque_limit")}
 
     def _apply_motor_settings(self, motor: str, settings: dict[str, int]):
-        """Réglages modifiés depuis un essai : ils vont dans la configuration, puis dans le moteur réel
-        (ou le robot simulé est reconstruit avec eux)."""
+        """Réglages modifiés depuis un essai : temporaires. Ils sont écrits dans le moteur réel (ou le robot simulé
+        est reconstruit avec eux) ; la configuration enregistrée garde ceux de MIR, remis en quittant les essais."""
         cfg = self._current_configuration
         if cfg is None or cfg.motor_bus is None or motor not in cfg.motor_bus.motors:
             return
+        m = cfg.motor_bus.motors[motor]
+        self._essai_originaux.setdefault(motor, {attr: int(getattr(m, attr)) for attr in settings})
         with self._configuration_change():
             for attr, value in settings.items():
-                setattr(cfg.motor_bus.motors[motor], attr, int(value))
-            self._configuration_dirty = True
+                setattr(m, attr, int(value))
         if not self._simulation and self._robot is not None:
             self._robot.configure()
+
+    def _remettre_reglages(self) -> bool:
+        """Remet dans la configuration les réglages de MIR ; False s'il n'y avait rien à remettre."""
+        cfg = self._current_configuration
+        originaux, self._essai_originaux = self._essai_originaux, {}
+        if cfg is None or cfg.motor_bus is None or not originaux:
+            return False
+        for motor, reglages in originaux.items():
+            if motor in cfg.motor_bus.motors:
+                for attr, value in reglages.items():
+                    setattr(cfg.motor_bus.motors[motor], attr, value)
+        return True
+
+    def restore_essai_settings(self):
+        """En quittant les essais : les moteurs reprennent les réglages de MIR (registres réécrits)."""
+        if not self._essai_originaux or self._essais_view_model.is_running():
+            return
+        if self._simulation:
+            with self._configuration_change():
+                self._remettre_reglages()
+            return
+        self._remettre_reglages()
+        if self._robot is not None:
+            try:
+                self._robot.configure()
+            except Exception as e:
+                self._dialogProvider.warning("Réglages des moteurs", f"Les réglages de MIR n'ont pas pu être "
+                                             f"réécrits dans les moteurs : {e}\r\nIls le seront à la prochaine connexion.")
+        self._essais_view_model.robot_changed.emit()        # les champs reprennent les réglages de MIR
+
+    @contextmanager
+    def _reglages_mir(self):
+        """Enregistrer : la configuration est écrite avec les réglages de MIR, pas ceux d'un essai en cours."""
+        cfg = self._current_configuration
+        temporaires = {motor: {attr: getattr(cfg.motor_bus.motors[motor], attr) for attr in reglages}
+                       for motor, reglages in self._essai_originaux.items()}
+        originaux = dict(self._essai_originaux)
+        self._remettre_reglages()
+        try:
+            yield
+        finally:
+            self._essai_originaux = originaux
+            for motor, reglages in temporaires.items():
+                for attr, value in reglages.items():
+                    setattr(cfg.motor_bus.motors[motor], attr, value)
 
     def _essai_conditions(self) -> dict:
         cfg = self._current_configuration
@@ -565,6 +652,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         a[MainVMAction.OPEN].set_enabled(state == MainViewModelState.INIT or editable)
         a[MainVMAction.SAVE].set_enabled(editable)
         a[MainVMAction.SAVE_AS].set_enabled(editable)
+        a[MainVMAction.CLOSE].set_enabled(state != MainViewModelState.INIT and state != MainViewModelState.RUNNING)
         a[MainVMAction.STRUCTURE].set_enabled(state == MainViewModelState.INIT or editable)
         a[MainVMAction.EDIT_CONFIGURATION].set_enabled(editable)
         a[MainVMAction.ROBOT_MODEL].set_enabled(has_structure and state != MainViewModelState.INIT)
@@ -575,6 +663,9 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         a[MainVMAction.ASSEMBLE].set_enabled(state == MainViewModelState.LOADED and has_structure)
         a[MainVMAction.RECALIBRATE].set_enabled(state == MainViewModelState.LOADED and self.is_built()
                                                 and bool(self.motor_modules()))
+        a[MainVMAction.ADVANCED].set_enabled(True)
+        # le port des servos doit être libre : pas avec le robot réel connecté
+        a[MainVMAction.SERVO_ID].set_enabled(not (connected and not sim))
         a[MainVMAction.CONNECT].set_enabled(state == MainViewModelState.LOADED and not sim and not self._configuring)
         a[MainVMAction.DISCONNECT].set_enabled(state == MainViewModelState.CONNECTED and not sim)
         a[MainVMAction.SIMULATION].set_enabled(state != MainViewModelState.RUNNING and not (connected and not sim))

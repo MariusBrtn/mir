@@ -32,6 +32,7 @@ MARGE_CALIBRATION = 10                  # écart minimal (pas codeur) entre le m
 SURBRILLANCE = np.array(theme.SELECTION_RGBA)
 PERIODE_CAMERA = 20                     # recherche réseau des caméras tous les 20 tops (≈ 3 s)
 IDS_COURANTS = set(range(0, 41))        # ID cherchés pour un servo qu'on branche (neuf : 1 ; réutilisé : souvent < 40)
+IDS_RESERVES = set(range(ID_DE_COTE, 254))  # aussi : un servo resté de côté (guide interrompu, autre robot)
 
 
 class Phase(Enum):
@@ -142,7 +143,7 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
         self._timer.stop()
         if self._bus is not None:
             if not self._finalise:
-                # guide interrompu : les servos montés reprennent leur ID définitif (rien n'est mis de côté)
+                # guide interrompu : tous les servos mis de côté, terminés ou non, reprennent leur ID définitif
                 try:
                     self._donner_ids_definitifs()
                 except Exception as ex:
@@ -154,16 +155,26 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
             return
         if self._recherche_servos is not None:
             self._recherche_servos.join(timeout=5)
-        for etape in self.etapes:
-            if etape.etat == "fait" and etape.moteur is not None:
-                courant, final = self._id_courant(etape.moteur), self.moteurs_attendus()[etape.moteur]
-                if courant in self._bus.ids_presents({courant}):
-                    self._bus.changer_id(etape.moteur, courant, final)
+        # tout servo encore sur son ID de côté, même si son module n'est pas terminé (sinon il reste sur 200...
+        # et un autre servo reçoit le même ID au guide suivant : deux servos au même ID rendent le bus muet)
+        attendus = self.moteurs_attendus()
+        moteurs = [etape.moteur for etape in self.etapes if etape.moteur is not None]
+        presents = self._bus.ids_presents({self._id_courant(m) for m in moteurs} | {attendus[m] for m in moteurs})
+        for moteur in moteurs:
+            courant, final = self._id_courant(moteur), attendus[moteur]
+            if courant not in presents:
+                continue
+            if final in presents:
+                logger.warning(f"guide de montage : {moteur} laissé à l'ID {courant}, l'ID {final} est déjà pris")
+                continue
+            self._bus.changer_id(moteur, courant, final)
+            presents = (presents - {courant}) | {final}
+            logger.info(f"guide de montage : {moteur} remis à son ID définitif {final} (était à {courant})")
 
     def _candidats(self) -> set[int]:
-        """ID à chercher : ID courants, ID prévus par la configuration, ID mis de côté."""
+        """ID à chercher : ID courants, ID prévus par la configuration, ID réservés (mis de côté)."""
         attendus = self.moteurs_attendus()
-        return IDS_COURANTS | set(attendus.values()) | {self._id_courant(m) for m in attendus}
+        return IDS_COURANTS | IDS_RESERVES | set(attendus.values()) | {self._id_courant(m) for m in attendus}
 
     def _rechercher_servos(self):
         """Recherche des servos présents : en arrière-plan (un ping par ID, ≈ 30 ms par ID absent)."""

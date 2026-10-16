@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, 
 from mir_utils.ui.widgets import MainWindowBase
 from mir_robot_editor.motor_configuration.motor_configuration_view import MotorConfigurationView
 from mir_robot_editor.edit_configuration_view import EditConfigurationView
+from mir_robot_editor.motor_configuration.servo_id_view import ServoIdView
 from mir_robot_editor.motor_configuration.motor_configuration_view_model import MotorConfigurationViewModel
 from mir_robot_editor.main_viewmodel import MainViewModel, MainVMAction, MainViewModelState
 from mir_robot_editor.teleop.teleop_view import TeleopView
@@ -85,6 +86,9 @@ class ActionCard(QFrame):
         else:
             super().keyPressEvent(event)
 
+    def set_description(self, text: str):
+        self._description.setText(text)
+
     def set_status(self, text: str):
         self._status.setText(text)
         done = text.startswith("✓")
@@ -110,6 +114,9 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._recalibrate_action = self._make_action(MainVMAction.RECALIBRATE, self.on_action_recalibrate, "calibration")
         self._structure_action = self._make_action(MainVMAction.STRUCTURE, self.on_action_structure, "structure")
         self._robot_model_action = self._make_action(MainVMAction.ROBOT_MODEL, self.on_action_robot_model, "robot")
+        self._close_action = self._make_action(MainVMAction.CLOSE, self.on_action_close, "close")
+        self._advanced_action = self._make_action(MainVMAction.ADVANCED, self.on_action_advanced, "gear")
+        self._servo_id_action = self._make_action(MainVMAction.SERVO_ID, self.on_action_servo_id, "motor")
         self._reset_sim_action = self._make_action(MainVMAction.RESET_SIMULATION, self._view_model.reset_simulation, "")
         self._quit_action = self._make_action(MainVMAction.QUIT, self.close, "", "Ctrl+Q")
         self._simulation_vm_action = self._view_model.get_action(MainVMAction.SIMULATION)
@@ -158,6 +165,12 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._robot_label = QLabel()
         self._robot_label.setStyleSheet("font-size: 14px;")
         layout.addWidget(self._robot_label)
+        # un seul robot ouvert à la fois : on le ferme pour en créer ou en ouvrir un autre
+        self._btn_close = QPushButton(self._icon("close"), "Fermer ce robot")
+        self._btn_close.setFlat(True)
+        self._btn_close.setToolTip(self._close_action.toolTip())
+        self._btn_close.clicked.connect(self._close_action.trigger)
+        layout.addWidget(self._btn_close)
 
         # mode : un seul sélecteur à deux positions
         mode_box = QWidget()
@@ -210,10 +223,26 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         return steps
 
     def _make_robot_page(self) -> QWidget:
-        page = QWidget()
+        # accueil de l'étape, et sa page « Paramètres avancés »
+        self._robot_pages = QStackedWidget()
+        self._robot_pages.addWidget(self._make_robot_home())
+        self._robot_pages.addWidget(self._make_advanced_page())
+        return self._robot_pages
+
+    @staticmethod
+    def _make_cards_page(page: QWidget) -> tuple[QVBoxLayout, QScrollArea]:
         layout = QVBoxLayout(page)
         layout.setContentsMargins(20, 16, 20, 16)
         layout.setSpacing(8)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setWidget(page)
+        return layout, scroll
+
+    def _make_robot_home(self) -> QWidget:
+        page = QWidget()
+        layout, scroll = self._make_cards_page(page)
         self._cards: list[ActionCard] = []
 
         def section(title: str, subtitle: str):
@@ -234,24 +263,45 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
 
         section("1  Concevoir", "Choisir les modules et leurs branchements. La structure décrit le robot réel comme sa "
                                 "simulation : le robot simulé est utilisable dès cette étape.")
-        self._card_concevoir = card(self._structure_action, "Créer le robot (ou modifier celui qui est ouvert) : "
-                                                            "assembler les modules du catalogue et choisir comment ils "
-                                                            "se branchent.")
+        self._card_concevoir = card(self._structure_action, "")
         card(self._open_action, "Ou reprendre un robot déjà créé (dossier des robots).")
         section("2  Construire", "Monter le robot physique en suivant sa structure. Chaque module est détecté dès qu'on "
                                  "le branche ; chaque servo reçoit son ID et ses réglages, puis on le calibre.")
         self._card_construire = card(self._assemble_action, "Guide de montage, module par module, avec la 3D.")
-        section("3  Régler", "Ajuster le robot construit, si besoin.")
-        self._card_reglages = card(self._motor_cfg_action, "Mode, PID, vitesse et couple max des moteurs du robot branché.")
-        self._card_recalibrer = card(self._recalibrate_action, "Refaire la calibration d'un servo (milieu et butées).")
         section("Avancé", "")
-        card(self._edit_configuration_action, "Modifier directement le fichier de configuration du robot.")
+        card(self._advanced_action, "Recalibrer un servo, réglages des moteurs, ID des servos, fichier de configuration.")
         layout.addStretch(1)
+        return scroll
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setWidget(page)
+    def _make_advanced_page(self) -> QWidget:
+        page = QWidget()
+        layout, scroll = self._make_cards_page(page)
+        back = QPushButton("‹  Retour")
+        back.setFlat(True)
+        back.setCursor(Qt.CursorShape.PointingHandCursor)
+        back.clicked.connect(lambda: self._robot_pages.setCurrentIndex(0))
+        layout.addWidget(back, alignment=Qt.AlignmentFlag.AlignLeft)
+        title = QLabel("Paramètres avancés")
+        title.setObjectName("SectionTitle")
+        layout.addWidget(title)
+        sub = QLabel("Outils techniques, pour régler ou dépanner le robot à la main.")
+        sub.setWordWrap(True)
+        sub.setObjectName("Muted")
+        layout.addWidget(sub)
+        for action, description in (
+                (self._servo_id_action, "Un servo branché seul : lire son ID et lui en donner un nouveau. "
+                                        "Possible à tout moment, même si le robot n'est pas construit."),
+                (self._recalibrate_action, "Refaire la calibration d'un servo du robot construit (milieu et butées)."),
+                (self._motor_cfg_action, "Mode, PID, vitesse et couple max des moteurs du robot construit et branché."),
+                (self._edit_configuration_action, "Modifier directement le fichier de configuration du robot.")):
+            c = ActionCard(action, description)
+            self._cards.append(c)
+            layout.addWidget(c)
+            if action is self._motor_cfg_action:
+                self._card_reglages = c
+            elif action is self._recalibrate_action:
+                self._card_recalibrer = c
+        layout.addStretch(1)
         return scroll
 
     def _make_pilot_page(self) -> QWidget:
@@ -273,7 +323,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._pilot_tabs.addTab(self.teleop_view, "Téléopération")
         self._pilot_tabs.addTab(QLabel("Modèles géométriques direct et inverse, trajectoires : à venir."), "Robotique (à venir)")
         self._pilot_tabs.setTabEnabled(TAB_ROBOTIQUE, False)
-        self._pilot_tabs.currentChanged.connect(lambda _: self._update_pilot_hint())
+        self._pilot_tabs.currentChanged.connect(self._on_pilot_tab_changed)
         layout.addWidget(self._pilot_tabs, 1)
         return page
 
@@ -286,6 +336,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         file_menu.addAction(self._connect_action)
         file_menu.addAction(self._disconnect_action)
         file_menu.addSeparator()
+        file_menu.addAction(self._close_action)
+        file_menu.addSeparator()
         file_menu.addAction(self._quit_action)
 
     # ------------------------------------------------------------------ mise à jour
@@ -293,6 +345,14 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         state = self._view_model.get_state()
         simulation = self._view_model.is_simulation()
         configuring = self._view_model.is_configuring()
+        # sans robot ouvert, la structure crée un robot ; sinon, elle modifie celui qui est ouvert
+        robot_ouvert = state != MainViewModelState.INIT
+        self._btn_close.setVisible(robot_ouvert)
+        self._btn_close.setEnabled(self._close_action.isEnabled())
+        self._structure_action.setText("Modifier la structure..." if robot_ouvert else "Créer un robot...")
+        self._card_concevoir.set_description(
+            "Modules du robot ouvert et leurs branchements." if robot_ouvert else
+            "Assembler les modules du catalogue et choisir comment ils se branchent.")
         # configurer le robot ne dépend pas du mode : le choix réel / simulé n'apparaît qu'à partir de Piloter
         self._mode_box.setVisible(not configuring)
         name = self._view_model.get_robot_name()
@@ -347,7 +407,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         elif state == MainViewModelState.LOADED:
             dot, text = COLOR_IDLE, ("Pas de structure : simulation impossible" if simulation else "Non connecté")
         elif state == MainViewModelState.CONNECTED:
-            dot, text = (COLOR_SIM, "Simulation prête") if simulation else (COLOR_REAL, "Connecté au robot réel")
+            dot, text = (COLOR_SIM, "Simulation prête") if simulation else (theme.OK, "Connecté au robot réel")
         else:
             # en simulation, on ne parle pas de mesures : les mesures se font sur le robot réel
             dot, text = (COLOR_SIM, "Mouvement en cours (simulation)") if simulation else \
@@ -377,6 +437,11 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             text = ("<b>Téléopération</b> : choisissez une commande (ou écrivez la vôtre en Python avec <b>Nouvelle…</b>) "
                     "et les grandeurs à suivre, puis <b>▶ Démarrer</b>.")
         self._pilot_hint.setText(text)
+
+    def _on_pilot_tab_changed(self, index: int):
+        if index != TAB_ESSAIS:
+            self._view_model.restore_essai_settings()     # réglages d'essai temporaires
+        self._update_pilot_hint()
 
     def _on_state_changed(self, state: MainViewModelState, description: str):
         if hasattr(self, "_card_concevoir"):
@@ -414,6 +479,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             self._revert_step()
             return
         self._pages.setCurrentIndex(row)
+        self._robot_pages.setCurrentIndex(0)
         self._update_header()
 
     def _revert_step(self):
@@ -481,6 +547,18 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             dlg = MotorConfigurationView(self, vm)
             return dlg.exec()
         self._view_model.execute_motor_configuration(open_dialog)
+
+    def on_action_close(self):
+        if self._view_model.close_robot():
+            self._steps.setCurrentRow(STEP_ROBOT)
+            self._robot_pages.setCurrentIndex(0)
+
+    def on_action_advanced(self):
+        self._steps.setCurrentRow(STEP_ROBOT)
+        self._robot_pages.setCurrentIndex(1)
+
+    def on_action_servo_id(self):
+        self._view_model.execute_servo_id(lambda vm: ServoIdView(self, vm).exec())
 
     def on_action_structure(self):
         self._view_model.execute_structure_editor(lambda vm: StructureEditorView(self, vm).exec())

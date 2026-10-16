@@ -89,7 +89,7 @@ class MotorParams:
     """Paramètres moteur issus de la configuration du robot (mirRobotConfig)."""
     range_deg: tuple[float, float] | None = None   # None : pas de calibration, plage par défaut du module (catalogue)
     torque_limit: int = 1000            # en 0.1% du couple max
-    position_mode_velocity: int = 100   # en unités STS (≈0.732 tr/min)
+    position_mode_velocity: int = 100   # en tr/min, comme sur le bus réel
 
 
 @dataclass
@@ -489,7 +489,7 @@ class ModelBuilder:
                             zero_offset_deg=float(inst.get("zero_offset_deg", 0)),
                             range_deg=range_deg)
         self._joints[motor] = info
-        self._max_vel[motor] = params.position_mode_velocity * 0.732 * 6  # unités STS -> tr/min -> deg/s
+        self._max_vel[motor] = params.position_mode_velocity * 6  # tr/min -> deg/s
         return info
 
     def _add_joint(self, spec: mujoco.MjSpec, body: Any, joint: dict[str, Any], pos: np.ndarray, axis: list[float],

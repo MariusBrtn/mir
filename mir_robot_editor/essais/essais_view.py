@@ -3,6 +3,7 @@ from typing import Any
 import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QFrame, QGroupBox,
                                QHBoxLayout, QHeaderView, QLabel, QListWidget, QListWidgetItem, QPushButton, QScrollArea,
                                QSpinBox, QStackedWidget, QTableWidget, QTableWidgetItem, QToolBar, QVBoxLayout, QWidget)
@@ -16,13 +17,51 @@ from mir_utils.ui import theme
 # couleurs des essais superposés (le premier est l'essai sélectionné)
 COULEURS = ["#00B4FF", "#FF8C1A", "#3CCB5A", "#E04BD8", "#F2D13A", "#9A7BFF"]
 COULEUR_CONSIGNE = "#BBBBBB"
+HAUTEUR_COURBE = 180        # hauteur minimale de chaque courbe (px)
+
+
+UNITES_AFFICHEES = {"deg": "°", "rpm": "tr/min"}
+
+
+def _unite_affichee(unite: str) -> str:
+    return UNITES_AFFICHEES.get(unite, unite)
+
+
+def _titre_courbe(nom: str, unite: str) -> str:
+    unite = _unite_affichee(unite)
+    return f"{nom} ({unite})" if unite else nom
+
+
+PID = ("P", "I", "D")
+FPS_SIMULATION = 50         # en simulation, l'essai ne fait qu'animer le robot : pas de fréquence à choisir
 
 
 def _titre_court(essai: Essai) -> str:
+    """Ex. « Échelon 0 → 30° · P=16 I=0 D=32 » ; * devant : pas encore enregistré. Le reste est dans l'infobulle."""
+    reglages = essai.conditions.get("reglages_moteur") or {}
+    pid = " ".join(f"{k}={reglages[k]}" for k in ("P", "I", "D") if k in reglages)
+    non_enregistre = "* " if essai.chemin is None else ""
+    return non_enregistre + " · ".join(m for m in (essai.resume_sollicitation(), pid) if m)
+
+
+def _infobulle(essai: Essai) -> str:
     c = essai.conditions
-    mode = "simulé" if c.get("simulation") else "réel"
-    heure = str(c.get("date", ""))[11:19]
-    return f"{heure} {c.get('sollicitation', {}).get('nom', '')} {essai.actionneur} ({mode})"
+    reglages = c.get("reglages_moteur") or {}
+    lignes = [str(c.get("date", "")), f"Actionneur : {essai.actionneur}",
+              f"{'Simulé' if c.get('simulation') else 'Réel'}" + (f", {c['fps']:g} Hz" if c.get("fps") else "")]
+    if "position_mode_velocity" in reglages:
+        lignes.append(f"Vitesse max : {reglages['position_mode_velocity']} tr/min")
+    if "torque_limit" in reglages:
+        lignes.append(f"Couple max : {reglages['torque_limit']} ‰")
+    lignes.append(str(essai.chemin) if essai.chemin else "Pas encore enregistré")
+    return "\n".join(lignes)
+
+
+def _pastille(couleur: str) -> QIcon:
+    """Carré de la couleur des courbes de l'essai : la légende est dans la liste, pas sur les courbes."""
+    pixmap = QPixmap(14, 14)
+    pixmap.fill(QColor(couleur))
+    return QIcon(pixmap)
 
 
 class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
@@ -52,9 +91,6 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self._timer_3d.setInterval(33)
         self._timer_3d.timeout.connect(self._viewport.update)
 
-        self._timer = QTimer(self)
-        self._timer.setInterval(60)
-        self._timer.timeout.connect(self._draw_live)
         self._on_briques_changed()
         self._on_robot_changed()
 
@@ -95,6 +131,7 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
 
         reglages_box = QGroupBox("Réglages du moteur")
         reglages_form = QFormLayout(reglages_box)
+        self._reglages_form = reglages_form
         for attr, (libelle, mini, maxi) in REGLAGES_MOTEUR.items():
             spin = QSpinBox()
             spin.setRange(mini, maxi)
@@ -110,14 +147,16 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self.grandeurs_layout = QVBoxLayout(self.grandeurs_box)
         layout.addWidget(self.grandeurs_box)
 
-        fps_row = QHBoxLayout()
+        self._fps_widget = QWidget()
+        fps_row = QHBoxLayout(self._fps_widget)
+        fps_row.setContentsMargins(0, 0, 0, 0)
         fps_row.addWidget(QLabel("Fréquence d'acquisition"))
         self.sp_fps = QSpinBox()
-        self.sp_fps.setRange(10, 200)
+        self.sp_fps.setRange(10, 500)
         self.sp_fps.setValue(50)
         self.sp_fps.setSuffix(" Hz")
         fps_row.addWidget(self.sp_fps)
-        layout.addLayout(fps_row)
+        layout.addWidget(self._fps_widget)
 
         buttons = QHBoxLayout()
         self.btn_lancer = QPushButton(self._icon("play"), "Lancer l'essai")
@@ -147,7 +186,12 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self._center = QStackedWidget()
         self._plots_widget = pg.GraphicsLayoutWidget()
         self._plots: dict[str, pg.PlotItem] = {}
-        self._center.addWidget(self._plots_widget)       # robot réel : courbes de mesure
+        # une courbe par grandeur, chacune assez haute pour être lisible : on fait défiler s'il y en a beaucoup
+        self._plots_scroll = QScrollArea()
+        self._plots_scroll.setWidgetResizable(True)
+        self._plots_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._plots_scroll.setWidget(self._plots_widget)
+        self._center.addWidget(self._plots_scroll)       # robot réel : courbes de mesure
         self._viewport = MujocoWidget()
         self._center.addWidget(self._viewport)           # robot simulé : vue 3D
         return self._center
@@ -160,7 +204,8 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         title = QLabel("Essais")
         title.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(title)
-        hint = QLabel("Cochez les essais à superposer ; l'essai sélectionné est analysé.")
+        hint = QLabel("Cochez les essais à superposer ; l'essai sélectionné (trait épais) est analysé. "
+                      "* : essai pas encore enregistré.")
         hint.setWordWrap(True)
         hint.setStyleSheet("color: palette(placeholder-text);")
         layout.addWidget(hint)
@@ -169,13 +214,20 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self.list_essais.itemChanged.connect(lambda _: self._redraw())
         self.list_essais.currentRowChanged.connect(lambda _: self._redraw())
         layout.addWidget(self.list_essais, 1)
+        cle = QLabel("Sur les courbes : couleur = essai (pastille ci-dessus) ; trait plein = mesure, "
+                     "pointillés = consigne.")
+        cle.setWordWrap(True)
+        cle.setStyleSheet("color: palette(placeholder-text);")
+        layout.addWidget(cle)
         toolbar = QToolBar(iconSize=QSize(20, 20))
         self._action_ouvrir = self._make_action(EssaisVMAction.OUVRIR, self._view_model.ouvrir, "folder-open", toolbar=toolbar)
+        self._action_enregistrer = self._make_action(
+            EssaisVMAction.ENREGISTRER, lambda: self._view_model.enregistrer(self.list_essais.currentRow()), "save",
+            toolbar=toolbar)
         btn_retirer = QPushButton("Retirer de la liste")
         btn_retirer.clicked.connect(lambda: self._view_model.retirer(self.list_essais.currentRow()))
         toolbar.addWidget(btn_retirer)
         layout.addWidget(toolbar)
-
         analyse_title = QLabel("Analyse")
         analyse_title.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 8px;")
         layout.addWidget(analyse_title)
@@ -202,10 +254,15 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self._right_panel.setVisible(not simulation)
         self.grandeurs_box.setVisible(not simulation)
         self.lbl_mode.setVisible(simulation)
+        # en simulation, rien n'est mesuré et l'asservissement est idéal : ni PID ni fréquence d'acquisition
+        self._fps_widget.setVisible(not simulation)
+        for attr in PID:
+            self._reglages_form.setRowVisible(self._reglage_widgets[attr], not simulation)
         self._update_3d()
-        self.lbl_reglages.setText("En simulation, P, I et D ne sont pas simulés (asservissement idéal) ; "
-                                  "la vitesse et le couple max le sont." if simulation else
-                                  "Les réglages modifiés sont écrits dans le moteur au lancement de l'essai.")
+        self.lbl_reglages.setText("En simulation, l'asservissement est idéal : seuls la vitesse et le couple max "
+                                  "sont simulés." if simulation else
+                                  "Les réglages modifiés sont écrits dans le moteur au lancement de l'essai, le temps des essais : "
+                                  "MIR remet les siens en quittant les essais.")
 
     def _update_3d(self):
         world = self._view_model.sim_world() if self._simulation else None
@@ -305,46 +362,17 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
             self.cb_sollicitation.currentText(), self._actionneur(),
             {nom: w.value() for nom, w in self._param_widgets.items()},
             [nom for nom, box in self._grandeur_boxes.items() if box.isChecked()],
-            self.sp_fps.value(),
+            FPS_SIMULATION if self._simulation else self.sp_fps.value(),
             {attr: w.value() for attr, w in self._reglage_widgets.items()})
 
     def _on_busy_changed(self, busy: bool):
         for w in (self.cb_actionneur, self.cb_sollicitation, self.params_box, self.grandeurs_box, self.sp_fps):
             w.setEnabled(not busy)
         if busy and not self._simulation:
-            self._live_plots = None
-            self._timer.start()
-        else:
-            self._timer.stop()
-
-    def _draw_live(self):
-        data = self._view_model.live_data()
-        if not data.get("t"):
-            return
-        noms = [nom for nom in data if nom not in ("t", CONSIGNE)]
-        if getattr(self, "_live_plots", None) is None:
+            # pas de courbe pendant l'essai : l'affichage ralentirait l'acquisition ; les courbes viennent à la fin
             self._plots_widget.clear()
-            self._live_plots = {}
-            actionneur = self._actionneur()
-            principal = actionneur if actionneur in noms else (noms[0] if noms else CONSIGNE)
-            ordre = [principal] + [n for n in noms if n != principal]
-            premier = None
-            for row, nom in enumerate(ordre):
-                plot = self._plots_widget.addPlot(row=row, col=0, title=nom)
-                plot.showGrid(x=True, y=True)
-                plot.setLabel("bottom", "t", "s")
-                if premier is None:
-                    premier = plot
-                    plot.addLegend()
-                    self._live_plots[CONSIGNE] = plot.plot(name="consigne", pen=pg.mkPen(COULEUR_CONSIGNE, width=2, style=Qt.PenStyle.DashLine))
-                else:
-                    plot.setXLink(premier)
-                self._live_plots[nom] = plot.plot(name="mesure" if row == 0 else None, pen=pg.mkPen(COULEURS[0], width=2))
-        t = np.asarray(data["t"])
-        for nom, courbe in self._live_plots.items():
-            valeurs = np.asarray(data.get(nom, []))
-            n = min(len(t), len(valeurs))
-            courbe.setData(t[:n], valeurs[:n])
+            self._set_plots_height(0)
+            self._plots_widget.addLabel("Essai en cours… les courbes s'afficheront à la fin.")
 
     def _on_essai_termine(self, essai: Essai):
         # le nouvel essai est sélectionné, et seul coché avec ceux déjà cochés
@@ -357,8 +385,8 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self.list_essais.blockSignals(True)
         self.list_essais.clear()
         for essai in self._view_model.essais:
-            item = QListWidgetItem(_titre_court(essai))
-            item.setToolTip(f"{essai.titre()}\n{essai.chemin or ''}")
+            item = QListWidgetItem(_pastille(self._couleur(essai)), _titre_court(essai))
+            item.setToolTip(_infobulle(essai))
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
             nouveau = id(essai) not in coches and essai is self._view_model.essais[-1]
             item.setCheckState(Qt.CheckState.Checked if id(essai) in coches or nouveau else Qt.CheckState.Unchecked)
@@ -368,6 +396,11 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         if self.list_essais.currentRow() < 0 and self.list_essais.count():
             self.list_essais.setCurrentRow(self.list_essais.count() - 1)
         self._redraw()
+
+    def _couleur(self, essai: Essai) -> str:
+        """Couleur d'un essai : fixée par sa place dans la liste (la même dans la liste et sur les courbes)."""
+        index = next((i for i, e in enumerate(self._view_model.essais) if e is essai), 0)
+        return COULEURS[index % len(COULEURS)]
 
     def _essai_at(self, row: int) -> Essai | None:
         if 0 <= row < len(self._view_model.essais):
@@ -379,6 +412,7 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         if self._view_model.is_running():
             return
         self._plots_widget.clear()
+        self._set_plots_height(0)
         self.table.setRowCount(0)
         selection = self._essai_at(self.list_essais.currentRow())
         affiches = [self._essai_at(i) for i in range(self.list_essais.count())
@@ -398,32 +432,36 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         plots: dict[str, Any] = {}
         premier = None
         for row, nom in enumerate(noms):
-            plot = self._plots_widget.addPlot(row=row, col=0, title=nom)
+            unite = next((e.unite(nom) for e in affiches if nom in e and e.unite(nom)), "")
+            plot = self._plots_widget.addPlot(row=row, col=0, title=_titre_courbe(nom, unite))
             plot.showGrid(x=True, y=True)
             plot.setLabel("bottom", "t", "s")
             if premier is None:
                 premier = plot
-                plot.addLegend()
             else:
                 plot.setXLink(premier)
             plots[nom] = plot
-        for i, essai in enumerate(affiches):
-            couleur = COULEURS[i % len(COULEURS)]
+        for essai in affiches:
+            couleur = self._couleur(essai)
             largeur = 3 if essai is selection else 1.5
-            titre = _titre_court(essai)
             for nom, plot in plots.items():
                 if nom not in essai:
                     continue
-                plot.plot(essai.t, essai[nom], pen=pg.mkPen(couleur, width=largeur),
-                          name=titre if plot is premier else None)
+                plot.plot(essai.t, essai[nom], pen=pg.mkPen(couleur, width=largeur))
                 if nom == essai.actionneur:
-                    plot.plot(essai.t, essai.consigne, pen=pg.mkPen(couleur, width=1, style=Qt.PenStyle.DashLine),
-                              name=f"consigne {titre}" if plot is premier else None)
+                    plot.plot(essai.t, essai.consigne, pen=pg.mkPen(couleur, width=1, style=Qt.PenStyle.DashLine))
+        self._set_plots_height(len(plots))
         self._show_analyse(selection, list(plots.values()))
+
+    def _set_plots_height(self, n: int):
+        self._plots_widget.setMinimumHeight(n * HAUTEUR_COURBE)
 
     def _show_analyse(self, essai: Essai | None, plots: list):
         classe = self._view_model.analyses.commandes.get(self.cb_analyse.currentText())
-        self.lbl_analyse.setText(classe.description if classe is not None else "")
+        self.lbl_analyse.setText(classe.description if classe is not None else
+                                 "Aucune analyse : écrivez la vôtre dans mir_user_scripts/analyses/ "
+                                 "(exemple : ecart_de_suivi.py), puis relisez les fichiers (bouton loupe à côté "
+                                 "de la sollicitation).")
         if essai is None or classe is None:
             return
         resultat = self._view_model.analyser(self.cb_analyse.currentText(), essai)

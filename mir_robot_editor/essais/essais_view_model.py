@@ -7,7 +7,6 @@ import time
 import traceback
 from enum import Enum, auto
 from pathlib import Path
-from threading import Lock
 from typing import Any, Callable
 from loguru import logger
 from PySide6.QtCore import Signal
@@ -24,7 +23,7 @@ REGLAGES_MOTEUR = {
     "P": ("P", 0, 255),
     "I": ("I", 0, 255),
     "D": ("D", 0, 255),
-    "position_mode_velocity": ("Vitesse max (unités STS)", 0, 3000),
+    "position_mode_velocity": ("Vitesse max (tr/min)", 1, 200),
     "torque_limit": ("Couple max (‰)", 0, 1000),
 }
 
@@ -33,6 +32,7 @@ class EssaisVMAction(Enum):
     LANCER = auto()
     ARRETER = auto()
     OUVRIR = auto()
+    ENREGISTRER = auto()
 
 
 class EssaisViewModel(ViewModelBase[EssaisVMAction]):
@@ -51,6 +51,7 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         self._actions[EssaisVMAction.LANCER] = VMAction("Lancer l'essai", "Amener l'actionneur à sa valeur initiale puis appliquer la sollicitation")
         self._actions[EssaisVMAction.ARRETER] = VMAction("Arrêter", "Interrompre l'essai en cours")
         self._actions[EssaisVMAction.OUVRIR] = VMAction("Ouvrir un essai...", "Ajouter à la liste un essai enregistré", enabled=True)
+        self._actions[EssaisVMAction.ENREGISTRER] = VMAction("Enregistrer l'essai...", "Enregistrer l'essai sélectionné dans un fichier", enabled=True)
         self._motor_settings = motor_settings or (lambda motor: {})
         self._apply_motor_settings = apply_motor_settings
         self._conditions = conditions or (lambda: {})
@@ -60,8 +61,6 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         self._worker = BackgroundWorker()
         self._running = False
         self._stop = False
-        self._live_lock = Lock()
-        self._live: dict[str, list[float]] = {}
         self.sollicitations = CommandesDisponibles()
         self.analyses = CommandesDisponibles()
         self.essais: list[Essai] = []
@@ -99,6 +98,15 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         if self._robot is None:
             return {}
         return {nom: action.get_unit() for nom, action in self._robot.action_features.items()}
+
+    def unite(self, nom: str) -> str:
+        """Unité d'une grandeur mesurée (ou d'une action) du robot connecté."""
+        if self._robot is None:
+            return ""
+        prop = self._robot.get_observables().get(nom)
+        if prop is not None:
+            return getattr(prop, "unit", "")
+        return self.actionneurs().get(nom, "")
 
     def grandeurs(self, actionneur: str) -> list[str]:
         """Grandeurs mesurables (scalaires) du moteur de l'actionneur."""
@@ -149,15 +157,13 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
             # en simulation, on visualise le mouvement : les mesures se font sur le robot réel
             grandeurs = [actionneur] if actionneur in self.grandeurs(actionneur) else []
         conditions = {**self._conditions(), "reglages_moteur": self.reglages(actionneur), "grandeurs": grandeurs}
-        with self._live_lock:
-            self._live = {"t": [], "consigne": [], **{nom: [] for nom in grandeurs}}
         self._stop = False
         self._running = True
         self._update_actions()
         self.busy_state_changed.emit(True)
         robot = self._robot
         self._worker.run(lambda: lancer_essai(robot, sollicitation, fps=fps, observations=grandeurs,
-                                              conditions=conditions, progression=self._progression,
+                                              conditions=conditions,
                                               arret=lambda: self._stop),
                          self._on_termine, self._on_echec, self)
 
@@ -166,19 +172,6 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
 
     def is_running(self) -> bool:
         return self._running
-
-    def _progression(self, t: float, observation: dict[str, Any], consigne: float):
-        with self._live_lock:
-            self._live["t"].append(t)
-            self._live["consigne"].append(consigne)
-            for nom, valeurs in self._live.items():
-                if nom not in ("t", "consigne") and nom in observation:
-                    valeurs.append(float(observation[nom]))
-
-    def live_data(self) -> dict[str, list[float]]:
-        """Mesures de l'essai en cours (copie), pour l'affichage pendant l'essai."""
-        with self._live_lock:
-            return {nom: list(valeurs) for nom, valeurs in self._live.items()}
 
     def _fin(self):
         self._running = False
@@ -189,14 +182,6 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         self._fin()
         if essai.conditions.get("simulation"):
             return      # pas de mesures en simulation : rien à enregistrer ni à analyser
-        try:
-            DOSSIER_ESSAIS.mkdir(parents=True, exist_ok=True)
-            mode = "simule" if essai.conditions.get("simulation") else "reel"
-            nom = f"{time.strftime('%Y-%m-%d_%H-%M-%S')}_{essai.conditions['sollicitation']['nom']}_{essai.actionneur}_{mode}"
-            essai.enregistrer(DOSSIER_ESSAIS / f"{nom}.npz")
-        except Exception as e:
-            logger.error(f"essai non enregistré : {e}")
-            self._dialogProvider.exception(e, "L'essai n'a pas pu être enregistré")
         self.essais.append(essai)
         self.essais_changed.emit()
         self.essai_termine.emit(essai)
@@ -221,8 +206,47 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
             return
         self.essais_changed.emit()
 
+    @staticmethod
+    def _chemin_par_defaut(essai: Essai) -> Path:
+        # ex. 2026-10-16_12h55m29_joint_1_Echelon_0-30deg_500Hz_reel.npz
+        mode = "simule" if essai.conditions.get("simulation") else "reel"
+        moteur = essai.actionneur.split(".")[0]
+        fps = essai.conditions.get("fps")
+        date = str(essai.conditions.get("date") or time.strftime("%Y-%m-%d %H:%M:%S"))     # instant de l'essai
+        date = date.replace(" ", "_").replace(":", "h", 1).replace(":", "m", 1)
+        nom = f"{date}_{moteur}_{essai.resume_sollicitation(fichier=True)}" \
+              f"{f'_{fps:g}Hz' if fps else ''}_{mode}"
+        return DOSSIER_ESSAIS / f"{nom}.npz"
+
+    def _enregistrer(self, essai: Essai, chemin: str | Path) -> bool:
+        try:
+            Path(chemin).parent.mkdir(parents=True, exist_ok=True)
+            essai.enregistrer(chemin)
+            return True
+        except Exception as e:
+            logger.error(f"essai non enregistré : {e}")
+            self._dialogProvider.exception(e, "L'essai n'a pas pu être enregistré")
+            return False
+
+    def enregistrer(self, index: int):
+        """Enregistre l'essai choisi, dans le fichier choisi par l'utilisateur."""
+        if not 0 <= index < len(self.essais):
+            return
+        essai = self.essais[index]
+        chemin = self._dialogProvider.save_file("Enregistrer l'essai", str(essai.chemin or self._chemin_par_defaut(essai)),
+                                                "Essai MIR (*.npz)", try_use_last_directory=False)
+        if not chemin:
+            return
+        if not chemin.endswith(".npz"):
+            chemin += ".npz"
+        if self._enregistrer(essai, chemin):
+            self.essais_changed.emit()
+
     def retirer(self, index: int):
         if 0 <= index < len(self.essais):
+            if self.essais[index].chemin is None and not self._dialogProvider.question_yes_no(
+                    "Retirer l'essai", "Cet essai n'est pas enregistré : il sera perdu.\r\nLe retirer quand même ?"):
+                return
             del self.essais[index]
             self.essais_changed.emit()
 

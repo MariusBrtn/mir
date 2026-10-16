@@ -117,7 +117,8 @@ class MotorConfigurationViewModel(ViewModelBase):
         
         if self._temp_bus is not None:
             if self._motors[name].operating_mode == OperatingMode.POSITION:
-                self._temp_bus.mir_goal_position(name, pos, vel)
+                mini, maxi = self._temp_bus.mir_get_motor_position_range(name)     # butées de la calibration
+                self._temp_bus.mir_goal_position(name, min(max(pos, mini), maxi), vel)
             else:
                 self._temp_bus.mir_goal_velocity(name, vel)
 

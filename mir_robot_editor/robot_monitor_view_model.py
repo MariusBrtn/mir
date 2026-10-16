@@ -11,7 +11,7 @@ from mir_utils.metrics import SimpleMovingAverage, Stats, DataRecorder
 from mir_utils.period_waiters import PeriodWaiterExact
 from mir_utils.concurrency import BackgroundWorker
 from mir_robot.mir_robot import mirRobot
-from mir_robot.commande import Commande, CommandesDisponibles, ExecutionCommande, decouvrir_commandes
+from mir_robot.commande import Commande, CommandesDisponibles, ExecutionCommande, decouvrir_commandes, verifier_action
 from mir_utils.keyboard_listener import KeyQueue
 from mir_devices.mir_device import ActionValue
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
@@ -128,7 +128,8 @@ class RobotMonitorViewModel(ViewModelBase[RobotMonitorVMAction]):
                 if not self._tour_commande(observations):
                     action:dict[str, ActionValue]|None = self.get_robot_action()
                     if action:
-                        self._robot.send_action(action)
+                        # consigne manuelle (curseurs) : bornée aux butées, comme celles des commandes
+                        self._robot.send_action(verifier_action(action, self._robot.action_features))
                 period_waiter.wait()
         finally:
             if self._execution is not None:

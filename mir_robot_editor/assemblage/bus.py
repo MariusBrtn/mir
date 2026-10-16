@@ -85,6 +85,8 @@ class BusFeetech:
         self._bus.motors[moteur].id = nouvel_id
         self._ids[moteur] = nouvel_id
         self._bus.setup_motor(moteur, initial_baudrate=self._bus.default_baudrate, initial_id=ancien_id)
+        # setup_motor laisse l'EEPROM déverrouillée : chaque réglage écrit ensuite (à chaque connexion) l'userait
+        self._bus.write("Lock", moteur, 1)
 
     @_verrouille
     def debut_calibration(self, moteur: str) -> None:

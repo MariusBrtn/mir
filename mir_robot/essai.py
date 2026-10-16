@@ -19,10 +19,9 @@ from typing import Any, Callable
 import numpy as np
 from mir_devices.mir_device import ObservablePropertyFloat, ObservablePropertyConverter
 from mir_utils.metrics import DataRecorder
-from mir_utils.period_waiters import PeriodWaiterExact
+from mir_utils.period_waiters import PeriodWaiterSafeForJitter
 from mir_robot.commande import Commande, Parametre, verifier_action
 
-DOSSIER_ANALYSES_FOURNIES = Path(__file__).parent / "analyses"
 DOSSIER_ANALYSES_UTILISATEUR = Path(__file__).parent.parent / "mir_user_scripts" / "analyses"
 CONSIGNE = "consigne"           # nom de la série de la consigne dans un essai
 PREPARATION_MAX_S = 3.0         # durée maximale pour amener l'actionneur à sa consigne initiale
@@ -100,6 +99,29 @@ class Essai:
     def __contains__(self, nom: str) -> bool:
         return nom in self._series
 
+    def resume_sollicitation(self, fichier: bool = False) -> str:
+        """Sollicitation en quelques mots, ex. « Échelon 0 → 30° », « Créneau 0 ↔ 30°, période 2 s ».
+        fichier : version sans caractères spéciaux, pour un nom de fichier (ex. « Echelon_0-30deg »)."""
+        s = self.conditions.get("sollicitation", {})
+        p = s.get("parametres", {})
+        u = {"deg": "°"}.get(self.unite(self.actionneur), self.unite(self.actionneur))
+        def n(nom):
+            return f"{p[nom]:g}"
+        if "initiale" in p and "finale" in p:
+            texte = f"{n('initiale')} → {n('finale')}{u}" + (f" en {n('montee')} s" if "montee" in p else "")
+        elif "basse" in p and "haute" in p:
+            texte = f"{n('basse')} ↔ {n('haute')}{u}" + (f", période {n('periode')} s" if "periode" in p else "")
+        elif "centre" in p and "amplitude" in p:
+            texte = f"{n('centre')} ± {n('amplitude')}{u}" + (f", période {n('periode')} s" if "periode" in p else "")
+        else:
+            texte = ""     # sollicitation écrite par l'utilisateur : son nom suffit
+        texte = f"{s.get('nom', '')} {texte}".strip()
+        if fichier:
+            for avant, apres in ((" → ", "-"), (" ↔ ", "-"), (" ± ", "pm"), ("°", "deg"), (",", ""), (" ", "_"),
+                                 ("É", "E"), ("é", "e"), ("è", "e"), ("ê", "e"), ("à", "a"), ("/", "-")):
+                texte = texte.replace(avant, apres)
+        return texte
+
     def titre(self) -> str:
         c = self.conditions
         mode = "simulé" if c.get("simulation") else "réel"
@@ -161,8 +183,10 @@ def lancer_essai(robot, sollicitation: Sollicitation, fps: float = 50, observati
 
     # 2. essai
     recorder = DataRecorder(proprietes, int(duree * fps * 1.2) + 10)
-    periode = PeriodWaiterExact(1 / fps)
+    # grille régulière : un pas en retard fait sauter le suivant, plutôt que d'enchaîner des mesures en rafale
+    periode = PeriodWaiterSafeForJitter(1 / fps)
     recorder.start()
+    cycles: list[float] = []        # durée d'un pas (consigne envoyée + mesures lues) : marge sur la période
     debut = time.perf_counter()
     try:
         while True:
@@ -173,6 +197,7 @@ def lancer_essai(robot, sollicitation: Sollicitation, fps: float = 50, observati
             robot.send_action(verifier_action({actionneur: consigne}, actions))
             observation = robot.get_observation()
             recorder.append({**observation, CONSIGNE: consigne})
+            cycles.append(time.perf_counter() - debut - t)
             if progression is not None:
                 progression(t, observation, consigne)
             periode.wait()
@@ -182,13 +207,16 @@ def lancer_essai(robot, sollicitation: Sollicitation, fps: float = 50, observati
     series = {nom: recorder.get(nom).copy() for nom in proprietes}
     series["__timestamps__"] = recorder.get("__timestamps__").copy()
     tout = {"date": time.strftime("%Y-%m-%d %H:%M:%S"), "fps": fps, "sollicitation": sollicitation.decrire()}
+    if cycles:
+        c = np.array(cycles) * 1000
+        tout["duree_cycle_ms"] = {"mediane": round(float(np.median(c)), 3), "p99": round(float(np.percentile(c, 99)), 3),
+                                  "max": round(float(c.max()), 3)}
     tout.update(conditions or {})
     return Essai(series, tout, {nom: {k: v for k, v in p.items() if k != "dtype"} for nom, p in proprietes.items()})
 
 
 class Analyse:
-    """Classe de base des analyses d'essai. MIR les trouve dans mir_robot/analyses/ (fournies) et
-    mir_user_scripts/analyses/ (utilisateur).
+    """Classe de base des analyses d'essai, écrites par les élèves : MIR les trouve dans mir_user_scripts/analyses/.
 
         class MonAnalyse(Analyse):
             nom = "Mon analyse"
@@ -213,4 +241,5 @@ class Analyse:
 def decouvrir_analyses(dossiers: list[Path] | None = None):
     """Analyses disponibles (fournies et utilisateur), même fonctionnement que decouvrir_commandes."""
     from mir_robot.commande import decouvrir_commandes
-    return decouvrir_commandes(dossiers or [DOSSIER_ANALYSES_FOURNIES, DOSSIER_ANALYSES_UTILISATEUR], classe_base=Analyse)
+    # pas d'analyse fournie par MIR : analyser les essais est le travail des élèves
+    return decouvrir_commandes(dossiers or [DOSSIER_ANALYSES_UTILISATEUR], classe_base=Analyse)

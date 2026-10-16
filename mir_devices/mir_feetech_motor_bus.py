@@ -89,6 +89,9 @@ sts3215_registers: dict[str, Register] = {
 }
 
 RPM_PER_UNIT = 0.732
+# adresses des mesures dans le STS3215 (lues d'un bloc par _read_observations_block)
+BLOCK_START = POSITION_ADDR = 56
+VELOCITY_ADDR, LOAD_ADDR, TEMPERATURE_ADDR, CURRENT_ADDR = 58, 60, 63, 69
 
 
 @dataclass
@@ -97,7 +100,7 @@ class mirMotor(Motor):
     P:int = 16
     I:int = 0 #noqa E741
     D:int = 32
-    position_mode_velocity: int = 100 #vitesse lorsque le moteur est en mode POSITION
+    position_mode_velocity: int = 100 #vitesse max en mode POSITION, en tr/min (convertie en unités STS de 0.732 tr/min)
     torque_limit: int = 250 #couple maximum en 0.1% 
 
 
@@ -141,6 +144,7 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
         self._mir_calibration:dict[str, mirMotorCalibration] = config.calibration
         super().__init__(self._port, cast(dict[str, Motor], self._mir_motors),  cast(dict[str, MotorCalibration], self._mir_calibration))
         self._mir_is_calibrated_changed = Event_[[bool]]()
+        self._sent_velocities: dict[str, int | float] = {}     # vitesse max (mode position) déjà écrite, par moteur
         self._mir_is_calibrated = False
         self._mir_is_ready = False
         for motor_name, motor_cfg in self._mir_motors.items():
@@ -158,7 +162,9 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
         return self._mir_is_calibrated
 
     def _set_is_calibrated(self, calibrated:bool):
-        self._mir_is_calibrated = calibrated 
+        self._mir_is_calibrated = calibrated
+        if self._mir_is_ready:
+            self._update_action_ranges()        # les butées changent avec la calibration
         self.mir_is_calibrated_changed.fire(self._mir_is_calibrated)         
 
     def mir_uncalibrated_reason(self)->str:
@@ -213,22 +219,28 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
             super().connect(True)   
             self._mir_is_ready = True
             mirFeetechMotorsBus._bus_connected[self._config.motor_port] = True
+            # calibration connue AVANT de lire les positions et de calculer les plages des consignes : sinon les
+            # plages restaient celles d'un moteur non calibré (0 à 4095), et MIR ne bornait plus les consignes
+            self._set_is_calibrated(self.is_calibrated)
             positions = self.mir_read_positions()
             velocities = self.mir_read_velocities()
             for motor_name, motor_cfg in self._mir_motors.items():
                 if motor_cfg.operating_mode == OperatingMode.POSITION:
                     self._actions[f"{motor_name}.{ACTION_POSITION_SUFFIX}"].set_value(positions[motor_name])
-                    range = self.mir_get_motor_position_range(motor_name)
-                    self._actions[f"{motor_name}.{ACTION_POSITION_SUFFIX}"].set_range(range)
-                elif motor_cfg.operating_mode == OperatingMode.VELOCITY:                        
+                elif motor_cfg.operating_mode == OperatingMode.VELOCITY:
                     self._actions[f"{motor_name}.{ACTION_VELOCITY_SUFFIX}"].set_value(velocities[motor_name])
-                    range = self.mir_get_motor_velocity_range(motor_name)
-                    self._actions[f"{motor_name}.{ACTION_VELOCITY_SUFFIX}"].set_range(range)
-
+            self._update_action_ranges()
         except BaseException as e:
             self._mir_is_ready = False
             raise e
-        self._set_is_calibrated(self.is_calibrated)
+
+    def _update_action_ranges(self):
+        """Plages des consignes (bornées par verifier_action) : les butées de la calibration."""
+        for motor_name, motor_cfg in self._mir_motors.items():
+            if motor_cfg.operating_mode == OperatingMode.POSITION:
+                self._actions[f"{motor_name}.{ACTION_POSITION_SUFFIX}"].set_range(self.mir_get_motor_position_range(motor_name))
+            elif motor_cfg.operating_mode == OperatingMode.VELOCITY:
+                self._actions[f"{motor_name}.{ACTION_VELOCITY_SUFFIX}"].set_range(self.mir_get_motor_velocity_range(motor_name))
                
     def mir_disconnect(self):
         if self.is_connected:
@@ -316,8 +328,11 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
         self._check_mir_is_ready()
         #Les vitesses sont en RPM. Avec Phase=0 (forcé à dans configure), l'unité de vitesse est de 0.732RPM
         if isinstance(velocities, dict):
+            for key in velocities:
+                self._sent_velocities.pop(key, None)
             velocities = {key: int(val / RPM_PER_UNIT + 0.5) for key, val in velocities.items()}
         else:
+            self._sent_velocities.clear()
             velocities = int(velocities / RPM_PER_UNIT + 0.5)
         """Déplace un ou plusieurs moteurs à des vitesses données."""
         self.sync_write("Goal_Velocity", velocities, normalize=False)
@@ -325,8 +340,12 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
     def mir_goal_positions(self, positions:dict[str, int|float] | int | float, velocities: dict[str, int|float]|None):
         self._check_mir_is_ready()
         if velocities is not None:
-            self.mir_goal_velocities(velocities)
-            time.sleep(0.001)            
+            # la vitesse max n'est réécrite que si elle a changé : un échange (et 1 ms d'attente) de moins par pas
+            changed = {m: v for m, v in velocities.items() if self._sent_velocities.get(m) != v}
+            if changed:
+                self.mir_goal_velocities(changed)
+                self._sent_velocities.update(changed)
+                time.sleep(0.001)
         if self._mir_is_calibrated:
             self.sync_write("Goal_Position", positions, normalize=True)
         else:
@@ -335,6 +354,7 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
     def mir_goal_velocity(self, name: str, velocity: int|float) -> None:
         self._check_mir_is_ready()
         velocity = int(velocity / RPM_PER_UNIT + 0.5)
+        self._sent_velocities.pop(name, None)
         self.write("Goal_Velocity", name, velocity)
 
     @staticmethod
@@ -377,17 +397,19 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
     def mir_read_velocities(self, motors: list[str]|None = None) -> dict[str, int|float]:
         self._check_mir_is_ready()
         result = self.sync_read("Present_Velocity", motors)
-        return {key: int(val * RPM_PER_UNIT + 0.5) for key, val in result.items()}
+        return {key: round(val * RPM_PER_UNIT, 2) for key, val in result.items()}
 
     def mir_read_currents(self, motors: list[str]|None = None) -> dict[str, int|float]:            
         self._check_mir_is_ready()
         raw_currents = self.sync_read("Present_Current", motors)
-        return {key: int(val * 6.5 + 0.5) for key, val in raw_currents.items()}
+        return {key: round(val * 6.5, 1) for key, val in raw_currents.items()}      # 6.5 mA par unité
     
     def mir_read_loads(self, motors: list[str]|None = None) -> dict[str, int|float]:
         self._check_mir_is_ready()
-        raw_loads = self.sync_read("Present_Load", motors)
-        return {key: int(val / 10.0) for key, val in raw_loads.items()}
+        raw_loads = self.sync_read("Present_Load", motors, normalize=False)
+        # 0.1 % par unité ; le bit 10 donne le sens (non décodé par LeRobot) : sinon, une charge dans l'autre sens
+        # apparaissait comme 102,4 % et plus
+        return {key: (-1 if int(val) & 0x400 else 1) * (int(val) & 0x3FF) / 10.0 for key, val in raw_loads.items()}
     
     def mir_read_temperatures(self, motors: list[str]|None = None) -> dict[str, int|float]:            
         self._check_mir_is_ready()
@@ -459,6 +481,7 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
             self.write("D_Coefficient", motor_name, motor.D)
             self.write("Moving_Velocity_Threshold", motor_name, 0)
             self.write("Goal_Velocity", motor_name, 0)
+            self._sent_velocities.pop(motor_name, None)
             self.write("Torque_Limit", motor_name, motor.torque_limit)
             phase = self.read("Phase", motor_name)
             if phase != 0:
@@ -490,30 +513,62 @@ class mirFeetechMotorsBus(FeetechMotorsBus, ImirFeetechMotorBus):
         return (-max_, max_)
     
     def get_observation(self) -> dict[str, ObservationValue]:
-        observation : dict[str, ObservationValue]= {}
-        if len(self.subscribed_observations) > 0:
-            positions_features = [feature.split(".")[0] for feature in self.subscribed_observations if feature.endswith(f".{POSITION_SUFFIX}")]
-            if len(positions_features) > 0:
-                positions = {f"{key}.{POSITION_SUFFIX}":value for key, value in self.mir_read_positions(positions_features).items()}
-                observation.update(positions)
-            velocities_features = [feature.split(".")[0] for feature in self.subscribed_observations if feature.endswith(f".{VELOCITY_SUFFIX}")]                
-            if len(velocities_features) > 0:
-                velocities = {f"{key}.{VELOCITY_SUFFIX}":value for key, value in self.mir_read_velocities(velocities_features).items()}
-                observation.update(velocities)
-            currents_features = [feature.split(".")[0] for feature in self.subscribed_observations if feature.endswith(f".{CURRENT_SUFFIX}")]
-            if len(currents_features) > 0:
-                currents = {f"{key}.{CURRENT_SUFFIX}":value for key, value in self.mir_read_currents(currents_features).items()}
-                observation.update(currents)
-            temperatures_features = [feature.split(".")[0] for feature in self.subscribed_observations if feature.endswith(TEMPERATURE_SUFFIX)]
-            if len(temperatures_features) > 0:
-                temperatures = {f"{key}.{TEMPERATURE_SUFFIX}":value for key, value in self.mir_read_temperatures(temperatures_features).items()}
-                observation.update(temperatures)
-            loads_features = [feature.split(".")[0] for feature in self.subscribed_observations if feature.endswith(LOAD_SUFFIX)]
-            if len(loads_features) > 0:
-                loads = {f"{key}.{LOAD_SUFFIX}":value for key, value in self.mir_read_loads(loads_features).items()}
-                observation.update(loads)
-        return observation
+        if len(self.subscribed_observations) == 0:
+            return {}
+        return self._read_observations_block()
     
+    def _read_observations_block(self) -> dict[str, ObservationValue]:
+        """Toutes les grandeurs abonnées en UN échange sur le bus : les registres Present_Position (56) à
+        Present_Temperature (63), et Present_Current (69) si besoin, sont lus d'un bloc pour chaque moteur.
+        Un échange par grandeur coûte un aller-retour USB de plus chacun."""
+        self._check_mir_is_ready()
+        voulues: dict[str, set[str]] = {}
+        for feature in self.subscribed_observations:
+            motor, _, suffix = feature.partition(".")
+            if motor in self._mir_motors:
+                voulues.setdefault(suffix, set()).add(motor)
+        if not voulues:
+            return {}
+        motors = sorted(set().union(*voulues.values()))
+        ids = [self.motors[m].id for m in motors]
+        debut = BLOCK_START
+        longueur = (CURRENT_ADDR + 2 if CURRENT_SUFFIX in voulues else TEMPERATURE_ADDR + 1) - debut
+        self._sync_read(debut, longueur, ids, raise_on_error=True,
+                        err_msg=f"Échec de la lecture des mesures des moteurs {motors}")
+        def lire(motor: str, addr: int, size: int) -> int:
+            return int(self.sync_reader.getData(self.motors[motor].id, addr, size))
+        observation: dict[str, ObservationValue] = {}
+        if POSITION_SUFFIX in voulues:
+            raw = {m: lire(m, POSITION_ADDR, 2) for m in voulues[POSITION_SUFFIX]}
+            observation.update({f"{m}.{POSITION_SUFFIX}": v for m, v in self._positions_from_raw(raw).items()})
+        for m in voulues.get(VELOCITY_SUFFIX, ()):
+            raw = lire(m, VELOCITY_ADDR, 2)
+            vitesse = -(raw & 0x7FFF) if raw & 0x8000 else raw          # bit 15 : sens
+            observation[f"{m}.{VELOCITY_SUFFIX}"] = round(vitesse * RPM_PER_UNIT, 2)
+        for m in voulues.get(LOAD_SUFFIX, ()):
+            raw = lire(m, LOAD_ADDR, 2)
+            observation[f"{m}.{LOAD_SUFFIX}"] = (-1 if raw & 0x400 else 1) * (raw & 0x3FF) / 10.0   # bit 10 : sens
+        for m in voulues.get(TEMPERATURE_SUFFIX, ()):
+            observation[f"{m}.{TEMPERATURE_SUFFIX}"] = lire(m, TEMPERATURE_ADDR, 1)
+        for m in voulues.get(CURRENT_SUFFIX, ()):
+            observation[f"{m}.{CURRENT_SUFFIX}"] = round(lire(m, CURRENT_ADDR, 2) * 6.5, 1)     # 6.5 mA par unité
+        return observation
+
+    def _positions_from_raw(self, raw: dict[str, int]) -> dict[str, float]:
+        """Positions brutes -> positions de MIR (même calcul que mir_read_positions)."""
+        if not self._mir_is_calibrated or self._mir_calibration is None:
+            return {m: float(v) for m, v in raw.items()}
+        positions: dict[str, float] = {}
+        en_position = {self.motors[m].id: v for m, v in raw.items()
+                       if self._mir_motors[m].operating_mode != OperatingMode.VELOCITY}
+        if en_position:
+            normalized = self._normalize(self._decode_sign("Present_Position", en_position))
+            positions.update({self._id_to_name(i): float(v) for i, v in normalized.items()})
+        for m, v in raw.items():
+            if self._mir_motors[m].operating_mode == OperatingMode.VELOCITY:
+                positions[m] = mirFeetechMotorsBus.mir_normalize_motor_pos_for_velocity_mode(v, self._mir_calibration[m])
+        return positions
+
     def get_observables(self) -> dict[str, ObservableProperty]:
         try:
             should_disconnect = False
