@@ -751,3 +751,89 @@ class CodeEditorWidget(QWidget):
 
     def clear_text(self):
         self.editor.clear()
+
+
+class PythonHighlighter(QSyntaxHighlighter):
+    """Coloration syntaxique Python simple : mots-clés, chaînes, nombres, commentaires, décorateurs."""
+    KEYWORDS = ("False None True and as assert async await break class continue def del elif else except finally "
+                "for from global if import in is lambda nonlocal not or pass raise return try while with yield self").split()
+
+    def __init__(self, document, theme_name="dark"):
+        super().__init__(document)
+        self.formats = {name: QTextCharFormat() for name in ("keyword", "string", "number", "comment", "definition")}
+        self.rules = [
+            (re.compile(r"\b(?:" + "|".join(self.KEYWORDS) + r")\b"), "keyword"),
+            (re.compile(r"\b(?:def|class)\s+(\w+)"), "definition"),
+            (re.compile(r"\b\d+(?:\.\d+)?\b"), "number"),
+            (re.compile(r"@\w+"), "definition"),
+            (re.compile(r"'[^'\\]*(?:\\.[^'\\]*)*'|\"[^\"\\]*(?:\\.[^\"\\]*)*\""), "string"),
+            (re.compile(r"#[^\n]*"), "comment"),
+        ]
+        self.triple = re.compile(r'"""|\'\'\'')
+        self.applyTheme(THEMES[theme_name])
+
+    def applyTheme(self, theme):
+        self.formats["keyword"].setForeground(QColor(theme["syntax_keyword"]))
+        self.formats["string"].setForeground(QColor(theme["syntax_string"]))
+        self.formats["number"].setForeground(QColor(theme["syntax_number"]))
+        self.formats["comment"].setForeground(QColor(theme["syntax_comment"]))
+        self.formats["comment"].setFontItalic(True)
+        self.formats["definition"].setForeground(QColor(theme["syntax_key"]))
+        self.formats["definition"].setFontWeight(QFont.Weight.Bold)
+
+    def highlightBlock(self, text):
+        for regex, name in self.rules:
+            for match in regex.finditer(text):
+                start, end = (match.start(1), match.end(1)) if match.groups() else (match.start(), match.end())
+                self.setFormat(start, end - start, self.formats[name])
+        # chaînes sur plusieurs lignes (docstrings) : état 1 = à l'intérieur
+        start = 0
+        if self.previousBlockState() == 1:
+            match = self.triple.search(text)
+            end = match.end() if match else len(text)
+            self.setFormat(0, end, self.formats["string"])
+            if not match:
+                self.setCurrentBlockState(1)
+                return
+            start = end
+        self.setCurrentBlockState(0)
+        while True:
+            opening = self.triple.search(text, start)
+            if not opening:
+                return
+            closing = self.triple.search(text, opening.end())
+            end = closing.end() if closing else len(text)
+            self.setFormat(opening.start(), end - opening.start(), self.formats["string"])
+            if not closing:
+                self.setCurrentBlockState(1)
+                return
+            start = end
+
+
+class PythonCodeEditor(CodeEditor):
+    """Éditeur de code Python : coloration Python, tabulation = 4 espaces, indentation après « : »."""
+    PY_INDENT = 4
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTabStopDistance(self.fontMetrics().horizontalAdvance(' ') * self.PY_INDENT)
+        self.highlighter.setDocument(None)
+        self.highlighter = PythonHighlighter(self.document(), "dark")
+        self.highlighter.applyTheme(self.current_theme)
+
+    def keyPressEvent(self, event):
+        cursor = self.textCursor()
+        if event.key() == Qt.Key.Key_Tab:
+            cursor.insertText(" " * self.PY_INDENT)
+            event.accept()
+            return
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            line = cursor.block().text()[: cursor.positionInBlock()]
+            indentation = " " * (len(line) - len(line.lstrip(" ")))
+            if line.rstrip().endswith(":"):
+                indentation += " " * self.PY_INDENT
+            cursor.insertText("\n" + indentation)
+            self.ensureCursorVisible()
+            event.accept()
+            return
+        super().keyPressEvent(event)

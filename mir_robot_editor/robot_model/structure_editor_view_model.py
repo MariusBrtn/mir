@@ -4,6 +4,8 @@
 La liste de gauche contient :
   - les modules détectés de la configuration, chacun une seule fois (bijection) : un module motorisé par moteur
     du bus (servo, pince...), un module caméra par caméra ;
+  - les modules du catalogue qui portent un moteur ou un capteur, utilisables autant de fois que nécessaire :
+    chaque module déposé crée un nouveau moteur ou capteur (conception d'un robot sans matériel) ;
   - les blocs de structure inertes du catalogue (socle, jonction...), utilisables autant de fois que nécessaire.
 On les dépose dans la vue 3D : la position est entièrement déterminée par le connecteur choisi (pas de
 placement libre). Le socle est toujours présent (bâti par défaut). Le catalogue n'est pas modifiable ici.
@@ -44,11 +46,12 @@ class StructureEditorVMAction(Enum):
 @dataclass
 class PaletteItem:
     """Élément de la liste de gauche."""
-    key: str                    # "unplaced:<module>", "motor:joint_1", "sensor:cam_1" ou "block:mir_jonction"
+    key: str                    # "unplaced:<module>", "motor:joint_1", "sensor:cam_1", "new:mir_servo" ou "block:mir_jonction"
     label: str
     types: list[str]            # types de module possibles (plusieurs : choix au dépôt, ex. servo ou pince)
     placed_as: str | None       # module de la structure qui le représente déjà (modules détectés seulement)
     is_block: bool
+    is_new: bool = False        # module du catalogue : crée un nouveau moteur ou capteur
 
 
 @dataclass
@@ -85,6 +88,9 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._structure.setdefault("unplaced", {})   # modules détectés pas encore branchés
         self._motors = list(config.motor_bus.motors) if config.motor_bus is not None else []
         self._sensors = list(config.sensors)
+        # moteurs et capteurs créés dans cet éditeur par les modules du catalogue (pas encore dans la configuration)
+        self._created_motors: list[str] = []
+        self._created_sensors: list[str] = []
         self._motor_params = motor_params_from_config(config)
         self._built: BuiltModel | None = None
         self._data: mujoco.MjData | None = None
@@ -92,8 +98,8 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._selected: str | None = None
         self._placing: tuple[str, str] | None = None     # (élément de la liste, type de module) en attente d'un connecteur
         self._joint_values: dict[str, float] = {}
-        self._undo: list[tuple[dict[str, Any], str | None]] = []
-        self._redo: list[tuple[dict[str, Any], str | None]] = []
+        self._undo: list[tuple] = []     # instantanés de _snapshot()
+        self._redo: list[tuple] = []
         self._accepted = False
         add = self._actions.__setitem__
         add(StructureEditorVMAction.UNDO, VMAction("Annuler l'action", "Annuler la dernière modification de la structure"))
@@ -148,8 +154,10 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         (configuration plus ancienne), le type est demandé au dépôt."""
         items: list[PaletteItem] = []
         hardware = [(f"motor:{motor}", self._motor_label(motor), {"motor": motor}, motor_module_types(self._catalog))
-                    for motor in self._motors]
+                    for motor in self._motors if motor not in self._created_motors]
         for sensor in self._sensors:
+            if sensor in self._created_sensors:
+                continue
             types = sensor_module_types(self._catalog, self._config.sensors[sensor].sensor_type)
             if types:
                 hardware.append((f"sensor:{sensor}", sensor, {"sensor": sensor}, types))
@@ -164,6 +172,10 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
                                          [module_type], None, False))
             else:
                 items.append(PaletteItem(fallback_key, label, types, None, False))
+        for module_type, module in self._catalog.items():
+            if module.get("joints") or module.get("sensors"):
+                items.append(PaletteItem(f"new:{module_type}", module_type.removeprefix("mir_"), [module_type], None,
+                                         False, is_new=True))
         for module_type, module in self._catalog.items():
             if not module.get("joints") and not module.get("sensors"):
                 items.append(PaletteItem(f"block:{module_type}", module_type.removeprefix("mir_"), [module_type], None, True))
@@ -270,6 +282,27 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         elif kind == "sensor":
             name = self._unique_name(hardware_module_name(module_type, ref))
             instance["sensors"] = {module_sensor_key(self._catalog[module_type], self._config.sensors[ref].sensor_type): ref}
+        elif kind == "new":
+            # module du catalogue : nouveau moteur (une articulation) ou nouveaux capteurs
+            module = self._catalog[module_type]
+            if len(module.get("joints", {})) == 1:
+                motor = self._new_hardware_name("joint", self._motors)
+                self._motors.append(motor)
+                self._created_motors.append(motor)
+                instance["motor"] = motor
+                name = self._unique_name(hardware_module_name(module_type, motor))
+            else:
+                name = self._unique_name(module_type.removeprefix("mir_"))
+            sensors = {}
+            for key, sensor in module.get("sensors", {}).items():
+                sensor_name = self._new_hardware_name("cam" if sensor.get("type") == "camera" else key, self._sensors)
+                self._sensors.append(sensor_name)
+                self._created_sensors.append(sensor_name)
+                sensors[key] = sensor_name
+            if sensors:
+                instance["sensors"] = sensors
+                if "motor" not in instance:
+                    name = self._unique_name(hardware_module_name(module_type, next(iter(sensors.values()))))
         else:
             name = self._unique_name(module_type.removeprefix("mir_"))
         instance.update({"on": target, "connector": connector})
@@ -290,6 +323,13 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
     def _connector(self, key: str) -> dict[str, Any]:
         name, _, conn = key.partition(".")
         return self._catalog[self.modules[name]["type"]]["connectors"][conn]
+
+    def _new_hardware_name(self, base: str, taken: list[str]) -> str:
+        """joint_1, joint_2... : premier nom libre parmi les moteurs (ou capteurs) existants."""
+        index = 1
+        while f"{base}_{index}" in taken:
+            index += 1
+        return f"{base}_{index}"
 
     def _unique_name(self, base: str) -> str:
         taken = set(self.modules) | set(self.unplaced)
@@ -375,12 +415,31 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         for name in removed:
             inst = self.modules.pop(name)
             self._joint_values.pop(inst.get("motor"), None)
+            if self._forget_created(inst):
+                continue    # créé dans cet éditeur : il disparaît avec son module
             if "motor" in inst or "motors" in inst or "sensors" in inst:
                 # module qui représente du matériel détecté : il retourne dans la liste, avec son type
                 self.unplaced[name] = {k: v for k, v in inst.items() if k not in ("on", "connector")}
         self._selected = None
         self._rebuild()
         self._update_status()
+
+    def _forget_created(self, inst: dict[str, Any]) -> bool:
+        """Retire les moteurs et capteurs créés dans cet éditeur par ce module ; True si le module en avait créé."""
+        motors = ([inst["motor"]] if "motor" in inst else []) + list(inst.get("motors", {}).values())
+        sensors = list(inst.get("sensors", {}).values())
+        created = [m for m in motors if m in self._created_motors] + [c for c in sensors if c in self._created_sensors]
+        if not created:
+            return False
+        for motor in motors:
+            if motor in self._created_motors:
+                self._created_motors.remove(motor)
+                self._motors.remove(motor)
+        for sensor in sensors:
+            if sensor in self._created_sensors:
+                self._created_sensors.remove(sensor)
+                self._sensors.remove(sensor)
+        return True
 
     def _descendants(self, name: str) -> list[str]:
         result = [name]
@@ -393,8 +452,12 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         return self.modules.get(self._selected) if self._selected is not None else None
 
     # ------------------------------------------------------------------ annuler / rétablir
+    def _snapshot(self) -> tuple:
+        return (deepcopy(self._structure), self._selected, list(self._motors), list(self._sensors),
+                list(self._created_motors), list(self._created_sensors))
+
     def _push_undo(self) -> None:
-        self._undo.append((deepcopy(self._structure), self._selected))
+        self._undo.append(self._snapshot())
         self._redo.clear()
 
     def undo(self) -> None:
@@ -406,8 +469,9 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
     def _restore(self, source: list, target: list) -> None:
         if not source:
             return
-        target.append((deepcopy(self._structure), self._selected))
-        self._structure, self._selected = source.pop()
+        target.append(self._snapshot())
+        (self._structure, self._selected, self._motors, self._sensors,
+         self._created_motors, self._created_sensors) = source.pop()
         self._placing = None
         self._rebuild()
         self._update_status()
@@ -438,7 +502,8 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         if errors:
             self._dialogProvider.warning("Structure invalide", "La structure ne peut pas être enregistrée :\n\n" + "\n".join(errors))
             return
-        missing = [item.label.split()[0] for item in self.palette() if not item.is_block and item.placed_as is None]
+        missing = [item.label.split()[0] for item in self.palette()
+                   if not item.is_block and not item.is_new and item.placed_as is None]
         # les modules non placés restent dans la configuration ("unplaced") : on pourra les placer plus tard
         if missing and not self._dialogProvider.question_yes_no(
                 "Modules non placés",
@@ -521,6 +586,8 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         hardware += list(inst.get("sensors", {}).values())
         if "motor" in inst and self._config.motor_bus is not None and inst["motor"] in self._config.motor_bus.motors:
             hardware[0] += f" (ID {self._config.motor_bus.motors[inst['motor']].id})"
+        elif "motor" in inst and inst["motor"] in self._created_motors:
+            hardware[0] += " (nouveau)"
         self.selection_changed.emit(ModuleInfo(
             name=self._selected, type=inst["type"], description=module.get("description", ""),
             is_root="on" not in inst, fixed=bool(inst.get("fixed", False)),

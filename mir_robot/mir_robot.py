@@ -8,6 +8,20 @@ from mir_devices.mir_devices_factory import ImirDevicesFactory, DefaultDevicesFa
 from mir_robot.mir_robot_config import mirRobotConfig
 from mir_devices.mir_feetech_motor_bus import ImirFeetechMotorBus
 
+# dossier où sont rangées les configurations des robots (un fichier .json par robot, nommé comme le robot)
+DOSSIER_ROBOTS = Path(__file__).parent.parent / "robots"
+
+
+def chemin_robot(nom: str) -> Path:
+    """Fichier de configuration du robot de ce nom, dans le dossier des robots."""
+    return DOSSIER_ROBOTS / f"{nom}.json"
+
+
+def robots_disponibles() -> list[str]:
+    """Noms des robots du dossier des robots."""
+    return sorted(p.stem for p in DOSSIER_ROBOTS.glob("*.json")) if DOSSIER_ROBOTS.is_dir() else []
+
+
 class mirRobot(Robot):
     root_dir = Path(__file__).parent
 

@@ -2,7 +2,8 @@
 from PySide6.QtWidgets import QScrollArea
 from PySide6.QtWidgets import (
     QWidget, QLabel, QVBoxLayout, QHBoxLayout,
-    QCheckBox, QToolBar, QLineEdit, QGridLayout, QToolButton, QFrame
+    QCheckBox, QToolBar, QLineEdit, QGridLayout, QToolButton, QFrame,
+    QComboBox, QStackedWidget
 )
 from PySide6.QtCore import Qt, QSize
 from mir_robot_editor.robot_monitor_view_model import ( 
@@ -30,6 +31,8 @@ class RobotMonitorView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAc
         self._view_model.observation_ready.connect(self.on_observation_ready)
         self._view_model.observations_accepted.connect(self.on_features_accepted)
         self._view_model.fps_changed.connect(self.on_fps_changed)
+        self._view_model.commandes_list_changed.connect(self.on_commandes_list_changed)
+        self._view_model.commande_running_changed.connect(self.on_commande_running_changed)
         toolbar = QToolBar(iconSize=QSize(32, 32))
         
         self._action_apply =   self._make_action(RobotMonitorVMAction.APPLY, self.on_apply_clicked, "apply", toolbar=toolbar)
@@ -122,15 +125,55 @@ class RobotMonitorView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAc
 
         # --- Barre de droite, les actions ---
         right_bar = QVBoxLayout()
-        right_bar_title = QLabel("Actions")
+        right_bar_title = QLabel("Commande")
         right_bar_title.setStyleSheet("font-weight: bold; font-size: 14px;")
         right_bar_title.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         right_bar.addWidget(right_bar_title)
+
+        # choix de la commande : consigne manuelle ou une commande trouvée dans les dossiers de commandes
+        choice_layout = QHBoxLayout()
+        self.cb_commande = QComboBox()
+        self.cb_commande.setMinimumWidth(170)
+        self.cb_commande.currentIndexChanged.connect(self.on_commande_selected)
+        choice_layout.addWidget(self.cb_commande, 1)
+        self.btn_refresh_commandes = ToolButton("scan", self.on_refresh_commandes_clicked, True, "Relire les fichiers de commandes")
+        choice_layout.addWidget(self.btn_refresh_commandes)
+        right_bar.addLayout(choice_layout)
+
+        self.commande_stack = QStackedWidget()
+        # page 0 : consigne manuelle
         self.action_widget = MotorActionWidget(self)
         self.action_widget.motor_action_changed.connect(self.on_motor_action_changed)
-        self.action_widget.emergency_stop_clicked.connect(self.on_emergency_stop_clicked)
-        right_bar.addWidget(self.action_widget)
+        self.commande_stack.addWidget(self.action_widget)
+        # page 1 : commande choisie dans la liste
+        commande_page = QWidget()
+        commande_layout = QVBoxLayout(commande_page)
+        commande_layout.setContentsMargins(8, 8, 8, 8)
+        self.lbl_commande_description = QLabel()
+        self.lbl_commande_description.setWordWrap(True)
+        self.lbl_commande_description.setMaximumWidth(220)
+        commande_layout.addWidget(self.lbl_commande_description)
+        commande_toolbar = QToolBar(iconSize=QSize(32, 32))
+        # références conservées : sinon les QAction sont libérées et disparaissent de la barre
+        self._action_commande_start = self._make_action(RobotMonitorVMAction.COMMANDE_START, lambda: self._view_model.start_commande(), "play", toolbar=commande_toolbar)
+        self._action_commande_stop = self._make_action(RobotMonitorVMAction.COMMANDE_STOP, lambda: self._view_model.stop_commande(), "stop", toolbar=commande_toolbar)
+        commande_layout.addWidget(commande_toolbar)
+        self.lbl_commande_state = QLabel()
+        commande_layout.addWidget(self.lbl_commande_state)
+        commande_layout.addStretch()
+        self.commande_stack.addWidget(commande_page)
+        right_bar.addWidget(self.commande_stack)
+
+        # l'arrêt d'urgence reste visible quelle que soit la commande
+        self.btn_emergency_stop = QToolButton()
+        self.btn_emergency_stop.setIcon(self._icon("emergency_stop"))
+        self.btn_emergency_stop.setToolTip("Arrêt d'urgence")
+        self.btn_emergency_stop.setIconSize(QSize(30, 30))
+        self.btn_emergency_stop.setEnabled(False)
+        self.btn_emergency_stop.clicked.connect(self.on_emergency_stop_clicked)
+        right_bar.addWidget(self.btn_emergency_stop, alignment=Qt.AlignmentFlag.AlignCenter)
         right_bar.addStretch()
+        self.on_commandes_list_changed([])
 
         # layout principal
         main_layout = QHBoxLayout(self)
@@ -144,6 +187,11 @@ class RobotMonitorView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAc
     def save_state(self):
         self.observations_widgets.save_state()
         
+    def select_all_observations_and_apply(self):
+        """Coche toutes les observations et les applique : prêt à démarrer les mesures."""
+        self.on_select_all_features_clicked(True)
+        self.on_apply_clicked()
+
     def on_select_all_features_clicked(self, select: bool):
         #select all checkboxes in options_layout
         for i in range(self.options_layout.count()):
@@ -223,6 +271,34 @@ class RobotMonitorView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAc
 
     def on_action_enabled_changed(self, is_enabled:bool): 
         self.action_widget.set_enabled(is_enabled)
+        self.btn_emergency_stop.setEnabled(is_enabled)
+
+    def on_commandes_list_changed(self, commandes: list[tuple[str, str]]):
+        previous = self.cb_commande.currentData()
+        self.cb_commande.blockSignals(True)
+        self.cb_commande.clear()
+        self.cb_commande.addItem("Consigne manuelle", None)
+        for nom, description in commandes:
+            self.cb_commande.addItem(nom, nom)
+            self.cb_commande.setItemData(self.cb_commande.count() - 1, description, Qt.ItemDataRole.ToolTipRole)
+        index = self.cb_commande.findData(previous)
+        self.cb_commande.setCurrentIndex(max(index, 0))
+        self.cb_commande.blockSignals(False)
+        self.on_commande_selected(self.cb_commande.currentIndex())
+
+    def on_commande_selected(self, index: int):
+        nom = self.cb_commande.itemData(index)
+        self._view_model.select_commande(nom)
+        self.commande_stack.setCurrentIndex(0 if nom is None else 1)
+        self.lbl_commande_description.setText(self.cb_commande.itemData(index, Qt.ItemDataRole.ToolTipRole) or "")
+
+    def on_refresh_commandes_clicked(self):
+        self._view_model.refresh_commandes()
+
+    def on_commande_running_changed(self, running: bool):
+        self.cb_commande.setEnabled(not running)
+        self.btn_refresh_commandes.setEnabled(not running)
+        self.lbl_commande_state.setText("En cours…" if running else "")
 
     def on_apply_enabled_changed(self, is_enabled:bool):
         self.tb_fps.setEnabled(is_enabled)

@@ -33,7 +33,7 @@
         }
     },
     "joints": {
-        "axe": {"parent": "stator", "child": "rotor", "pos": [12.5, 0, 40.0], "axis": [0, 0, 1]}
+        "axe": {"parent": "stator", "child": "rotor", "pos": [12.5, 0, 40.0], "axis": [0, 0, 1], "default_range_deg": [-90, 90]}
     },
     "connectors": {
         "stator": {"part": "stator", "gender": "female", "pos": [-38.85, 0, 1.016], "zaxis": [-1, 0, 0], "xaxis": [0, 0, 1]},

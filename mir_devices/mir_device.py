@@ -85,6 +85,9 @@ class DeviceAction :
     def get_unit(self):
         return self._unit
 
+    def get_type(self) -> str:
+        return self._type
+
     def get_range(self) -> tuple[ActionValue, ActionValue]|None:
         return self._range
 

@@ -193,9 +193,14 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
     def _on_palette_changed(self, items: list[PaletteItem]) -> None:
         self._palette_items = {item.key: item for item in items}
         self._palette.clear()
-        detected = [item for item in items if not item.is_block]
+        detected = [item for item in items if not item.is_block and not item.is_new]
+        new = [item for item in items if item.is_new]
         blocks = [item for item in items if item.is_block]
-        for title, group in (("Modules détectés", detected), ("Blocs de structure", blocks)):
+        groups = [("Modules du catalogue", new), ("Blocs de structure", blocks)]
+        if detected:
+            # matériel détecté par la découverte des appareils (absent d'un robot conçu sans matériel)
+            groups.insert(0, ("Modules détectés", detected))
+        for title, group in groups:
             header = QListWidgetItem(title)
             header.setFlags(Qt.ItemFlag.NoItemFlags)
             font = header.font()

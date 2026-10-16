@@ -46,6 +46,7 @@ STS3215_RESOLUTION = 4095
 # contact raide pour les objets légers saisis (sinon un dé de quelques grammes s'enfonce de plusieurs mm dans les mors)
 STIFF_SOLREF = [0.004, 1.0]
 STIFF_SOLIMP = [0.99, 0.999, 0.001]
+DEFAULT_RANGE_DEG = (-90.0, 90.0)   # plage d'une articulation sans calibration ni plage dans le catalogue
 DEFAULT_STALL_TORQUE = 2.9  # N.m, STS3215 alimenté en 12V (≈1.9 N.m en 7.4V)
 # un connecteur branché sur un autre : demi-tour autour de x (z opposés, détrompeurs alignés)
 FLIP_X = np.array([0.0, 1.0, 0.0, 0.0])
@@ -86,7 +87,7 @@ class SimJointInfo:
 @dataclass
 class MotorParams:
     """Paramètres moteur issus de la configuration du robot (mirRobotConfig)."""
-    range_deg: tuple[float, float] = (-180.0, 180.0)
+    range_deg: tuple[float, float] | None = None   # None : pas de calibration, plage par défaut du module (catalogue)
     torque_limit: int = 1000            # en 0.1% du couple max
     position_mode_velocity: int = 100   # en unités STS (≈0.732 tr/min)
 
@@ -442,7 +443,7 @@ class ModelBuilder:
                 else:
                     bodies[new] = bodies[placed].add_body(name=f"{name}_{new}")
                     self._add_joint(spec, bodies[new], joint, np.asarray(joint["pos"], float) * scale, axis,
-                                    self._joint_info(inst, motor))
+                                    self._joint_info(inst, motor, joint))
                 self._add_part(spec, name, bodies[new], module["parts"][new], scale)
                 break
             else:
@@ -479,12 +480,14 @@ class ModelBuilder:
             child_body = bodies[connector["part"]].add_body(name=f"{child_name}_{child_part}", pos=body_pos, quat=body_quat)
             self._add_instance(spec, child_name, child_part, child_body)
 
-    def _joint_info(self, inst: dict[str, Any], motor: str) -> SimJointInfo:
+    def _joint_info(self, inst: dict[str, Any], motor: str, joint: dict[str, Any]) -> SimJointInfo:
         params = self._motor_params.get(motor, MotorParams())
+        # plage calibrée si elle existe, sinon plage par défaut du module (robot conçu sans matériel)
+        range_deg = params.range_deg or tuple(joint.get("default_range_deg", DEFAULT_RANGE_DEG))
         info = SimJointInfo(motor=motor, joint_name=f"{motor}_joint", actuator_name=motor,
                             direction=float(inst.get("direction", 1)),
                             zero_offset_deg=float(inst.get("zero_offset_deg", 0)),
-                            range_deg=params.range_deg)
+                            range_deg=range_deg)
         self._joints[motor] = info
         self._max_vel[motor] = params.position_mode_velocity * 0.732 * 6  # unités STS -> tr/min -> deg/s
         return info

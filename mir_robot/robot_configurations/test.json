@@ -1,0 +1,16 @@
+{
+    "id": "mir_robot",
+    "calibration_dir": null,
+    "motor_bus": null,
+    "sensors": {},
+    "observations": {},
+    "structure": {
+        "modules": {
+            "socle": {
+                "type": "mir_socle",
+                "fixed": true
+            }
+        }
+    },
+    "path": "/Users/marius/Documents/Atelier Vectoriel/MIR/MIR-software/mir/mir_robot/robot_configurations/test.json"
+}

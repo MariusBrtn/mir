@@ -27,6 +27,7 @@ class MujocoWidget(QWidget):
         self.setMinimumSize(320, 240)
         self._model: mujoco.MjModel | None = None
         self._data: mujoco.MjData | None = None
+        self._lock = None      # verrou du monde simulé, quand la physique tourne dans un autre thread
         self._renderer: mujoco.Renderer | None = None
         self._renderer_size: tuple[int, int] = (0, 0)
         self._camera = mujoco.MjvCamera()
@@ -40,11 +41,13 @@ class MujocoWidget(QWidget):
         self._resize_timer.timeout.connect(self._recreate_renderer)
 
     # ------------------------------------------------------------------ contenu
-    def set_model(self, model: mujoco.MjModel, data: mujoco.MjData, keep_camera: bool = False) -> None:
+    def set_model(self, model: mujoco.MjModel, data: mujoco.MjData, keep_camera: bool = False, lock=None) -> None:
         """keep_camera : garder le point de vue choisi par l'utilisateur (modèle reconstruit après une modification) ;
-        tant qu'il n'a pas bougé la caméra, le modèle est recadré."""
+        tant qu'il n'a pas bougé la caméra, le modèle est recadré.
+        lock : verrou à prendre pour lire data (robot simulé dont la physique tourne en temps réel)."""
         self._close_renderer()
         self._model, self._data = model, data
+        self._lock = lock
         self._message = ""
         if not (keep_camera and self._camera_moved_by_user):
             self.reset_camera()
@@ -56,7 +59,7 @@ class MujocoWidget(QWidget):
     def show_message(self, message: str) -> None:
         """Affiche un texte à la place du modèle (chargement, erreur...)."""
         self._close_renderer()
-        self._model, self._data = None, None
+        self._model, self._data, self._lock = None, None, None
         self._message = message
         self.update()
 
@@ -112,7 +115,11 @@ class MujocoWidget(QWidget):
             return
         self._ensure_renderer()
         assert self._renderer is not None
-        self._renderer.update_scene(self._data, self._camera, self.scene_option)
+        if self._lock is not None:
+            with self._lock:
+                self._renderer.update_scene(self._data, self._camera, self.scene_option)
+        else:
+            self._renderer.update_scene(self._data, self._camera, self.scene_option)
         pixels = np.ascontiguousarray(self._renderer.render())
         height, width = pixels.shape[:2]
         image = QImage(pixels.data, width, height, 3 * width, QImage.Format.Format_RGB888)

@@ -105,7 +105,6 @@ class MotorBlock(QFrame):
     
 class MotorActionWidget(QWidget):
     motor_action_changed = Signal(object)
-    emergency_stop_clicked = Signal()
     def __init__(
         self, parent: QWidget | None = None
     ) -> None:
@@ -171,19 +170,10 @@ class MotorActionWidget(QWidget):
             block.motor_action_changed.connect(self.motor_action_changed)
             self._blocks[key] = block
             self._layout.addWidget(block)
-        self._btn_emergency_stop = QToolButton()
-        self._btn_emergency_stop.setIcon(ViewBase.find_icon("emergency_stop"))
-        self._btn_emergency_stop.setToolTip("Arrêt d'urgence")
-        self._btn_emergency_stop.setIconSize(QSize(30, 30))
-        self._btn_emergency_stop.clicked.connect(self.btn_emergency_stop_clicked)
-        self._layout.addWidget(self._btn_emergency_stop, alignment=Qt.AlignmentFlag.AlignCenter)
         self._layout.addLayout(self.make_groups_layout())
 
         self._layout.addStretch(1)
         self.set_enabled(False)
-
-    def btn_emergency_stop_clicked(self):
-        self.emergency_stop_clicked.emit()
 
     def _clear(self) -> None:
         """Retire et détruit tous les éléments du layout principal."""
@@ -215,5 +205,4 @@ class MotorActionWidget(QWidget):
         for block in self._blocks.values():
             block.set_enabled(is_enabled)
         self._btn_execute_group.setEnabled(is_enabled and len(self._actions_group_dict) > 0)
-        self._btn_emergency_stop.setEnabled(is_enabled)
 

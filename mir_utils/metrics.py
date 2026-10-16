@@ -188,9 +188,10 @@ class DataRecorder:
         """Vue des données effectivement ajoutées"""
         return self._data[name][: self._count]
 
-    def save(self, path: str | Path) -> None:
+    def save(self, path: str | Path, conditions: dict[str, Any] | None = None) -> None:
         """Sauvegarde les données (un .npy par observable) et les métadonnées
-        (metadata.json) dans une archive '<path>.npz'."""
+        (metadata.json) dans une archive '<path>.npz'.
+        conditions : informations libres sur l'enregistrement (conditions.json), voir load_conditions."""
 
         def write_array(zf, name):
             buffer = io.BytesIO()
@@ -207,6 +208,8 @@ class DataRecorder:
 
         with zipfile.ZipFile(path, mode="w") as zf:
             zf.writestr("metadata.json", metadata_json)
+            if conditions is not None:
+                zf.writestr("conditions.json", json.dumps(conditions, indent=2, ensure_ascii=False, default=str))
             for name in self._observables:
                 write_array(zf, name)
             write_array(zf, "__timestamps__")
@@ -227,6 +230,14 @@ class DataRecorder:
                     data[name] = np.load(buffer)
 
         return data, metadata
+
+    @classmethod
+    def load_conditions(cls, path: str | Path) -> dict[str, Any]:
+        """Conditions de l'enregistrement (vide si l'archive n'en contient pas)."""
+        with zipfile.ZipFile(Path(path), mode="r") as zf:
+            if "conditions.json" not in zf.namelist():
+                return {}
+            return json.loads(zf.read("conditions.json").decode("utf-8"))
 
     def __len__(self) -> int:
         return self._count            

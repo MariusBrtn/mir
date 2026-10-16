@@ -13,6 +13,7 @@ from typing import Any
 import time
 import numpy as np
 import mujoco
+from loguru import logger
 from mir_sim.model_builder import BuiltModel, build_model
 
 
@@ -89,6 +90,18 @@ class SimWorld:
             users = self._users
         if users == 0:
             self.stop_realtime()
+            self.close_renderers()
+
+    def close_renderers(self) -> None:
+        """Libère les contextes OpenGL des rendus. Sans cela, ils sont détruits à la sortie de Python,
+        après la disparition de leur contexte, ce qui provoque une erreur de segmentation."""
+        with self.lock:
+            renderers, self._renderers = list(self._renderers.values()), {}
+        for renderer in renderers:
+            try:
+                renderer.close()
+            except Exception as e:
+                logger.warning(f"fermeture du rendu : {e}")
 
     def start_realtime(self) -> None:
         if self._thread is not None and self._thread.is_alive():
