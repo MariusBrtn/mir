@@ -6,6 +6,7 @@ from mir_robot_editor.motor_configuration.motor_configuration_view_model import 
 from mir_utils.ui.widgets import stylesheets, DialogBase
 from mir_utils.ui.view_model_base import VMAction
 from mir_utils.ui.view_base import ViewBase
+from mir_utils.ui import theme
 
 
 class MotorConfigurationView(DialogBase, ViewBase[MotorConfigurationViewModel, VMAction]):
@@ -155,9 +156,9 @@ class MotorConfigurationView(DialogBase, ViewBase[MotorConfigurationViewModel, V
             self.lbl_is_calibrated.setText("Moteurs calibrés, positions normalisées." if property_value else "Moteurs non calibrés, positions brutes")
             style_sheet = "font-size: 14px;"  
             if property_value:
-                style_sheet += "color: #005500;"
+                style_sheet += f"color: {theme.OK};"
             else:
-                style_sheet += "color: #bb5500;"
+                style_sheet += f"color: {theme.WARNING};"
             self.lbl_is_calibrated.setStyleSheet(style_sheet)
             motors_data = self._view_model.motors_data
             for key, tb in self.target_fields.items():

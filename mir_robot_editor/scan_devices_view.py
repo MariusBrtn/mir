@@ -22,6 +22,7 @@ from mir_robot_editor.motor_configuration.motor_configure_IDs_view import MotorC
 from mir_robot_editor.scan_devices_view_model import ObservationsSelectionViewModel
 from mir_devices.mir_device import ObservableProperty
 from mir_robot_editor.robot_model.thumbnails import module_icon
+from mir_utils.ui import theme
 
 THUMBNAIL_SIZE = 40
 
@@ -143,7 +144,7 @@ class ScanDevicesView(DialogBase, ViewBase[ScanDevicesViewModel, ScanDevicesVMAc
         self.frame.setFrameShape(QFrame.Shape.NoFrame)
         # sélecteur explicite : sans lui, le style s'appliquerait aussi aux listes déroulantes (texte illisible sur macOS)
         self.frame.setObjectName("devicesFrame")
-        self.frame.setStyleSheet("QFrame#devicesFrame { background-color: #f8f8f8 }")
+        self.frame.setStyleSheet(f"QFrame#devicesFrame {{ background-color: {theme.PANEL} }}")
         self.devices_layout = QGridLayout(self.frame)
         self.devices_layout.setSpacing(10)  # Espace entre les blocs d'éléments
         self.devices_layout.setContentsMargins(10, 10, 10, 10)

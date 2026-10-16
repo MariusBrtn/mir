@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 from mir_robot.commande import verifier_fichier
 from mir_utils.ui.code_editor import PythonCodeEditor
+from mir_utils.ui import theme
 
 MODELE_CLAVIER = '''"""
 {nom} : téléopération au clavier.
@@ -120,11 +121,11 @@ class CommandeEditorDialog(QDialog):
         noms, erreur, ligne = verifier_fichier(fichier or self._fichier)
         if erreur is None:
             self.editor.clearErrorLine()
-            self.status.setStyleSheet("color: #2e7d32;")
+            self.status.setStyleSheet(f"color: {theme.OK};")
             self.status.setText(f"OK : {', '.join(noms)}")
             return True
         if ligne is not None:
             self.editor.setErrorLine(ligne)
-        self.status.setStyleSheet("color: #d32f2f;")
+        self.status.setStyleSheet(f"color: {theme.ERROR};")
         self.status.setText(erreur)
         return False

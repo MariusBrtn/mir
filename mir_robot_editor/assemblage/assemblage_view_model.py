@@ -25,10 +25,11 @@ from mir_robot.mir_robot_config import mirRobotConfig
 from mir_sim.model_builder import BuiltModel, ModelBuilder, load_catalog, motor_params_from_config
 from mir_utils.ui.dialogs import IDialogProvider
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
+from mir_utils.ui import theme
 from mir_robot_editor.assemblage.bus import ID_DE_COTE, MILIEU, PAS_PAR_TOUR, BusAssemblage, chercher_cameras
 
 MARGE_CALIBRATION = 10                  # écart minimal (pas codeur) entre le milieu et chaque butée
-SURBRILLANCE = np.array([0.25, 0.55, 1.0, 1.0])
+SURBRILLANCE = np.array(theme.SELECTION_RGBA)
 PERIODE_CAMERA = 20                     # recherche réseau des caméras tous les 20 tops (≈ 3 s)
 IDS_COURANTS = set(range(0, 41))        # ID cherchés pour un servo qu'on branche (neuf : 1 ; réutilisé : souvent < 40)
 

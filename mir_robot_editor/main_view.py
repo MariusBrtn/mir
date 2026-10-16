@@ -1,6 +1,6 @@
 import time
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
                                QInputDialog, QMenu, QPushButton, QScrollArea, QStackedWidget, QTabWidget, QToolButton,
                                QVBoxLayout, QWidget)
@@ -15,12 +15,13 @@ from mir_robot_editor.assemblage.assemblage_view import AssemblageView
 from mir_robot_editor.robot_model.robot_model_view import RobotModelView
 from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
 from mir_utils.ui.view_base import ViewBase
+from mir_utils.ui import theme
 
 # couleurs du mode : on ne doit jamais confondre robot réel et robot simulé
-COLOR_REAL = "#D83A2E"
-COLOR_SIM = "#2E6FD8"
-COLOR_IDLE = "#8A8A8A"
-COLOR_RUNNING = "#2E9E4F"
+COLOR_REAL = theme.REAL
+COLOR_SIM = theme.SIM
+COLOR_IDLE = theme.IDLE
+COLOR_RUNNING = theme.RUNNING
 
 # étapes du parcours (colonne de gauche)
 STEP_ROBOT, STEP_PILOT = 0, 1
@@ -29,32 +30,65 @@ STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter", False),
 
 
 class ActionCard(QFrame):
-    """Une action d'une page d'étape : bouton (icône + titre) et explication. Suit l'état de l'action."""
+    """Une action d'une page d'étape : toute la carte est le bouton (icône, titre, explication). Suit l'état de l'action."""
 
     def __init__(self, action: QAction, description: str, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("ActionCard")
-        self.setStyleSheet("#ActionCard { border: 1px solid palette(mid); border-radius: 6px; }")
+        self._action = action
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(10, 8, 10, 8)
-        button = QToolButton()
-        button.setDefaultAction(action)
-        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        button.setIconSize(QSize(32, 32))
-        button.setMinimumWidth(260)
-        button.setStyleSheet("QToolButton { font-weight: bold; text-align: left; border: none; }")
-        layout.addWidget(button)
-        label = QLabel(description)
-        label.setWordWrap(True)
-        layout.addWidget(label, 1)
+        layout.setContentsMargins(14, 12, 14, 12)
+        layout.setSpacing(14)
+        self._icon = QLabel()
+        self._icon.setObjectName("CardIcon")
+        self._icon.setFixedSize(44, 44)
+        self._icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self._icon)
+        texts = QVBoxLayout()
+        texts.setSpacing(2)
+        self._title = QLabel()
+        self._title.setObjectName("CardTitle")
+        texts.addWidget(self._title)
+        self._description = QLabel(description)
+        self._description.setObjectName("CardDescription")
+        self._description.setWordWrap(True)
+        texts.addWidget(self._description)
+        layout.addLayout(texts, 1)
         self._status = QLabel()
-        self._status.setStyleSheet("color: palette(placeholder-text);")
+        self._status.setObjectName("Muted")
         layout.addWidget(self._status)
+        chevron = QLabel("›")
+        chevron.setObjectName("CardChevron")
+        layout.addWidget(chevron)
+        action.changed.connect(self._sync)
+        self._sync()
+
+    def _sync(self):
+        self._title.setText(self._action.text().replace("&", "").rstrip(".… "))
+        self.setToolTip(self._action.toolTip())
+        self.setEnabled(self._action.isEnabled())
+        mode = QIcon.Mode.Normal if self.isEnabled() else QIcon.Mode.Disabled
+        self._icon.setPixmap(self._action.icon().pixmap(QSize(28, 28), mode))
+        self.setCursor(Qt.CursorShape.PointingHandCursor if self.isEnabled() else Qt.CursorShape.ArrowCursor)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(event.position().toPoint()):
+            self._action.trigger()
+        super().mouseReleaseEvent(event)
+
+    def keyPressEvent(self, event):
+        if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter, Qt.Key.Key_Space):
+            self._action.trigger()
+        else:
+            super().keyPressEvent(event)
 
     def set_status(self, text: str):
         self._status.setText(text)
         done = text.startswith("✓")
-        self._status.setStyleSheet("color: #2e7d32; font-weight: bold;" if done else "color: palette(placeholder-text);")
+        self._status.setStyleSheet(f"color: {theme.OK}; font-weight: bold;" if done else "")
 
 
 class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
@@ -88,9 +122,6 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(self._make_header())
-        separator = QFrame()
-        separator.setFrameShape(QFrame.Shape.HLine)
-        root.addWidget(separator)
 
         body = QHBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
@@ -114,9 +145,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
 
     # ------------------------------------------------------------------ construction
     def _make_header(self) -> QWidget:
-        header = QWidget()
+        header = QFrame()
+        header.setObjectName("Header")
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(10, 6, 10, 6)
+        layout.setContentsMargins(16, 8, 16, 8)
         layout.setSpacing(12)
 
         # robot ouvert : simple indication (ouvrir, créer, enregistrer : étape Configurer et menu Robot)
@@ -168,9 +200,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         steps = QListWidget()
         steps.setFixedWidth(240)
         steps.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        steps.setStyleSheet("QListWidget { font-size: 15px; border: none; background: palette(window); }"
-                            "QListWidget::item { padding: 10px 8px; }"
-                            "QListWidget::item:selected { background: palette(highlight); color: palette(highlighted-text); border-radius: 4px; }")
+        steps.setObjectName("Steps")
         for i, (name, available) in enumerate(STEPS):
             item = QListWidgetItem(f"{i + 1}   {name}" + ("" if available else "   (à venir)"))
             if not available:
@@ -188,12 +218,12 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
 
         def section(title: str, subtitle: str):
             label = QLabel(title)
-            label.setStyleSheet("font-size: 16px; font-weight: bold; margin-top: 10px;")
+            label.setObjectName("SectionTitle")
             layout.addWidget(label)
             if subtitle:
                 sub = QLabel(subtitle)
                 sub.setWordWrap(True)
-                sub.setStyleSheet("color: palette(placeholder-text);")
+                sub.setObjectName("Muted")
                 layout.addWidget(sub)
 
         def card(action: QAction, description: str) -> ActionCard:
@@ -230,7 +260,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         layout.setContentsMargins(0, 0, 0, 0)
         self._pilot_hint = QLabel()
         self._pilot_hint.setWordWrap(True)
-        self._pilot_hint.setStyleSheet("background: palette(alternate-base); padding: 8px 12px; font-size: 13px;")
+        self._pilot_hint.setObjectName("Hint")
         layout.addWidget(self._pilot_hint)
         # trois façons de piloter, une même boucle de mesures (une seule activité à la fois)
         self._pilot_tabs = QTabWidget()
@@ -267,11 +297,11 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._mode_box.setVisible(not configuring)
         name = self._view_model.get_robot_name()
         if name:
-            pending = " <span style='color: palette(placeholder-text);'>(modifications non enregistrées)</span>" \
+            pending = f" <span style='color: {theme.TEXT_MUTED};'>(modifications non enregistrées)</span>" \
                 if self._view_model.is_dirty() else ""
             self._robot_label.setText(f"Robot : <b>{name}</b>{pending}")
         else:
-            self._robot_label.setText("<span style='color: palette(placeholder-text);'>Aucun robot ouvert</span>")
+            self._robot_label.setText(f"<span style='color: {theme.TEXT_MUTED};'>Aucun robot ouvert</span>")
 
         mode_enabled = self._simulation_vm_action.enabled
         built = self._view_model.is_built()
@@ -281,13 +311,13 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             # le robot réel n'est utilisable qu'une fois construit (étape Construire)
             button.setEnabled(mode_enabled and (is_sim or built))
             color = COLOR_SIM if is_sim else COLOR_REAL
-            radius = "border-top-right-radius: 5px; border-bottom-right-radius: 5px;" if is_sim else \
-                     "border-top-left-radius: 5px; border-bottom-left-radius: 5px;"
+            radius = "border-top-right-radius: 8px; border-bottom-right-radius: 8px;" if is_sim else \
+                     "border-top-left-radius: 8px; border-bottom-left-radius: 8px;"
             if checked:
                 style = f"background: {color}; color: white; font-weight: bold; border: 1px solid {color};"
             else:
-                style = "background: palette(button); color: palette(button-text); border: 1px solid palette(mid);"
-            button.setStyleSheet(f"QPushButton {{ {style} {radius} padding: 5px 12px; }}"
+                style = f"background: {theme.SURFACE}; color: {theme.TEXT_MUTED}; border: 1px solid {theme.BORDER_STRONG};"
+            button.setStyleSheet(f"QPushButton {{ {style} {radius} padding: 6px 14px; }}"
                                  "QPushButton:disabled { color: palette(placeholder-text); }")
         self._btn_real.setToolTip("Choisir le robot réel" if built else
                                   "Le robot n'est pas encore construit : construisez-le dans « Configurer le robot » "

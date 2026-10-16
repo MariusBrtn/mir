@@ -24,12 +24,13 @@ from mir_sim.model_builder import (MATING_GENDERS, ROOT_TYPE, BuiltModel, ModelB
                                    motor_params_from_config, sensor_module_types)
 from mir_utils.ui.dialogs import IDialogProvider
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
+from mir_utils.ui import theme
 from mir_robot_editor.robot_model.joint_sliders_widget import JointSlider
 
-MARKER_RGBA = [0.2, 0.6, 1.0, 0.9]              # connecteur libre
-MARKER_COMPATIBLE_RGBA = [0.1, 0.85, 0.2, 1.0]  # connecteur où le module en cours de placement peut se brancher
-MARKER_DIMMED_RGBA = [0.5, 0.5, 0.5, 0.25]      # connecteur libre mais incompatible
-SELECTION_RGBA = np.array([0.25, 0.55, 1.0, 1.0])
+MARKER_RGBA = theme.MARKER_FREE_RGBA                    # connecteur libre
+MARKER_COMPATIBLE_RGBA = theme.MARKER_COMPATIBLE_RGBA   # connecteur où le module en cours de placement peut se brancher
+MARKER_DIMMED_RGBA = theme.MARKER_DIMMED_RGBA           # connecteur libre mais incompatible
+SELECTION_RGBA = np.array(theme.SELECTION_RGBA)
 SELECTION_BLEND = 0.55
 
 

@@ -7,6 +7,7 @@ import json
 from typing import TypeVar, Generic
 from mir_utils.ui.widgets import StateSavedView
 from mir_utils.metrics import RollingArray
+from mir_utils.ui import theme
 
 T_DATA = TypeVar("T_DATA")
 
@@ -357,7 +358,7 @@ class ObservationsWidget(QWidget):
         main_layout = QHBoxLayout()
         main_layout.addWidget(self.splitter, stretch=1)
         self.setLayout(main_layout)
-        self.setStyleSheet("ObservationsWidget {background-color: #eeeeee;}")
+        self.setStyleSheet(f"ObservationsWidget {{background-color: {theme.PANEL};}}")
 
     def restore_state(self):
         splitter_state = self._state_saved_view.restore_custom_state("observations_widget_splitter")

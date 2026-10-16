@@ -406,7 +406,7 @@ class ModelBuilder:
                 geom = f"{CONNECTOR_MARKER_PREFIX}{key}"
                 self._part_bodies[name][conn["part"]].add_geom(
                     name=geom, type=mujoco.mjtGeom.mjGEOM_SPHERE, size=[0.007, 0, 0],
-                    pos=pos + 0.004 * zaxis.reshape(3, 3)[:, 2], rgba=[0.2, 0.6, 1.0, 0.9],
+                    pos=pos + 0.004 * zaxis.reshape(3, 3)[:, 2], rgba=[0.44, 0.53, 0.66, 0.95],
                     group=CONNECTOR_MARKER_GROUP, contype=0, conaffinity=0, density=0)
                 self._marker_names.append(geom)
 
@@ -589,8 +589,9 @@ class ModelBuilder:
         spec.visual.headlight.diffuse = [0.6, 0.6, 0.6]
         spec.visual.global_.offwidth = 1280
         spec.visual.global_.offheight = 960
+        # ciel gris chaud, accordé au thème « Atelier » de l'éditeur (mir_utils/ui/theme.py)
         spec.add_texture(name="sky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
-                         rgb1=[0.55, 0.65, 0.75], rgb2=[0.15, 0.15, 0.2], width=256, height=256)
+                         rgb1=[0.95, 0.93, 0.89], rgb2=[0.81, 0.78, 0.73], width=256, height=256)
         spec.worldbody.add_light(name="top", pos=[0, 0, 1.5], dir=[0, 0, -1], diffuse=[0.5, 0.5, 0.5])
         table = self._scene.get("table", {"size": [0.4, 0.3], "pos": [0.1, 0, 0], "rgba": [0.75, 0.68, 0.58, 1]})
         spec.worldbody.add_geom(name="table", type=mujoco.mjtGeom.mjGEOM_PLANE,

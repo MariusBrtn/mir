@@ -6,6 +6,7 @@ from mir_utils.ui.widgets import DialogBase
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_robot_editor.assemblage.assemblage_view_model import AssemblageViewModel, AssemblageVMAction, Phase
 from mir_robot_editor.assemblage.bus import BusFeetech, BusSimule, ports_disponibles
+from mir_utils.ui import theme
 
 ICONES_ETAT = {"à faire": "○", "en cours": "▶", "fait": "✓"}
 
@@ -64,7 +65,7 @@ class AssemblageView(DialogBase):
         layout.addWidget(self.btn_start)
         self.lbl_start_error = QLabel()
         self.lbl_start_error.setWordWrap(True)
-        self.lbl_start_error.setStyleSheet("color: #d32f2f;")
+        self.lbl_start_error.setStyleSheet(f"color: {theme.ERROR};")
         layout.addWidget(self.lbl_start_error)
         layout.addStretch(1)
         self._fill_ports()
@@ -110,7 +111,7 @@ class AssemblageView(DialogBase):
         self.lbl_consigne.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.lbl_consigne)
         self.lbl_detection = QLabel()
-        self.lbl_detection.setStyleSheet("color: #2e7d32;")
+        self.lbl_detection.setStyleSheet(f"color: {theme.OK};")
         layout.addWidget(self.lbl_detection)
         self.lbl_info = QLabel()
         self.lbl_info.setWordWrap(True)

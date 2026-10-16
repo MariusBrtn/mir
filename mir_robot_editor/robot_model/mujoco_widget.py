@@ -8,8 +8,9 @@ from __future__ import annotations
 import mujoco
 import numpy as np
 from PySide6.QtCore import Qt, QPointF, QTimer, Signal
-from PySide6.QtGui import QImage, QMouseEvent, QPainter, QWheelEvent
+from PySide6.QtGui import QColor, QImage, QMouseEvent, QPainter, QWheelEvent
 from PySide6.QtWidgets import QWidget
+from mir_utils.ui import theme
 
 
 CLICK_MAX_MOVE_PX = 4
@@ -108,9 +109,9 @@ class MujocoWidget(QWidget):
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
-        painter.fillRect(self.rect(), Qt.GlobalColor.darkGray)
+        painter.fillRect(self.rect(), QColor(theme.PANEL))
         if self._model is None or self._data is None:
-            painter.setPen(Qt.GlobalColor.white)
+            painter.setPen(QColor(theme.TEXT_MUTED))
             painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter | Qt.TextFlag.TextWordWrap, self._message)
             return
         self._ensure_renderer()

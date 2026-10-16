@@ -21,6 +21,7 @@ from mir_robot_editor.teleop.commande_editor import MODELE_CLAVIER, MODELE_ROBOT
 from mir_utils.keyboard_listener import Key, key_from_char
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui.widgets import StateSavedView, ToolButton
+from mir_utils.ui import theme
 
 MANUELLE = "Consigne manuelle"
 QT_KEYS = {
@@ -91,7 +92,7 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         layout.setContentsMargins(4, 4, 4, 4)
         self.lbl_mode = QLabel("En simulation, on voit le robot bouger en 3D. Les mesures se font sur le robot réel.")
         self.lbl_mode.setWordWrap(True)
-        self.lbl_mode.setStyleSheet("background: #2E6FD8; color: white; padding: 6px; border-radius: 4px;")
+        self.lbl_mode.setStyleSheet(f"background: {theme.SIM}; color: white; padding: 8px 10px; border-radius: 8px;")
         layout.addWidget(self.lbl_mode)
 
         self.commande_box = QGroupBox("Commande")

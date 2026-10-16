@@ -19,6 +19,7 @@ from mir_devices.mir_device import ( ObservableProperty,
                                   ObservablePropertyFloat, 
                                   ObservablePropertyBitmap, 
                                   ObservablePropertyPolar)
+from mir_utils.ui import theme
 
 class RobotMonitorView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction]):
 
@@ -55,7 +56,7 @@ class RobotMonitorView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAc
         self.btn_deselect_all = ToolButton("unselect_all", lambda: self.on_select_all_features_clicked(False), False, "Désélectionner tout")
         left_bar_toolbar.addWidget(self.btn_deselect_all)
         left_bar_toolbar.addStretch()
-        _checked_btn_style = "QToolButton:checked { background-color: #FF9567; border-radius: 4px; }"
+        _checked_btn_style = f"QToolButton:checked {{ background-color: {theme.SAND}; border-radius: 6px; }}"
         self.btn_record = QToolButton()
         self.btn_record.setIcon(self._icon("record"))
         #self.btn_record.toggled.connect(self.on_record_toggled)

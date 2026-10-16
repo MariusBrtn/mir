@@ -6,15 +6,16 @@ from PySide6.QtGui import QKeyEvent, QIcon
 from pathlib import Path
 from typing import Callable
 from dataclasses import dataclass
+from mir_utils.ui import theme
 
 @dataclass
 class stylesheets():
-    labels_style = "font-size: 10pt; border: 1px solid lightgray; background-color: #eeeeee; font-family: monospace;"
-    edit_style = "font-size: 12pt; border: 1px solid lightgray; background-color: white;"
+    labels_style = f"font-size: 10pt; border: 1px solid {theme.BORDER}; border-radius: 4px; background-color: {theme.PANEL}; font-family: 'IBM Plex Mono', monospace;"
+    edit_style = f"font-size: 12pt; border: 1px solid {theme.BORDER_STRONG}; border-radius: 4px; background-color: {theme.SURFACE};"
     header_style = "font-size: 10pt; margin-top: 20px"
     css_button = "font-size=14"
-    css_text_enabled = "font-size: 10pt; border: 1px solid lightgray; background-color: white;"
-    css_text_disabled = "font-size: 10pt; border: 1px solid lightgray; background-color: #eeeeee;"
+    css_text_enabled = f"font-size: 10pt; border: 1px solid {theme.BORDER_STRONG}; border-radius: 4px; background-color: {theme.SURFACE};"
+    css_text_disabled = f"font-size: 10pt; border: 1px solid {theme.BORDER}; border-radius: 4px; background-color: {theme.PANEL};"
 
 class StateSavedView:
     """Mixin pour sauvegarder/restaurer la géométrie d'une fenêtre Qt."""

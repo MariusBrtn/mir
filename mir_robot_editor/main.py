@@ -9,6 +9,7 @@ from PySide6 import QtWidgets #noqa E402
 from mir_robot_editor.main_view import MainView #noqa E402
 from mir_robot_editor.main_viewmodel import MainViewModel #noqa E402
 from mir_utils.ui.dialogs import QtDialogProvider #noqa E402
+from mir_utils.ui.theme import apply_theme #noqa E402
 
 dialogProvider = QtDialogProvider()
 
@@ -74,6 +75,7 @@ if __name__ == '__main__':
     app = QtWidgets.QApplication.instance()
     if app is None:
         app = QtWidgets.QApplication(sys.argv)    
+    apply_theme(app)
     mainViewModel = MainViewModel(dialogProvider)
     window = MainView(mainViewModel)
     dialogProvider.setParent(window)

@@ -241,7 +241,7 @@ class CodeEditor(QPlainTextEdit):
 
         # Modern monospaced font settings
         font = QFont()
-        font.setFamily("Consolas")
+        font.setFamily("IBM Plex Mono")
         font.setStyleHint(QFont.StyleHint.Monospace)
         font.setFixedPitch(True)
         font.setPointSize(10)
@@ -586,7 +586,7 @@ class CodeEditorWidget(QWidget):
             }}
             #headerTitle {{
                 color: {theme['header_title']};
-                font-family: 'Segoe UI', sans-serif;
+                font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
                 font-size: 10px;
                 font-weight: bold;
                 letter-spacing: 1px;
@@ -599,7 +599,7 @@ class CodeEditorWidget(QWidget):
                 border-radius: 3px;
                 padding: 4px 10px;
                 font-size: 11px;
-                font-family: 'Segoe UI', sans-serif;
+                font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
                 font-weight: 500;
             }}
             #headerBar QPushButton:hover {{
@@ -653,7 +653,7 @@ class CodeEditorWidget(QWidget):
             #cursorLabel {{
                 color: {theme['status_fg_normal']};
                 font-size: 11px;
-                font-family: 'Segoe UI', sans-serif;
+                font-family: 'IBM Plex Sans', 'Segoe UI', sans-serif;
                 margin-right: 10px;
             }}
         """)

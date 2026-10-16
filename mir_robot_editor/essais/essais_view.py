@@ -11,6 +11,7 @@ from mir_robot_editor.essais.essais_view_model import REGLAGES_MOTEUR, EssaisVie
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui.widgets import ToolButton
+from mir_utils.ui import theme
 
 # couleurs des essais superposés (le premier est l'essai sélectionné)
 COULEURS = ["#00B4FF", "#FF8C1A", "#3CCB5A", "#E04BD8", "#F2D13A", "#9A7BFF"]
@@ -65,7 +66,7 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
 
         self.lbl_mode = QLabel()
         self.lbl_mode.setWordWrap(True)
-        self.lbl_mode.setStyleSheet("background: #2E6FD8; color: white; padding: 6px; border-radius: 4px;")
+        self.lbl_mode.setStyleSheet(f"background: {theme.SIM}; color: white; padding: 8px 10px; border-radius: 8px;")
         self.lbl_mode.setText("En simulation, on visualise le mouvement du robot. Les mesures se font sur le robot réel.")
         self.lbl_mode.setVisible(False)
         layout.addWidget(self.lbl_mode)

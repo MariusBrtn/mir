@@ -11,6 +11,7 @@ from mir_robot_editor.robot_model.structure_editor_view_model import (ModuleInfo
 from mir_robot_editor.robot_model.thumbnails import render_module_thumbnail
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui.widgets import DialogBase
+from mir_utils.ui import theme
 
 THUMBNAIL_SIZE = 56
 PALETTE_MIME = "application/x-mir-palette-item"
@@ -133,7 +134,7 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
         self._joints.joint_changed.connect(vm.set_joint)
         self._errors = QLabel()
         self._errors.setWordWrap(True)
-        self._errors.setStyleSheet("color: #c0392b")
+        self._errors.setStyleSheet(f"color: {theme.ERROR}")
         side = QVBoxLayout()
         side.addWidget(self._module_box)
         side.addWidget(QLabel("<b>Articulations</b> (degrés moteur)"))
@@ -206,7 +207,7 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
             font = header.font()
             font.setBold(True)
             header.setFont(font)
-            header.setForeground(QColor("#555555"))
+            header.setForeground(QColor(theme.TEXT_MUTED))
             self._palette.addItem(header)
             if not group:
                 empty = QListWidgetItem("  (aucun)")
@@ -220,7 +221,7 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
                     widget_item.setIcon(icon)
                 if item.placed_as is not None:
                     widget_item.setFlags(Qt.ItemFlag.ItemIsEnabled)   # visible mais ni sélectionnable ni glissable
-                    widget_item.setForeground(QColor("#999999"))
+                    widget_item.setForeground(QColor(theme.TEXT_DISABLED))
                     widget_item.setToolTip(f"Déjà placé : {item.placed_as}")
                 else:
                     widget_item.setToolTip("Glissez dans la vue 3D, ou cliquez pour l'ajouter")
