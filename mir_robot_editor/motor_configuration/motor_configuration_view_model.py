@@ -1,7 +1,7 @@
 
 from typing_extensions import override
 from PySide6.QtCore import Signal, QTimer
-from lerobot.motors.feetech import OperatingMode
+from mir_devices.lerobot_types import OperatingMode
 from dataclasses import dataclass
 from mir_robot_editor.motor_configuration.registers_viewmodel import RegistersViewModel
 from mir_robot_editor.motor_configuration.calibration_viewmodel import CalibrationViewModel

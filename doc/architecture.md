@@ -191,6 +191,17 @@ Condition commune : des compétences **nommées, lançables, qui signalent leur 
 | Apprentissage par renforcement | le monde simulé sous forme d'environnement Gym (`reset`, `step`) |
 | Planificateurs à base de modèles de langage | des compétences nommées (4.4) |
 
+### 4.6 Dépendance à LeRobot
+
+LeRobot est en version 0.x : il ne promet pas de stabilité d'une version à l'autre, et a déjà changé en 2025 le format des datasets (v2.1 → v3.0) et la forme des politiques (« processors »). MIR s'en protège ainsi (décidé le 18/10/2026) :
+
+1. **Version figée** dans `requirements.txt` (`lerobot[feetech]==0.5.1`, avec MuJoCo). Une mise à jour est une décision, prise par exemple entre deux années scolaires ; tous les postes d'une classe ont le même environnement.
+2. **Un seul point de contact par domaine** : le bus moteur dans `mir_devices` (les types utilisés ailleurs passent par `mir_devices/lerobot_types.py`), l'interface robot dans `mir_robot`, et demain un module unique pour les datasets et un pour les politiques. L'éditeur et les scripts des élèves n'importent pas LeRobot directement.
+3. **Un test de compatibilité en simulé** (à écrire avec l'étape Collecter) : construire le robot, enregistrer deux épisodes, relire le dataset, faire un pas d'entraînement, faire tourner une politique. À lancer avant toute mise à jour ; seul le bus moteur réel se vérifie sur le matériel.
+4. **Versions notées** (LeRobot, MIR) avec chaque dataset et chaque modèle, en plus des conditions d'enregistrement.
+
+Point de vigilance : `mirFeetechMotorsBus` hérite de `FeetechMotorsBus` et appelle ses méthodes internes (`_read`, `_write`) ; c'est l'endroit le plus exposé à un changement de LeRobot.
+
 ## 5. Réel, simulé et jumeau numérique
 
 Risque identifié : que les élèves confondent jumeau numérique et simulation. Choix de conception : **l'élève n'a qu'un seul choix à faire, Réel ou Simulé**.
@@ -286,7 +297,7 @@ Un essai suit le modèle des logiciels de systèmes didactiques : *je définis l
 
 ### Dataset
 
-Format LeRobot, pour rester compatible avec ses outils d'entraînement et de visualisation. Les **conditions d'enregistrement** (éclairage, réel ou simulé, version de la configuration) sont tracées : leur absence a fait échouer le diagnostic ACT.
+Format LeRobot, pour rester compatible avec ses outils d'entraînement et de visualisation. Même forme que le script de collecte existant (`mir_user_scripts/bras_leader_follower_cam/dataset_interface.py`) : `observation.state`, `observation.images.<caméra>`, `action`. La cadence de la collecte s'appuie sur `PeriodWaiterSafeForJitter` (`mir_utils/period_waiters.py`) : en cas de retard, le tick manqué est sauté au lieu d'enchaîner deux mesures en rafale, ce qui garde les images sur une grille régulière, comme le suppose LeRobot (fréquence fixe). Les **conditions d'enregistrement** (éclairage, réel ou simulé, version de la configuration) sont tracées : leur absence a fait échouer le diagnostic ACT.
 
 ### Expérience
 

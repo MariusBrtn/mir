@@ -6,7 +6,7 @@ from __future__ import annotations
 import threading
 from functools import wraps
 from typing import Protocol
-from lerobot.motors import Motor, MotorCalibration, MotorNormMode
+from mir_devices.lerobot_types import Motor, MotorCalibration, MotorNormMode
 from mir_devices.communication_ports import find_acm_serial_ports
 
 ID_SERVO_NEUF = 1           # ID d'un servo sortant d'usine
@@ -57,7 +57,7 @@ class BusFeetech:
 
     @_verrouille
     def ouvrir(self, moteurs: dict[str, int]) -> None:
-        from lerobot.motors.feetech import FeetechMotorsBus
+        from mir_devices.lerobot_types import FeetechMotorsBus
         self._ids = dict(moteurs)
         self._bus = FeetechMotorsBus(self._port, {nom: Motor(i, "sts3215", MotorNormMode.DEGREES)
                                                   for nom, i in moteurs.items()})

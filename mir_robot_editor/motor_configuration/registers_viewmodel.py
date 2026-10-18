@@ -1,4 +1,4 @@
-from lerobot.motors.feetech import FeetechMotorsBus
+from mir_devices.lerobot_types import FeetechMotorsBus
 from PySide6 import QtCore
 from mir_devices.mir_feetech_motor_bus import sts3215_registers, Register
 from mir_utils.ui.view_model_base import ViewModelBase

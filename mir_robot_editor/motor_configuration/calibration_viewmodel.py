@@ -1,7 +1,7 @@
 from PySide6.QtCore import QTimer, Signal
 from dataclasses import dataclass
 from enum import Enum
-from lerobot.motors.feetech import OperatingMode
+from mir_devices.lerobot_types import OperatingMode
 from contextlib import contextmanager
 from mir_devices.mir_feetech_motor_bus import mirFeetechMotorsBus
 from mir_utils.ui.view_model_base import ViewModelBase

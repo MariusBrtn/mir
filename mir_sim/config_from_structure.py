@@ -13,8 +13,7 @@ et reste réservé pour reconnaître le module qu'on vient de brancher.
 """
 from __future__ import annotations
 from typing import Any
-from lerobot.motors import MotorNormMode
-from lerobot.motors.feetech import OperatingMode
+from mir_devices.lerobot_types import MotorNormMode, OperatingMode
 from mir_devices.mir_feetech_motor_bus import mirMotor, mirMotorBusConfiguration
 from mir_devices.mir_sensor import EspSensorLidarConfiguration, mirPiCameraConfiguration
 from mir_sim.model_builder import load_catalog
