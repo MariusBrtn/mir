@@ -33,7 +33,7 @@ MODALITES = [
     ("Essais", "Solliciter un moteur et mesurer sa réponse", "stats", True),
     ("Téléopération", "Piloter à la main : clavier, bras leader…", "actions", True),
     ("Scripts", "Programmer le robot en Python", "edit", True),
-    ("Politique", "Un modèle entraîné pilote le robot (à venir)", "robot", False),
+    ("IA", "Un modèle entraîné pilote le robot (à venir)", "robot", False),
 ]
 STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", False)]
 
@@ -393,12 +393,12 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._pilot_tabs.addTab(self.teleop_view, "Téléopération")
         self.scripts_view = ScriptsView(self, self._view_model.get_scripts_view_model())
         self._pilot_tabs.addTab(self.scripts_view, "Scripts")
-        politique = QLabel("<b>Politique</b> : choisir un modèle entraîné (étape « Entraîner un modèle ») et le laisser "
+        politique = QLabel("<b>IA</b> : choisir un modèle entraîné (étape « Entraîner un modèle ») et le laisser "
                            "piloter le robot, réel ou simulé. À venir.")
         politique.setAlignment(Qt.AlignmentFlag.AlignCenter)
         politique.setWordWrap(True)
         politique.setObjectName("Muted")
-        self._pilot_tabs.addTab(politique, "Politique")
+        self._pilot_tabs.addTab(politique, "IA")
         self._pilot_tabs.setTabEnabled(TAB_POLITIQUE, False)
         self._pilot_tabs.currentChanged.connect(self._on_pilot_tab_changed)
         self._on_pilot_tab_changed(self._pilot_tabs.currentIndex())
