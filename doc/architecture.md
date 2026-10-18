@@ -184,6 +184,7 @@ Condition commune : des compétences **nommées, lançables, qui signalent leur 
 
 | Famille | Ce qu'il faut à MIR pour l'accueillir |
 |---|---|
+| Modèles écrits par l'élève (MLP, CNN en PyTorch, behavior cloning) | données LeRobotDataset + fiche de préparation + interface compétence (partie 6.4) |
 | Politiques apprises (ACT, diffusion…) | données LeRobotDataset + interface compétence |
 | Modèles vision-langage-action (π0, SmolVLA…) | idem, plus l'inférence éventuellement sur une autre machine (règle 7) |
 | World models | des données en quantité, réelles et simulées, au format standard |
@@ -250,6 +251,19 @@ On peut appliquer la même analyse à un essai réel et à un essai simulé, pui
 ### 6.3 Éditeur intégré
 
 Les briques s'écrivent dans un **éditeur Python intégré** à l'application (base existante : `mir_utils/ui/code_editor.py`). Partout où l'on choisit une brique dans une liste, on peut aussi en créer une nouvelle à partir d'un modèle ou modifier celle qui est choisie. Le fichier s'ouvre avec les imports MIR déjà en place et la classe de base à compléter. L'éditeur arrive avec les premières briques, pas avant.
+
+### 6.4 Modèles écrits à la main (behavior cloning)
+
+Exigence pédagogique (18/10/2026) : les élèves doivent pouvoir **coder eux-mêmes** un modèle de behavior cloning en PyTorch (MLP, CNN), pas seulement utiliser ACT ou un VLA.
+
+**Un modèle = des poids + une fiche de préparation.** La fiche (noms des entrées et des sorties, taille des images, statistiques de normalisation) est calculée à partir du dataset et enregistrée avec le modèle. MIR l'applique à l'entraînement et sur le robot : la préparation n'est jamais recopiée à la main (cause des erreurs du diagnostic ACT, règle 3).
+
+Trois niveaux :
+1. **J'écris le réseau** : l'élève écrit sa classe `nn.Module` (`forward(image, etat)`) ; MIR entraîne et affiche les courbes de perte.
+2. **J'écris aussi l'entraînement** : MIR fournit les données prêtes (tenseurs) et l'enregistrement du modèle avec sa fiche ; l'élève écrit sa boucle d'entraînement (onglet Scripts).
+3. **Modèles de LeRobot** (ACT, diffusion, SmolVLA…) sur le même dataset.
+
+Dans les trois cas, le modèle entraîné devient une **compétence** : on le choisit dans une liste et il pilote le robot réel ou simulé (observation → fiche → réseau → action). La seule classe écrite par l'élève est la classe PyTorch.
 
 ## 7. Enregistrements : essais et datasets
 
