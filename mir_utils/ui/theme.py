@@ -125,7 +125,7 @@ QScrollBar::add-page, QScrollBar::sub-page { background: none; }
 #Etape { background: transparent; border: none; border-bottom: 3px solid transparent; border-radius: 0;
          padding: 8px 8px 6px 8px; font-size: 15px; color: $TEXT_MUTED; }
 #Etape:hover { color: $TEXT; border-bottom-color: $BORDER_STRONG; background: transparent; }
-#Etape:checked { color: $TEXT; font-weight: 600; border-bottom-color: $INK; background: transparent; }
+#Etape:checked { color: $TEXT; border-bottom-color: $INK; background: transparent; }   /* pas de gras : le texte ne doit pas s'élargir */
 #Etape:disabled { color: $TEXT_DISABLED; }
 #SeparateurEntete { color: $BORDER; }
 #RobotMenu { font-size: 15px; font-weight: 600; border: 1px solid transparent; border-radius: 8px; padding: 5px 8px; }

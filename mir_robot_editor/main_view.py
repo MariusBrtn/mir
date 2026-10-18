@@ -496,7 +496,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         liseré = theme.BORDER if configuring or not robot_ouvert else (COLOR_SIM if simulation else COLOR_REAL)
         epaisseur = 1 if configuring or not robot_ouvert else 4
         self._header.setStyleSheet(f"#Header {{ border-bottom: {epaisseur}px solid {liseré}; }}")
-        self._btn_urgence.setVisible(robot_ouvert and not configuring)
+        # en simulé, rien de physique ne bouge : chaque modalité a son bouton Arrêter
+        self._btn_urgence.setVisible(robot_ouvert and not configuring and not simulation)
         self._btn_urgence.setEnabled(state == MainViewModelState.RUNNING)
 
         mode_enabled = self._simulation_vm_action.enabled
@@ -550,6 +551,9 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             # en simulation, on ne parle pas de mesures : les mesures se font sur le robot réel
             dot, text = (COLOR_SIM, "En mouvement") if simulation else (COLOR_RUNNING, "En mouvement")
         self._status_label.setText(f"<span style='color:{dot}; font-size:16px;'>●</span>&nbsp;{text}")
+        # en simulé, le robot est toujours prêt : l'état ne s'affiche que s'il y a un problème (pas de structure)
+        if simulation and state != MainViewModelState.LOADED:
+            self._status_label.setVisible(False)
 
     def _update_activites(self):
         etapes_occupees = set()
