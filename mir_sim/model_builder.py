@@ -219,7 +219,7 @@ def motor_params_from_config(config: Any) -> dict[str, MotorParams]:
 
 def load_catalog(catalog_dir: str | Path = CATALOG_DIR) -> dict[str, dict[str, Any]]:
     """Modules disponibles {type: description}, un fichier JSON par module."""
-    return {path.stem: json.loads(path.read_text()) for path in sorted(Path(catalog_dir).glob("*.json"))}
+    return {path.stem: json.loads(path.read_text(encoding="utf-8")) for path in sorted(Path(catalog_dir).glob("*.json"))}
 
 
 def motor_module_types(catalog: dict[str, dict[str, Any]]) -> list[str]:
@@ -705,7 +705,7 @@ def load_scene(scene: str | Path | dict[str, Any] | None) -> dict[str, Any]:
         return {}
     if isinstance(scene, dict):
         return scene
-    return json.loads(Path(scene).read_text())
+    return json.loads(Path(scene).read_text(encoding="utf-8"))
 
 
 def build_model(robot_config: Any, scene: str | Path | dict[str, Any] | None = None,

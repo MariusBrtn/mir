@@ -136,7 +136,7 @@ class DatasetMIR:
 
     # ------------------------------------------------------------------ lecture
     def info(self) -> dict[str, Any]:
-        return json.loads((self.dossier / "meta" / "info.json").read_text())
+        return json.loads((self.dossier / "meta" / "info.json").read_text(encoding="utf-8"))
 
     def fps(self) -> int:
         return int(self.info()["fps"])
@@ -146,10 +146,10 @@ class DatasetMIR:
 
     def _mir(self) -> dict[str, Any]:
         chemin = self.dossier / "meta" / FICHIER_MIR
-        return json.loads(chemin.read_text()) if chemin.exists() else {"episodes": []}
+        return json.loads(chemin.read_text(encoding="utf-8")) if chemin.exists() else {"episodes": []}
 
     def _ecrire_mir(self, mir: dict[str, Any]) -> None:
-        (self.dossier / "meta" / FICHIER_MIR).write_text(json.dumps(mir, indent=2, ensure_ascii=False))
+        (self.dossier / "meta" / FICHIER_MIR).write_text(json.dumps(mir, indent=2, ensure_ascii=False), encoding="utf-8")
 
     def episodes(self) -> list[Episode]:
         if not self.existe():

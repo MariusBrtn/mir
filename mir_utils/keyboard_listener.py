@@ -1,9 +1,13 @@
 import sys
-import tty
-import termios
 from queue import Queue
 from enum import Enum, auto
-from pynput import keyboard
+
+# mode raw du terminal (pas d'écho des touches) : Linux et macOS seulement
+try:
+    import termios
+    import tty
+except ImportError:
+    termios = tty = None
 
 class Key(Enum):
     """Énumération des touches supportées"""
@@ -209,8 +213,11 @@ class KeyboardListener:
             self.old_settings = termios.tcgetattr(sys.stdin)
             tty.setraw(sys.stdin.fileno())
         except Exception:
-            pass  # Si pas possible (ex: pas de terminal), on continue quand même
-        
+            pass  # Si pas possible (ex: pas de terminal, Windows), on continue quand même
+
+        # pynput importé seulement ici : l'application (KeyQueue) n'en a pas besoin, et il échoue sans écran
+        from pynput import keyboard
+        self._keyboard = keyboard
         self._running = True
         self.listener = keyboard.Listener(on_press=self._on_press, on_release=self._on_release)
         self.listener.start()
@@ -252,6 +259,7 @@ class KeyboardListener:
     
     def _parse_key(self, pynput_key):
         """Convertit une touche pynput en enum Key"""
+        keyboard = self._keyboard
         try:
             # Touche avec caractère
             if isinstance(pynput_key, keyboard.Key):

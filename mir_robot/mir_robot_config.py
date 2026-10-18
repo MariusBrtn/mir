@@ -34,7 +34,7 @@ class mirRobotConfig(RobotConfig):
 
     def save_as(self, path):
         self.path = path
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(self._to_dict(), f, indent=4)
 
     def to_json(self):
@@ -69,7 +69,7 @@ class mirRobotConfig(RobotConfig):
     def load(path: str) -> mirRobotConfig:
         """Charge une configuration depuis un fichier JSON"""
         try:
-            with open(path) as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
         except FileNotFoundError as e:
             raise ValueError(f"'{path}' le fichier n'a pas été trouvé ({e})") from e

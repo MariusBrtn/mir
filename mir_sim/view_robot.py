@@ -25,7 +25,7 @@ try:
 except StructureError as e:
     sys.exit(str(e))
 if args.export:
-    with open(args.export, "w") as f:
+    with open(args.export, "w", encoding="utf-8") as f:
         f.write(built.spec.to_xml())
     print(f"modèle exporté : {args.export}")
 else:

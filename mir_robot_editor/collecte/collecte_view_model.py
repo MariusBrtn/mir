@@ -7,7 +7,7 @@ recommence. Les datasets sont rangés dans le dossier du robot : robots/<robot>/
 """
 from __future__ import annotations
 import subprocess
-import sys
+import sysconfig
 import threading
 import time
 from enum import Enum
@@ -318,7 +318,8 @@ class CollecteViewModel(ViewModelBase[CollecteVMAction]):
 
     def ouvrir_visualiseur(self, dataset: DatasetMIR, index: int):
         """Visualiseur officiel de LeRobot (Rerun), dans sa propre fenêtre."""
-        commande = [str(Path(sys.executable).with_name("lerobot-dataset-viz")), "--repo-id", dataset.repo_id,
+        # dossier des commandes installées : à côté de python, sauf sous Windows (Scripts\)
+        commande = [str(Path(sysconfig.get_path("scripts")) / "lerobot-dataset-viz"), "--repo-id", dataset.repo_id,
                     "--root", str(dataset.dossier), "--episode-index", str(index), "--num-workers", "0"]
         try:
             subprocess.Popen(commande)
