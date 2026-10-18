@@ -122,6 +122,14 @@ QScrollBar::add-page, QScrollBar::sub-page { background: none; }
 #CardChevron { font-size: 24px; color: $TEXT_DISABLED; padding-bottom: 3px; }
 #SectionTitle { font-size: 16px; font-weight: 600; margin-top: 10px; }
 #Muted { color: $TEXT_MUTED; }
+#RobotMenu { font-size: 14px; border: 1px solid transparent; border-radius: 8px; padding: 5px 8px; }
+#RobotMenu:hover { background: $PANEL; border-color: $BORDER; }
+#RobotMenu::menu-indicator { image: none; width: 0; }
+#Urgence { background: $REAL; color: white; font-weight: 700; border: 1px solid $REAL; border-radius: 8px; padding: 7px 16px; }
+#Urgence:hover { background: #8F3522; }
+#Urgence:disabled { background: $WINDOW; color: $TEXT_DISABLED; border: 1px solid $BORDER; }
+#ModaliteEnCours, #EtapeEnCours { color: $RUNNING; font-size: 13px; font-weight: 600; }
+
 /* modalités de Piloter : une carte par façon de commander le robot */
 #Modalites { background: $WINDOW; border-bottom: 1px solid $BORDER; }
 #Modalite { background: $SURFACE; border: 1px solid $BORDER; border-radius: 10px; }

@@ -144,12 +144,6 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         self.btn_stop.clicked.connect(self._on_stop)
         buttons.addWidget(self.btn_stop)
         layout.addLayout(buttons)
-        self.btn_emergency = QToolButton()
-        self.btn_emergency.setIcon(self._icon("emergency_stop"))
-        self.btn_emergency.setIconSize(QSize(30, 30))
-        self.btn_emergency.setToolTip("Arrêt d'urgence")
-        self.btn_emergency.clicked.connect(self._view_model.on_emergency_stop_clicked)
-        layout.addWidget(self.btn_emergency, alignment=Qt.AlignmentFlag.AlignCenter)
         layout.addStretch(1)
 
         scroll = QScrollArea()
@@ -446,7 +440,6 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         robot_ready = bool(self._observation_boxes) and self._classe() is not None
         self.btn_start.setEnabled(robot_ready and not busy)
         self.btn_stop.setEnabled(busy)
-        self.btn_emergency.setEnabled(busy)
         for w in (self.cb_commande, self.btn_nouvelle, self.btn_code, self.sp_fps):
             w.setEnabled(not busy)
         for w in self._param_widgets.values():

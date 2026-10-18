@@ -205,12 +205,6 @@ class ScriptsView(QWidget, ViewBase[ScriptsViewModel, ScriptsVMAction]):
         self.btn_arreter.setIconSize(QSize(22, 22))
         self.btn_arreter.clicked.connect(self._view_model.arreter)
         barre.addWidget(self.btn_arreter)
-        self.btn_urgence = QToolButton()
-        self.btn_urgence.setIcon(self._icon("emergency_stop"))
-        self.btn_urgence.setIconSize(QSize(28, 28))
-        self.btn_urgence.setToolTip("Arrêt d'urgence : couper le couple des moteurs et arrêter le script")
-        self.btn_urgence.clicked.connect(self._view_model.arret_urgence)
-        barre.addWidget(self.btn_urgence)
         barre.addStretch(1)
         self.btn_enregistrer = QPushButton(self._icon("save"), "Enregistrer")
         self.btn_enregistrer.setToolTip("Enregistrer le script affiché (Ctrl+S)")
@@ -529,7 +523,6 @@ class ScriptsView(QWidget, ViewBase[ScriptsViewModel, ScriptsVMAction]):
         self.btn_lancer.setToolTip("Enregistrer puis lancer le script affiché" if self._view_model.has_robot() else
                                    "Pas de robot : connectez le robot réel, ou utilisez le robot simulé")
         self.btn_arreter.setEnabled(busy)
-        self.btn_urgence.setEnabled(busy)
         self.btn_nouveau.setEnabled(self._view_model.dossier() is not None)
         self.btn_enregistrer.setEnabled(a_un_script)
 

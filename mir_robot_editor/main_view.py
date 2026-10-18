@@ -61,7 +61,15 @@ class ModaliteCard(QFrame):
         self._description.setObjectName("ModaliteDescription")
         textes.addWidget(self._description)
         layout.addLayout(textes, 1)
+        self._en_cours = QLabel("● en cours")
+        self._en_cours.setObjectName("ModaliteEnCours")
+        self._en_cours.setVisible(False)
+        layout.addWidget(self._en_cours, alignment=Qt.AlignmentFlag.AlignTop)
         self.set_selected(False)
+
+    def set_en_cours(self, en_cours: bool):
+        """Cette modalité fait bouger le robot (une seule à la fois)."""
+        self._en_cours.setVisible(en_cours)
 
     def set_selected(self, selected: bool):
         self.setProperty("selected", selected)
@@ -185,13 +193,19 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._pages.addWidget(self._make_pilot_page())
         self.collecte_view = CollecteView(self, self._view_model.get_collecte_view_model())
         self._pages.addWidget(self.collecte_view)
+        # qui fait bouger le robot : repère « en cours » sur la modalité ou l'étape concernée
+        vm = self._view_model
+        self._activites = [(vm.get_essais_view_model(), STEP_PILOT, TAB_ESSAIS),
+                           (vm.get_robot_monitor_view_model(), STEP_PILOT, TAB_TELEOP),
+                           (vm.get_scripts_view_model(), STEP_PILOT, TAB_SCRIPTS),
+                           (vm.get_collecte_view_model(), STEP_COLLECT, None)]
+        for activite, _, _ in self._activites:
+            activite.busy_state_changed.connect(lambda _: self._update_activites())
         body.addWidget(self._pages, 1)
         root.addLayout(body, 1)
         self.setCentralWidget(central)
 
-        self._status_bar = self.statusBar()
-        self._status_state = QLabel()
-        self._status_bar.addWidget(self._status_state)
+        self.statusBar().hide()      # l'état est dans l'en-tête
 
         self._make_menus()
         self._steps.setCurrentRow(STEP_ROBOT)
@@ -209,15 +223,19 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         # robot ouvert : simple indication (ouvrir, créer, enregistrer : étape Configurer et menu Robot)
         self._robot_icon = QLabel()      # vert quand un robot est ouvert, gris sinon
         layout.addWidget(self._robot_icon)
-        self._robot_label = QLabel()
-        self._robot_label.setStyleSheet("font-size: 14px;")
-        layout.addWidget(self._robot_label)
-        # un seul robot ouvert à la fois : on le ferme pour en créer ou en ouvrir un autre
-        self._btn_close = QPushButton(self._icon("close"), "Fermer ce robot")
-        self._btn_close.setFlat(True)
-        self._btn_close.setToolTip(self._close_action.toolTip())
-        self._btn_close.clicked.connect(self._close_action.trigger)
-        layout.addWidget(self._btn_close)
+        # le robot ouvert ; ses actions rares (ouvrir, créer, enregistrer, fermer) sont dans son menu
+        self._robot_menu = QToolButton()
+        self._robot_menu.setObjectName("RobotMenu")
+        self._robot_menu.setPopupMode(QToolButton.ToolButtonPopupMode.InstantPopup)
+        menu = QMenu(self._robot_menu)
+        for action in (self._open_action, self._new_action, None, self._save_action, self._save_as_action, None,
+                       self._close_action):
+            if action is None:
+                menu.addSeparator()
+            else:
+                menu.addAction(action)
+        self._robot_menu.setMenu(menu)
+        layout.addWidget(self._robot_menu)
 
         # mode : un seul sélecteur à deux positions
         mode_box = QWidget()
@@ -244,7 +262,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._btn_connect.clicked.connect(self._on_connect_clicked)
         layout.addWidget(self._btn_connect)
         # en simulé, rien à connecter : le robot simulé est toujours prêt, on peut seulement le remettre à zéro
-        self._btn_reset_sim = QPushButton("Remettre à zéro")
+        self._btn_reset_sim = QPushButton("↺  Replacer la scène")
         self._btn_reset_sim.setMinimumWidth(130)
         self._btn_reset_sim.setToolTip(self._reset_sim_action.toolTip())
         self._btn_reset_sim.clicked.connect(self._reset_sim_action.trigger)
@@ -254,6 +272,14 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._status_label.setStyleSheet("font-size: 13px;")
         layout.addWidget(self._status_label)
         layout.addStretch(1)
+        # un seul arrêt d'urgence, toujours au même endroit, quelle que soit l'activité qui fait bouger le robot
+        self._btn_urgence = QPushButton(self._icon("emergency_stop"), "Arrêt d'urgence")
+        self._btn_urgence.setObjectName("Urgence")
+        self._btn_urgence.setIconSize(QSize(22, 22))
+        self._btn_urgence.setToolTip("Coupe tout de suite le couple des moteurs et arrête l'activité en cours")
+        self._btn_urgence.clicked.connect(self._view_model.arret_urgence)
+        layout.addWidget(self._btn_urgence)
+        self._header = header
         return header
 
     def _icone_coloree(self, nom: str, couleur: str, taille: int) -> QPixmap:
@@ -271,7 +297,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         steps.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         steps.setObjectName("Steps")
         for i, (name, available) in enumerate(STEPS):
-            item = QListWidgetItem(f"{i + 1}   {name}")
+            item = QListWidgetItem(name)
             if not available:
                 item.setFlags(Qt.ItemFlag.NoItemFlags)      # grisée
                 item.setToolTip("À venir")
@@ -426,17 +452,18 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         # sans robot ouvert, la structure crée un robot ; sinon, elle modifie celui qui est ouvert
         robot_ouvert = state != MainViewModelState.INIT
         self._robot_icon.setPixmap(self._icone_coloree("robot", theme.OK if robot_ouvert else theme.TEXT_DISABLED, 24))
-        self._btn_close.setVisible(robot_ouvert)
-        self._btn_close.setEnabled(self._close_action.isEnabled())
         # configurer le robot ne dépend pas du mode : le choix réel / simulé n'apparaît qu'à partir de Piloter
         self._mode_box.setVisible(not configuring)
         name = self._view_model.get_robot_name()
-        if name:
-            pending = f" <span style='color: {theme.TEXT_MUTED};'>(modifications non enregistrées)</span>" \
-                if self._view_model.is_dirty() else ""
-            self._robot_label.setText(f"Robot : <b>{name}</b>{pending}")
-        else:
-            self._robot_label.setText(f"<span style='color: {theme.TEXT_MUTED};'>Aucun robot ouvert</span>")
+        modifie = " • non enregistré" if name and self._view_model.is_dirty() else ""
+        self._robot_menu.setText(f"Robot : {name}{modifie}  ▾" if name else "Aucun robot  ▾")
+        self._robot_menu.setToolTip("Ouvrir, créer, enregistrer ou fermer un robot")
+        # liseré sous l'en-tête : rouge = robot réel, ardoise = robot simulé (visible où que l'on regarde)
+        liseré = theme.BORDER if configuring or not robot_ouvert else (COLOR_SIM if simulation else COLOR_REAL)
+        epaisseur = 1 if configuring or not robot_ouvert else 4
+        self._header.setStyleSheet(f"#Header {{ border-bottom: {epaisseur}px solid {liseré}; }}")
+        self._btn_urgence.setVisible(robot_ouvert and not configuring)
+        self._btn_urgence.setEnabled(state == MainViewModelState.RUNNING)
 
         mode_enabled = self._simulation_vm_action.enabled
         built = self._view_model.is_built()
@@ -452,8 +479,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                 style = f"background: {color}; color: white; font-weight: bold; border: 1px solid {color};"
             else:
                 style = f"background: {theme.SURFACE}; color: {theme.TEXT_MUTED}; border: 1px solid {theme.BORDER_STRONG};"
+            # mode verrouillé (robot en mouvement) : le mode choisi reste lisible
+            disabled = "color: rgba(255, 255, 255, 0.8);" if checked else "color: palette(placeholder-text);"
             button.setStyleSheet(f"QPushButton {{ {style} {radius} padding: 6px 14px; }}"
-                                 "QPushButton:disabled { color: palette(placeholder-text); }")
+                                 f"QPushButton:disabled {{ {disabled} }}")
         self._btn_real.setToolTip("Choisir le robot réel" if built else
                                   "Le robot n'est pas encore construit : construisez-le dans « Configurer le robot » "
                                   "(étape 2) pour l'utiliser en réel")
@@ -489,6 +518,17 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                         (COLOR_RUNNING, "Mesures en cours sur le robot réel")
         self._status_label.setText(f"<span style='color:{dot}; font-size:16px;'>●</span>&nbsp;{text}")
 
+    def _update_activites(self):
+        etapes_occupees = set()
+        for activite, etape, onglet in self._activites:
+            en_cours = activite.is_running()
+            if onglet is not None:
+                self._modalites[onglet].set_en_cours(en_cours)
+            if en_cours:
+                etapes_occupees.add(etape)
+        for i, (name, _) in enumerate(STEPS):
+            self._steps.item(i).setText(name + ("   ●" if i in etapes_occupees else ""))
+
     def _on_pilot_tab_changed(self, index: int):
         for i, carte in enumerate(self._modalites):
             carte.set_selected(i == index)
@@ -502,7 +542,6 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             self.teleop_view.set_leader_state(self._view_model.is_arm(), self._view_model.has_leader_arm())
         previous = getattr(self, "_previous_state", None)
         self._previous_state = state
-        self._status_state.setText(description)
         self._update_header()
         # sans robot ouvert, il n'y a rien à piloter ni à collecter : ces étapes sont grisées
         if hasattr(self, "_steps"):

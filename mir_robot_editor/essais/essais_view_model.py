@@ -173,10 +173,20 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
     def arreter(self):
         self._stop = True
 
+    def arret_urgence(self):
+        """Coupe le couple tout de suite, et encore à la fin de l'essai (qui maintient sinon les moteurs en position)."""
+        self._stop = True
+        self._urgence = True
+        if self._robot is not None:
+            self._robot.motors_emergency_stop()
+
     def is_running(self) -> bool:
         return self._running
 
     def _fin(self):
+        if getattr(self, "_urgence", False) and self._robot is not None:
+            self._robot.motors_emergency_stop()
+        self._urgence = False
         self._running = False
         self._update_actions()
         self.busy_state_changed.emit(False)

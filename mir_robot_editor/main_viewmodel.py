@@ -79,7 +79,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.ADVANCED] = VMAction("Paramètres avancés...", "Outils techniques pour régler ou dépanner le robot à la main")
         self._actions[MainVMAction.SERVO_ID] = VMAction("Changer l'ID d'un servo...", "Donner un nouvel ID à un servo branché seul, même sans robot construit")
         self._actions[MainVMAction.CLOSE] = VMAction("Fermer ce robot", "Fermer le robot ouvert pour en créer ou en ouvrir un autre (rien n'est supprimé)")
-        self._actions[MainVMAction.RESET_SIMULATION] = VMAction("Remettre à zéro", "Replacer le robot simulé dans sa position de départ")
+        self._actions[MainVMAction.RESET_SIMULATION] = VMAction("Replacer la scène", "Replacer le robot simulé et les objets de la scène dans leur position de départ")
         self._actions[MainVMAction.QUIT] = VMAction("Quitter", "Quitter l'application")
         self._simulation = False
         self._sim_factory: SimDevicesFactory | None = None
@@ -250,6 +250,24 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         finally:
             self._real_only_if_built()
             self._start_simulation()
+
+    def arret_urgence(self):
+        """Arrêt d'urgence, quelle que soit l'activité en cours : plus aucune consigne, couple des moteurs coupé."""
+        monitor = self._robot_monitor_view_model
+        if monitor.is_running():
+            monitor.on_emergency_stop_clicked()
+        for activite in (self._essais_view_model, self._scripts_view_model, self._collecte_view_model):
+            if activite.is_running():
+                activite.arret_urgence()
+        if self._robot is not None:
+            try:
+                self._robot.motors_emergency_stop()
+            except Exception as e:
+                self._dialogProvider.warning("Arrêt d'urgence", str(e))
+
+    def activite_en_cours(self):
+        """L'activité qui utilise le robot (None si aucune)."""
+        return next((a for a in self._activites if a.is_running()), None)
 
     def reset_simulation(self):
         if self._sim_factory is not None and self._sim_factory.world is not None:

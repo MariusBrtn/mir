@@ -134,12 +134,6 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         self.btn_arreter = QPushButton(self._icon("stop"), "Arrêter")
         self.btn_arreter.clicked.connect(self._view_model.arreter)
         boutons.addWidget(self.btn_arreter)
-        self.btn_urgence = QToolButton()
-        self.btn_urgence.setIcon(self._icon("emergency_stop"))
-        self.btn_urgence.setIconSize(QSize(28, 28))
-        self.btn_urgence.setToolTip("Arrêt d'urgence")
-        self.btn_urgence.clicked.connect(self._view_model.arret_urgence)
-        boutons.addWidget(self.btn_urgence)
         layout.addLayout(boutons)
         self.btn_demo = QPushButton(self._icon("record"), "Démonstration")
         self.btn_demo.setIconSize(QSize(24, 24))
@@ -458,7 +452,6 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         self.btn_demarrer.setEnabled(not en_cours and vm.has_robot() and self.cb_teleop.count() > 0
                                      and phase != Phase.REVUE)
         self.btn_arreter.setEnabled(en_cours)
-        self.btn_urgence.setEnabled(en_cours)
         self.btn_demo.setEnabled(en_cours and phase == Phase.LIBRE and not sauvegarde)
         self.btn_valider.setEnabled(not sauvegarde)
         for w in (self.cb_dataset, self.cb_teleop, self.sp_duree, self.ed_tache):
