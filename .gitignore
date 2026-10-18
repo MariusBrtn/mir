@@ -37,7 +37,6 @@ __pycache__/
 
 .zed/
 logs/
-tests/
 root_files/
 .agent/
 node_modules/
@@ -60,3 +59,4 @@ logs_essais_ACT/
 ## --- Données de MIR ---
 # datasets de démonstrations (vidéos, lourds) : sauvegardés à part ou sur le Hub Hugging Face
 robots/*/datasets/
+.pytest_cache/
