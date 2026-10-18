@@ -209,8 +209,10 @@ class ExecutionCommande:
         """Un tour de boucle : demande l'action à la commande et l'envoie au robot.
         Renvoie False quand la commande a demandé l'arrêt."""
         action = self.commande.action(observation)
+        self.derniere_action = None         # action réellement envoyée à ce tour (bornée aux butées), pour l'enregistrer
         if action:
-            self.robot.send_action(verifier_action(action, self._actions))
+            self.derniere_action = verifier_action(action, self._actions)
+            self.robot.send_action(self.derniere_action)
         return not self.commande.est_termine
 
     def arreter(self, arreter_moteurs: bool = True) -> None:

@@ -68,6 +68,10 @@ class ScriptsViewModel(ViewModelBase[ScriptsVMAction]):
         self._urgence = False
 
     # ------------------------------------------------------------------ robot
+    def set_other_busy(self, other_busy):
+        """other_busy() : True quand une autre activité utilise le robot (une seule à la fois)."""
+        self._other_busy = other_busy
+
     def connect_to_robot(self, robot: mirRobot):
         self._robot = robot
         self.robot_changed.emit()
@@ -134,7 +138,7 @@ class ScriptsViewModel(ViewModelBase[ScriptsVMAction]):
             return
         if self._other_busy():
             self._dialogProvider.information("Lancer le script", "Arrêtez d'abord le mouvement en cours "
-                                             "(Essais ou Téléopération).")
+                                             "(Essais, Téléopération ou Collecter des données).")
             return
         adresse, cle = self._serveur.demarrer()
         env = QProcessEnvironment.systemEnvironment()

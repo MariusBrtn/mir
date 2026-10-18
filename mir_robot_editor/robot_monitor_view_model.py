@@ -331,7 +331,7 @@ class RobotMonitorViewModel(ViewModelBase[RobotMonitorVMAction]):
         if self._is_loop_running is True:
             return              
         if self._other_busy():
-            self._dialogProvider.information("Mesures impossibles", "Un essai ou un script fait déjà bouger le robot.")
+            self._dialogProvider.information("Mesures impossibles", "Une autre activité (essai, script ou collecte) fait déjà bouger le robot.")
             return
         self._fps_stats_enabled = fps_stats_enabled
         try:  

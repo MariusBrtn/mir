@@ -74,6 +74,10 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         self._worker.shutdown()
 
     # ------------------------------------------------------------------ robot
+    def set_other_busy(self, other_busy):
+        """other_busy() : True quand une autre activité utilise le robot (une seule à la fois)."""
+        self._other_busy = other_busy
+
     def connect_to_robot(self, robot: mirRobot):
         self._robot = robot
         self._update_actions()
@@ -139,7 +143,7 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         if self._robot is None or self._running:
             return
         if self._other_busy():
-            self._dialogProvider.information("Essai impossible", "Arrêtez d'abord ce qui fait bouger le robot (Téléopération ou Scripts).")
+            self._dialogProvider.information("Essai impossible", "Arrêtez d'abord ce qui fait bouger le robot (Téléopération, Scripts ou Collecter des données).")
             return
         moteur = actionneur.split(".")[0]
         if reglages and reglages != self.reglages(actionneur) and self._apply_motor_settings is not None:

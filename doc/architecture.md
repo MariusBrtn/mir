@@ -197,7 +197,7 @@ LeRobot est en version 0.x : il ne promet pas de stabilité d'une version à l'a
 
 1. **Version figée** dans `requirements.txt` (`lerobot[feetech]==0.5.1`, avec MuJoCo). Une mise à jour est une décision, prise par exemple entre deux années scolaires ; tous les postes d'une classe ont le même environnement.
 2. **Un seul point de contact par domaine** : le bus moteur dans `mir_devices` (les types utilisés ailleurs passent par `mir_devices/lerobot_types.py`), l'interface robot dans `mir_robot`, et demain un module unique pour les datasets et un pour les politiques. L'éditeur et les scripts des élèves n'importent pas LeRobot directement.
-3. **Un test de compatibilité en simulé** (à écrire avec l'étape Collecter) : construire le robot, enregistrer deux épisodes, relire le dataset, faire un pas d'entraînement, faire tourner une politique. À lancer avant toute mise à jour ; seul le bus moteur réel se vérifie sur le matériel.
+3. **Un test de compatibilité en simulé** : `python tests/test_lerobot.py` (fait le 18/10 pour les données : création, ajout, suppression, relecture, DataLoader ; à compléter par l'entraînement et les politiques). À lancer avant toute mise à jour ; seul le bus moteur réel se vérifie sur le matériel.
 4. **Versions notées** (LeRobot, MIR) avec chaque dataset et chaque modèle, en plus des conditions d'enregistrement.
 
 Point de vigilance : `mirFeetechMotorsBus` hérite de `FeetechMotorsBus` et appelle ses méthodes internes (`_read`, `_write`) ; c'est l'endroit le plus exposé à un changement de LeRobot.
@@ -299,6 +299,8 @@ Un essai suit le modèle des logiciels de systèmes didactiques : *je définis l
 
 Format LeRobot, pour rester compatible avec ses outils d'entraînement et de visualisation. Même forme que le script de collecte existant (`mir_user_scripts/bras_leader_follower_cam/dataset_interface.py`) : `observation.state`, `observation.images.<caméra>`, `action`. La cadence de la collecte s'appuie sur `PeriodWaiterSafeForJitter` (`mir_utils/period_waiters.py`) : en cas de retard, le tick manqué est sauté au lieu d'enchaîner deux mesures en rafale, ce qui garde les images sur une grille régulière, comme le suppose LeRobot (fréquence fixe). Les **conditions d'enregistrement** (éclairage, réel ou simulé, version de la configuration) sont tracées : leur absence a fait échouer le diagnostic ACT.
 
+*Fait le 18/10/2026* : `mir_robot/donnees.py` (seul point de contact avec l'API des datasets LeRobot : `FormatDataset`, `DatasetMIR`) et l'étape « Collecter des données ». Observations cochées à la main (par défaut : angles, vitesses des roues, caméras et lidars) ; actions = consignes réellement envoyées par la téléopération (après bornage aux butées) ; le lidar est enregistré en `observation.<lidar>` (tableau 400 × 2) ; conditions de chaque épisode dans `meta/mir.json`.
+
 ### Expérience
 
 Notion à préciser : un dossier qui regroupe la configuration, la scène, les essais, les datasets, les modèles et les logs d'un même travail. Les scènes vivent dans `mir/scenes/` ; une expérience en garderait une copie, comme de la configuration.
@@ -312,7 +314,7 @@ Une colonne à gauche suit le parcours, plutôt qu'une icône par fonction. Une 
 | **Robot** | concevoir le modèle, assembler, calibrer, configurer les capteurs | `structure_editor`, `scan_devices`, `motor_configuration`, `calibration`, `sensor_configuration` |
 | **Piloter** | trois onglets (état au 18/10) : **Essais** (sollicitation, réglages du moteur, courbes), **Téléopération** (modalité au choix, codable ; vue de la caméra et du lidar), **Scripts** (petit environnement de programmation : éditeur, console, figures) ; une seule activité à la fois sur le robot | `essais`, `teleop`, `scripts`, `observations_widget`, `mujoco_widget` |
 | **Modéliser** | MGD/MGI, trajectoires, études méca | à créer |
-| **Collecter** | enregistrer, visualiser et éditer des datasets | à créer |
+| **Collecter des données** | *fait le 18/10* : démonstrations en téléopération (durée fixe, compte à rebours, téléop active entre deux démonstrations pour remettre le robot en position), revue puis Valider ou Recommencer, épisodes revus dans l'appli ou dans le visualiseur LeRobot, suppression ; datasets dans `robots/<robot>/datasets/<nom>/` | `collecte`, module `mir_robot/donnees.py` |
 | **Apprendre** | choisir ou écrire un modèle, entraîner | à créer |
 | **Évaluer** | inférence en réel ou simulé, analyse | à créer |
 
