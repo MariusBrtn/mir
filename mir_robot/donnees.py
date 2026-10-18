@@ -13,6 +13,7 @@ Les conditions d'enregistrement (réel ou simulé, scène, téléopération, ver
 """
 from __future__ import annotations
 import importlib.metadata
+import functools
 import json
 import shutil
 import time
@@ -36,6 +37,17 @@ def cle_image(nom: str) -> str:
 
 def cle_tableau(nom: str) -> str:
     return f"observation.{nom}"
+
+
+@functools.cache
+def decodeur_video() -> str:
+    """Décodeur des vidéos des datasets : torchcodec (plus rapide) s'il trouve ffmpeg sur la machine, sinon PyAV, qui
+    embarque le sien. Sans cela, relire un dataset échouerait sur un Mac ou un Linux sans ffmpeg installé."""
+    try:
+        import torchcodec.decoders  # noqa: F401  (charge les bibliothèques de ffmpeg)
+        return "torchcodec"
+    except Exception:
+        return "pyav"
 
 
 def _version(paquet: str) -> str:
@@ -170,7 +182,7 @@ class DatasetMIR:
         """Les données d'un épisode, pour l'afficher : {"t", "etat", "actions", "images": {cam: [H x W x 3]},
         "tableaux": {lidar: [...]}} (tableaux numpy, images décodées des vidéos)."""
         from lerobot.datasets import LeRobotDataset
-        ds = LeRobotDataset(self.repo_id, root=self.dossier, episodes=[index])
+        ds = LeRobotDataset(self.repo_id, root=self.dossier, episodes=[index], video_backend=decodeur_video())
         fmt = self.format()
         t, etat, actions = [], [], []
         images: dict[str, list[np.ndarray]] = {nom: [] for nom in fmt.images}
@@ -202,11 +214,13 @@ class DatasetMIR:
                 raise ValueError(f"le dataset {self.nom} est enregistré à {self.fps()} Hz, pas à {fps} Hz")
             if self.format() != fmt:
                 raise ValueError(f"le dataset {self.nom} n'enregistre pas les mêmes grandeurs : créez un autre dataset")
-            ds = LeRobotDataset.resume(self.repo_id, root=self.dossier, vcodec=CODEC_VIDEO)
+            ds = LeRobotDataset.resume(self.repo_id, root=self.dossier, vcodec=CODEC_VIDEO,
+                                       video_backend=decodeur_video())
         else:
             self.dossier.parent.mkdir(parents=True, exist_ok=True)
             ds = LeRobotDataset.create(self.repo_id, fps=fps, features=fmt.features(), root=self.dossier,
-                                       robot_type=robot_type, vcodec=CODEC_VIDEO)
+                                       robot_type=robot_type, vcodec=CODEC_VIDEO,
+                                       video_backend=decodeur_video())
         try:
             for trame in trames:
                 ds.add_frame({**trame, TACHE: tache})
@@ -232,7 +246,7 @@ class DatasetMIR:
         if temporaire.exists():
             shutil.rmtree(temporaire)
         mir = self._mir()
-        delete_episodes(LeRobotDataset(self.repo_id, root=self.dossier), sorted(indices), output_dir=temporaire,
+        delete_episodes(LeRobotDataset(self.repo_id, root=self.dossier, video_backend=decodeur_video()), sorted(indices), output_dir=temporaire,
                         repo_id=self.repo_id)
         ancien = self.dossier.with_name(f"_{self.nom}_ancien")
         self.dossier.rename(ancien)

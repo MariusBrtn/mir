@@ -32,12 +32,7 @@ Seul AP1 est configurable en BLE ; AP1 + AP2 sont configurables en série.
 
 ### 2.1 Logiciels
 
-- Python 3.10+ avec les packages MIR installés en mode éditable :
-  ```bash
-  pip install -e ./mir_utils
-  pip install -e ./mir_devices
-  pip install -r requirements.txt   # contient esptool
-  ```
+- MIR installé (`uv sync` à la racine de `mir`), qui contient esptool et bleak ; lancer l'outil avec `uv run mir-esp32`
 - Dépendances de `mir_esp_deploy` :
   - `PySide6` (interface)
   - `esptool` (flash) — `pip install esptool`

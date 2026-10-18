@@ -2,7 +2,7 @@
 [project]
 name = "mir_esp_deploy"
 version = "0.1.0"
-dependencies = ["mir_devices", "mir_utils"]
+dependencies = ["mir_devices", "mir_utils", "PySide6", "bleak", "esptool"]
 
 [build-system]
 requires = ["setuptools"]

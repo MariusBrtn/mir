@@ -1,5 +1,5 @@
 ## Déploiement camera_server et/ou lidar_server.
-Il est recommandé d'exécuter le script mir/install.sh au préalable  
+Il est recommandé d'installer MIR au préalable (`uv sync` dans le dossier mir)  
 Lors du déploiement le raspberrry pi zero doit être connecté à internet  
 Depuis le terminal, depuis le dossier mir_pi_sensors, faire :  
 lidar uniquement :

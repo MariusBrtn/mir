@@ -28,7 +28,8 @@ def global_exception_handler(exc_type, exc_value, exc_traceback):
 sys.excepthook = global_exception_handler
 
 
-if __name__ == "__main__":
+def main():
+    """Point d'entrée de la commande mir-esp32 (voir pyproject.toml à la racine)."""
     app = QtWidgets.QApplication.instance()
     if app is None:
         app = QtWidgets.QApplication(sys.argv)
@@ -42,3 +43,7 @@ if __name__ == "__main__":
 
     window.show()
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

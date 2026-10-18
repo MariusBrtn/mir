@@ -2,11 +2,7 @@
 [project]
 name = "mir_utils"
 version = "0.1.0"
-dependencies = [
-    "PySide6",
-    "loguru",
-    "typing_extensions",
-]
+dependencies = ["PySide6", "loguru", "numpy", "pynput", "typing_extensions"]
 
 [build-system]
 requires = ["setuptools"]

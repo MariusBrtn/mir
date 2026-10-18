@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import re
 import subprocess
+import sysconfig
 from typing_extensions import override
 from PySide6.QtCore import Signal
 from dataclasses import dataclass
@@ -211,7 +212,8 @@ class Esp32DeployViewModel(ViewModelBase[DeployVMAction]):
     
     def build_flash_command(self, port: str, baud_rate, bootloader, partitions, boot_app0, firmware) -> list[str]:
         return [
-            "esptool", "--chip", "esp32", "--port", port, "--baud", str(baud_rate),
+            # esptool de l'environnement de MIR (lancé depuis un raccourci, il n'est pas forcément dans le PATH)
+            str(Path(sysconfig.get_path("scripts")) / "esptool"), "--chip", "esp32", "--port", port, "--baud", str(baud_rate),
             "--before", "default-reset", "--after", "hard-reset",
             "write-flash", "-z", "--flash-mode", "dio", "--flash-freq", "40m", "--flash-size", "4MB",
             "0x1000", bootloader,

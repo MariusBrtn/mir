@@ -195,7 +195,7 @@ Condition commune : des compétences **nommées, lançables, qui signalent leur 
 
 LeRobot est en version 0.x : il ne promet pas de stabilité d'une version à l'autre, et a déjà changé en 2025 le format des datasets (v2.1 → v3.0) et la forme des politiques (« processors »). MIR s'en protège ainsi (décidé le 18/10/2026) :
 
-1. **Version figée** dans `requirements.txt` (`lerobot[feetech]==0.5.1`, avec MuJoCo). Une mise à jour est une décision, prise par exemple entre deux années scolaires ; tous les postes d'une classe ont le même environnement.
+1. **Version figée** dans les `pyproject.toml` (`lerobot[feetech]==0.5.1`, `mujoco==3.6.0`), et toutes les autres dépendances dans `uv.lock` (depuis le 18/10). Une mise à jour est une décision, prise par exemple entre deux années scolaires ; tous les postes d'une classe ont le même environnement.
 2. **Un seul point de contact par domaine** : le bus moteur dans `mir_devices` (les types utilisés ailleurs passent par `mir_devices/lerobot_types.py`), l'interface robot dans `mir_robot`, et demain un module unique pour les datasets et un pour les politiques. L'éditeur et les scripts des élèves n'importent pas LeRobot directement.
 3. **Un test de compatibilité en simulé** : `python tests/test_lerobot.py` (fait le 18/10 pour les données : création, ajout, suppression, relecture, DataLoader ; à compléter par l'entraînement et les politiques). À lancer avant toute mise à jour ; seul le bus moteur réel se vérifie sur le matériel.
 4. **Versions notées** (LeRobot, MIR) avec chaque dataset et chaque modèle, en plus des conditions d'enregistrement.

@@ -1,7 +1,7 @@
 """
 Test de compatibilité avec LeRobot, en simulation (aucun matériel nécessaire).
 
-À lancer avant de changer la version de LeRobot figée dans requirements.txt :
+À lancer avant de changer la version de LeRobot figée dans mir_devices/pyproject.toml :
     python tests/test_lerobot.py
 (il fait aussi partie des tests lancés par python -m pytest)
 Vérifie la chaîne des données : robot simulé -> épisodes enregistrés -> dataset complété puis modifié -> relecture par
@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 import importlib.metadata
 
-from mir_robot.donnees import DatasetMIR, FormatDataset
+from mir_robot.donnees import DatasetMIR, FormatDataset, decodeur_video
 from mir_robot.mir_robot import chemin_robot, mirRobot, mirRobotConfig
 from mir_sim.config_from_structure import complete_config_from_structure
 from mir_sim.sim_devices_factory import SimDevicesFactory
@@ -60,7 +60,8 @@ def main():
 
             import torch
             from lerobot.datasets import LeRobotDataset
-            lot = next(iter(torch.utils.data.DataLoader(LeRobotDataset(ds.repo_id, root=ds.dossier), batch_size=4)))
+            lot = next(iter(torch.utils.data.DataLoader(LeRobotDataset(ds.repo_id, root=ds.dossier,
+                                                                         video_backend=decodeur_video()), batch_size=4)))
             verifier("action" in lot and lot["action"].shape[0] == 4, "lecture par un DataLoader PyTorch")
         print("Tout est compatible.")
     finally:
@@ -68,6 +69,14 @@ def main():
 
 
 def test_compatibilite_lerobot():
+    main()
+
+
+def test_compatibilite_lerobot_sans_ffmpeg(monkeypatch):
+    """Comme sur un Mac ou un Linux sans ffmpeg installé : vidéos décodées par PyAV, qui embarque le sien."""
+    import mir_robot.donnees
+    monkeypatch.setattr(mir_robot.donnees, "decodeur_video", lambda: "pyav")
+    monkeypatch.setitem(globals(), "decodeur_video", lambda: "pyav")
     main()
 
 

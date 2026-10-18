@@ -3,7 +3,7 @@
 [project]
 name = "mir_devices"
 version = "0.1.0"
-dependencies = ["mir_utils", "psutil"]
+dependencies = ["mir_utils", "lerobot[feetech]==0.5.1", "dacite", "loguru", "matplotlib", "numpy", "psutil", "requests"]
 
 [build-system]
 requires = ["setuptools"]

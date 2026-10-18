@@ -1,0 +1,57 @@
+# MIR : l'application complète, qui réunit les paquets mir_* (espace de travail uv).
+#
+# Installer (crée l'environnement .venv, avec Python 3.12, aux versions exactes de uv.lock) :
+#     uv sync
+# Lancer MIR :           uv run mir
+# Lancer les tests :     uv run pytest
+#
+# Chaque paquet mir_* garde son pyproject.toml et reste installable seul (ex. mir_utils, sans LeRobot).
+# LeRobot et MuJoCo sont figés : LeRobot est en version 0.x et change souvent son API (bus moteur, format des
+# datasets, politiques). Une mise à jour est une décision : changer la version dans mir_devices/pyproject.toml
+# (LeRobot) ou mir_sim/pyproject.toml (MuJoCo), puis `uv lock` et `uv run pytest` (tests/test_lerobot.py).
+
+[project]
+name = "mir"
+version = "0.1.0"
+description = "MIR (Modular Intelligent Robot) : plateforme pédagogique de robotique et d'IA"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "mir_utils",
+    "mir_devices",
+    "mir_robot",
+    "mir_sim",
+    "mir_robot_editor",
+    "mir_esp_deploy",
+    "fabric",           # mir_pi_sensors/deploy.py : déploiement des serveurs sur le Raspberry Pi
+]
+
+[project.gui-scripts]
+mir = "mir_robot_editor.main:main"
+mir-esp32 = "mir_esp_deploy.main:main"
+
+[dependency-groups]
+dev = ["pytest"]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []          # le code est dans les paquets mir_* ; ce projet fournit les commandes mir et mir-esp32
+
+[tool.uv.workspace]
+members = ["mir_utils", "mir_devices", "mir_robot", "mir_sim", "mir_robot_editor", "mir_esp_deploy"]
+
+[tool.uv.sources]
+mir_utils = { workspace = true }
+mir_devices = { workspace = true }
+mir_robot = { workspace = true }
+mir_sim = { workspace = true }
+mir_robot_editor = { workspace = true }
+mir_esp_deploy = { workspace = true }
+
+[tool.pytest.ini_options]
+# tests en simulation, aucun matériel nécessaire
+testpaths = ["tests"]
+addopts = "-q"

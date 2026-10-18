@@ -60,3 +60,4 @@ logs_essais_ACT/
 # datasets de démonstrations (vidéos, lourds) : sauvegardés à part ou sur le Hub Hugging Face
 robots/*/datasets/
 .pytest_cache/
+.venv/

@@ -1,46 +1,54 @@
 # Installation M.I.R
 
-### 1. installer git et lerobot
-voir documents installation_lerobot_linux.pdf et installation_lerobot_windows.pdf
+MIR s'installe avec [uv](https://docs.astral.sh/uv/), qui télécharge Python 3.12, crée l'environnement et installe
+les versions exactes de LeRobot, MuJoCo, PyTorch... (fichier `uv.lock`). Ni conda, ni droits administrateur.
 
---- 
+### 1. installer uv (une seule fois)
 
-### 2. cloner le dépot  
-sous linux : depuis le terminal
-sous windows : depuis Miniforge Prompt
+sous Windows, depuis PowerShell :
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+sous Linux et macOS, depuis le terminal :
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+---
+
+### 2. récupérer MIR
 
 ```bash
 git clone https://github.com/MichelBtn/mir
 ```
 
---- 
+---
 
-### 3. installer mir
-sous windows, depuis Miniforge Prompt :
-aller dans le dossier racine du projet (mir par défaut) et faire :
+### 3. installer MIR
+
+depuis le dossier `mir` :
 ```bash
-conda activate lerobot
-install.bat
+uv sync
 ```
-sous linux, depuis le terminal :
-aller dans le dossier racine du projet (mir par défaut) et faire :
-```bash
-conda activate lerobot
-./install.sh
-```
+(ou double-clic sur `install.bat` sous Windows, `./install.sh` sous Linux et macOS)
+
+La première installation télécharge quelques Go (PyTorch surtout). Pour mettre à jour MIR : `git pull` puis `uv sync`.
 
 ---
-### si problème lié à PySide6 sous windows
-message du genre :
-*ImportError: DLL load failed while importing QtWidgets: The specified procedure could not be found*
 
-depuis Miniforge prompt :
+### 4. lancer MIR
+
+depuis le dossier `mir` :
 ```bash
-pip uninstall -y PySide6 PySide6_Essentials PySide6_Addons
-conda install -c conda-forge pyside6
+uv run mir           # l'application
+uv run mir-esp32     # l'outil de configuration des capteurs ESP32
+uv run pytest        # les tests (en simulation, sans matériel)
 ```
+Un script : `uv run python mon_script.py`. Dans VS Code, choisir l'interpréteur `mir/.venv`.
 
-### pour réutiliser la librairie mir_utils (pas de dépendance lerobot):   
-pip install -e "git+ssh://git@github.com/MichelBtn/mir.git#subdirectory=mir_utils"   
-ou en local, après installation comme ci-dessus :
-pip install -e /chemin/local/mir/mir_utils   
+---
+
+### pour réutiliser la librairie mir_utils (pas de dépendance lerobot):
+pip install -e "git+ssh://git@github.com/MichelBtn/mir.git#subdirectory=mir_utils"
+ou en local :
+pip install -e /chemin/local/mir/mir_utils

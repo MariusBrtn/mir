@@ -70,15 +70,20 @@ def enable_motor_bus_debug():
 
   debug_logger.debug("[MOTOR_BUS] ================== START ===================================================")
 
-if __name__ == '__main__':
+def main():
+    """Point d'entrée de la commande mir (voir pyproject.toml à la racine)."""
     enable_motor_bus_debug()
     app = QtWidgets.QApplication.instance()
     if app is None:
-        app = QtWidgets.QApplication(sys.argv)    
+        app = QtWidgets.QApplication(sys.argv)
     apply_theme(app)
     mainViewModel = MainViewModel(dialogProvider)
     window = MainView(mainViewModel)
     dialogProvider.setParent(window)
     window.show()
-    sys.exit(app.exec())    
+    sys.exit(app.exec())
+
+
+if __name__ == '__main__':
+    main()
     
