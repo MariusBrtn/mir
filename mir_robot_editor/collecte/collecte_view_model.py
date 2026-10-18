@@ -28,6 +28,7 @@ from mir_utils.ui.view_model_base import ViewModelBase
 
 DECOMPTE_S = 3              # compte à rebours avant l'enregistrement d'une démonstration
 AFFICHAGE_HZ = 15           # rafraîchissement de la vue en direct (caméra, lidar)
+ERREURS_TOLEREES = 5        # lectures ratées d'affilée (bus moteur, capteur) avant d'arrêter la collecte
 
 
 class Phase(Enum):
@@ -199,14 +200,32 @@ class CollecteViewModel(ViewModelBase[CollecteVMAction]):
         phase = Phase.LIBRE
         trames: list[dict[str, Any]] = []
         erreur = ""
+        erreurs_suivies = 0
+        manquees = 0           # mesures ratées pendant l'enregistrement, remplacées par la précédente
         try:
             while not self._arret:
-                observation = robot.get_observation()
-                if not derniere:
-                    derniere = {a: (0.0 if a.endswith(".velocity") else float(observation.get(a, 0.0)))
-                                for a in fmt.actions}
-                if not execution.tour(observation):
-                    break                                  # la téléopération s'est terminée (Échap)
+                try:
+                    observation = robot.get_observation()
+                    if not derniere:
+                        derniere = {a: (0.0 if a.endswith(".velocity") else float(observation.get(a, 0.0)))
+                                    for a in fmt.actions}
+                    if not execution.tour(observation):
+                        break                              # la téléopération s'est terminée (Échap)
+                    erreurs_suivies = 0
+                except (ConnectionError, TimeoutError, OSError) as e:
+                    # lecture ratée (servo qui ne répond pas à temps, capteur wifi...) : passagère le plus souvent
+                    erreurs_suivies += 1
+                    logger.warning(f"collecte : lecture ratée ({erreurs_suivies}/{ERREURS_TOLEREES}) : {e}")
+                    if erreurs_suivies > ERREURS_TOLEREES:
+                        raise
+                    if phase == Phase.ENREGISTREMENT and trames:
+                        trames.append(trames[-1])
+                        manquees += 1
+                        if len(trames) >= n_trames:
+                            self._fin_demo(trames, manquees)
+                            phase = Phase.LIBRE
+                    attente.wait()
+                    continue
                 if execution.derniere_action:
                     derniere.update(execution.derniere_action)
                 maintenant = time.perf_counter()
@@ -215,14 +234,12 @@ class CollecteViewModel(ViewModelBase[CollecteVMAction]):
                 if phase == Phase.LIBRE and demande:
                     phase, debut_phase = Phase.DECOMPTE, maintenant
                 elif phase == Phase.DECOMPTE and maintenant - debut_phase >= DECOMPTE_S:
-                    phase, debut_phase, trames = Phase.ENREGISTREMENT, maintenant, []
+                    phase, debut_phase, trames, manquees = Phase.ENREGISTREMENT, maintenant, [], 0
                 if phase == Phase.ENREGISTREMENT:
                     trames.append(fmt.trame(observation, derniere))
                     if len(trames) >= n_trames:
-                        self._trames = trames
+                        self._fin_demo(trames, manquees)
                         phase = Phase.LIBRE
-                        self.episode_a_revoir.emit(episode_depuis_trames(fmt, fps, trames))
-                        self._set_phase(Phase.REVUE)
                 if phase in (Phase.DECOMPTE, Phase.ENREGISTREMENT):
                     ecoule = maintenant - debut_phase
                     self._set_phase(phase, DECOMPTE_S - ecoule if phase == Phase.DECOMPTE else ecoule)
@@ -239,6 +256,14 @@ class CollecteViewModel(ViewModelBase[CollecteVMAction]):
             except Exception as e:
                 erreur = erreur or str(e)
             self._fin_boucle.emit(erreur)
+
+    def _fin_demo(self, trames: list[dict[str, Any]], manquees: int):
+        """Démonstration complète (thread de la boucle) : à revoir, puis à valider ou à recommencer."""
+        self._trames = trames
+        episode = episode_depuis_trames(self._format, self._fps, trames)
+        episode["manquees"] = manquees
+        self.episode_a_revoir.emit(episode)
+        self._set_phase(Phase.REVUE)
 
     def _on_fin_boucle(self, erreur: str):
         self._en_cours = False

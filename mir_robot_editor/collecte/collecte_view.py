@@ -390,7 +390,11 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         self._update_buttons()
 
     def _on_episode_a_revoir(self, episode: dict):
-        self.episode_view.montrer(episode, "Démonstration à valider", self.sp_fps.value())
+        titre = "Démonstration à valider"
+        if episode.get("manquees"):
+            titre += (f"  ⚠ {episode['manquees']} mesure(s) ratée(s), remplacée(s) par la précédente : "
+                      "recommencez si c'est trop")
+        self.episode_view.montrer(episode, titre, self.sp_fps.value())
         self._mode_revue(nouvelle=True)
 
     def _mode_revue(self, nouvelle: bool):

@@ -210,7 +210,7 @@ class DatasetMIR:
         try:
             for trame in trames:
                 ds.add_frame({**trame, TACHE: tache})
-            ds.save_episode()
+            ds.save_episode(parallel_encoding=False)    # sans pic de charge : la téléop continue pendant ce temps
         finally:
             ds.finalize()
         mir = self._mir()
