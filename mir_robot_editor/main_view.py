@@ -1,5 +1,5 @@
 import time
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
 from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
                                QInputDialog, QMenu, QPushButton, QScrollArea, QStackedWidget, QTabWidget, QToolButton,
@@ -38,6 +38,48 @@ MODALITES = [
 STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", False)]
 
 
+class EtapesBar(QWidget):
+    """Les étapes du parcours, dans l'en-tête (comme les espaces de travail d'un logiciel de CAO).
+    Même usage qu'une liste : currentRow, setCurrentRow, signal currentRowChanged."""
+    currentRowChanged = Signal(int)
+
+    def __init__(self, etapes: list[tuple[str, bool]], parent: QWidget | None = None):
+        super().__init__(parent)
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(4)
+        self._noms = [nom for nom, _ in etapes]
+        self._boutons: list[QPushButton] = []
+        self._courante = -1
+        for i, (nom, disponible) in enumerate(etapes):
+            bouton = QPushButton(nom)
+            bouton.setObjectName("Etape")
+            bouton.setCheckable(True)
+            bouton.setCursor(Qt.CursorShape.PointingHandCursor)
+            bouton.clicked.connect(lambda _=False, i=i: self.setCurrentRow(i))
+            self._boutons.append(bouton)
+            layout.addWidget(bouton)
+            self.set_enabled(i, disponible, "" if disponible else "À venir")
+
+    def currentRow(self) -> int:
+        return self._courante
+
+    def setCurrentRow(self, row: int):
+        changee = row != self._courante
+        self._courante = row
+        for i, bouton in enumerate(self._boutons):
+            bouton.setChecked(i == row)
+        if changee:
+            self.currentRowChanged.emit(row)       # rien n'est émis si les signaux sont bloqués
+
+    def set_enabled(self, i: int, enabled: bool, tooltip: str = ""):
+        self._boutons[i].setEnabled(enabled)
+        self._boutons[i].setToolTip(tooltip)
+
+    def set_en_cours(self, i: int, en_cours: bool):
+        self._boutons[i].setText(self._noms[i] + ("  ●" if en_cours else ""))
+
+
 class ModaliteCard(QFrame):
     """Une modalité de Piloter : toute la carte est le bouton (icône, titre, explication) ; la choisie est en noir."""
 
@@ -59,6 +101,7 @@ class ModaliteCard(QFrame):
         textes.addWidget(self._titre)
         self._description = QLabel(description)
         self._description.setObjectName("ModaliteDescription")
+        self._description.setWordWrap(True)        # passe à la ligne quand la fenêtre est étroite
         textes.addWidget(self._description)
         layout.addLayout(textes, 1)
         self._en_cours = QLabel("● en cours")
@@ -186,8 +229,6 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
 
         body = QHBoxLayout()
         body.setContentsMargins(0, 0, 0, 0)
-        self._steps = self._make_steps()
-        body.addWidget(self._steps)
         self._pages = QStackedWidget()
         self._pages.addWidget(self._make_robot_page())
         self._pages.addWidget(self._make_pilot_page())
@@ -217,8 +258,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         header = QFrame()
         header.setObjectName("Header")
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(16, 8, 16, 8)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 8, 14, 8)
+        layout.setSpacing(8)
 
         # robot ouvert : simple indication (ouvrir, créer, enregistrer : étape Configurer et menu Robot)
         self._robot_icon = QLabel()      # vert quand un robot est ouvert, gris sinon
@@ -236,6 +277,15 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                 menu.addAction(action)
         self._robot_menu.setMenu(menu)
         layout.addWidget(self._robot_menu)
+        separateur = QFrame()
+        separateur.setFrameShape(QFrame.Shape.VLine)
+        separateur.setObjectName("SeparateurEntete")
+        layout.addWidget(separateur)
+        # les étapes du parcours (à la place de l'ancienne colonne de gauche)
+        self._steps = EtapesBar(STEPS)
+        self._steps.currentRowChanged.connect(self._on_step_changed)
+        layout.addWidget(self._steps)
+        layout.addStretch(1)
 
         # mode : un seul sélecteur à deux positions
         mode_box = QWidget()
@@ -248,7 +298,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._mode_group = QButtonGroup(self)
         for button, simulation in ((self._btn_real, False), (self._btn_sim, True)):
             button.setCheckable(True)
-            button.setMinimumWidth(90)
+            button.setMinimumWidth(72)
             button.setToolTip("Choisir le robot réel ou le robot simulé (avant de connecter)")
             button.clicked.connect(lambda _=False, s=simulation: self._view_model.set_simulation(s))
             self._mode_group.addButton(button)
@@ -257,13 +307,11 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
 
         # connexion : un seul bouton, dont le texte suit l'état
         self._btn_connect = QPushButton()
-        self._btn_connect.setMinimumWidth(130)
         self._btn_connect.setIconSize(QSize(20, 20))
         self._btn_connect.clicked.connect(self._on_connect_clicked)
         layout.addWidget(self._btn_connect)
         # en simulé, rien à connecter : le robot simulé est toujours prêt, on peut seulement le remettre à zéro
         self._btn_reset_sim = QPushButton("↺  Replacer la scène")
-        self._btn_reset_sim.setMinimumWidth(130)
         self._btn_reset_sim.setToolTip(self._reset_sim_action.toolTip())
         self._btn_reset_sim.clicked.connect(self._reset_sim_action.trigger)
         layout.addWidget(self._btn_reset_sim)
@@ -271,7 +319,6 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._status_label = QLabel()
         self._status_label.setStyleSheet("font-size: 13px;")
         layout.addWidget(self._status_label)
-        layout.addStretch(1)
         # un seul arrêt d'urgence, toujours au même endroit, quelle que soit l'activité qui fait bouger le robot
         self._btn_urgence = QPushButton(self._icon("emergency_stop"), "Arrêt d'urgence")
         self._btn_urgence.setObjectName("Urgence")
@@ -290,20 +337,6 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         painter.fillRect(pixmap.rect(), QColor(couleur))
         painter.end()
         return pixmap
-
-    def _make_steps(self) -> QListWidget:
-        steps = QListWidget()
-        steps.setFixedWidth(240)
-        steps.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        steps.setObjectName("Steps")
-        for i, (name, available) in enumerate(STEPS):
-            item = QListWidgetItem(name)
-            if not available:
-                item.setFlags(Qt.ItemFlag.NoItemFlags)      # grisée
-                item.setToolTip("À venir")
-            steps.addItem(item)
-        steps.currentRowChanged.connect(self._on_step_changed)
-        return steps
 
     def _make_robot_page(self) -> QWidget:
         # accueil de l'étape, et sa page « Paramètres avancés »
@@ -456,8 +489,9 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._mode_box.setVisible(not configuring)
         name = self._view_model.get_robot_name()
         modifie = " • non enregistré" if name and self._view_model.is_dirty() else ""
-        self._robot_menu.setText(f"Robot : {name}{modifie}  ▾" if name else "Aucun robot  ▾")
-        self._robot_menu.setToolTip("Ouvrir, créer, enregistrer ou fermer un robot")
+        self._robot_menu.setText(f"{name}{modifie}  ▾" if name else "Aucun robot  ▾")
+        self._robot_menu.setToolTip(f"Robot ouvert : {name}. Ouvrir, créer, enregistrer ou fermer un robot" if name
+                                    else "Ouvrir ou créer un robot")
         # liseré sous l'en-tête : rouge = robot réel, ardoise = robot simulé (visible où que l'on regarde)
         liseré = theme.BORDER if configuring or not robot_ouvert else (COLOR_SIM if simulation else COLOR_REAL)
         epaisseur = 1 if configuring or not robot_ouvert else 4
@@ -509,13 +543,12 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         if state == MainViewModelState.INIT or configuring:
             dot, text = COLOR_IDLE, ""
         elif state == MainViewModelState.LOADED:
-            dot, text = COLOR_IDLE, ("Pas de structure : simulation impossible" if simulation else "Non connecté")
+            dot, text = COLOR_IDLE, ("Pas de structure" if simulation else "Non connecté")
         elif state == MainViewModelState.CONNECTED:
-            dot, text = (COLOR_SIM, "Simulation prête") if simulation else (theme.OK, "Connecté au robot réel")
+            dot, text = (COLOR_SIM, "Prêt") if simulation else (theme.OK, "Connecté")
         else:
             # en simulation, on ne parle pas de mesures : les mesures se font sur le robot réel
-            dot, text = (COLOR_SIM, "Mouvement en cours (simulation)") if simulation else \
-                        (COLOR_RUNNING, "Mesures en cours sur le robot réel")
+            dot, text = (COLOR_SIM, "En mouvement") if simulation else (COLOR_RUNNING, "En mouvement")
         self._status_label.setText(f"<span style='color:{dot}; font-size:16px;'>●</span>&nbsp;{text}")
 
     def _update_activites(self):
@@ -527,7 +560,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             if en_cours:
                 etapes_occupees.add(etape)
         for i, (name, _) in enumerate(STEPS):
-            self._steps.item(i).setText(name + ("   ●" if i in etapes_occupees else ""))
+            self._steps.set_en_cours(i, i in etapes_occupees)
 
     def _on_pilot_tab_changed(self, index: int):
         for i, carte in enumerate(self._modalites):
@@ -547,9 +580,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         if hasattr(self, "_steps"):
             avec_robot = state != MainViewModelState.INIT
             for step in (STEP_PILOT, STEP_COLLECT):
-                item = self._steps.item(step)
-                item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable if avec_robot else Qt.ItemFlag.NoItemFlags)
-                item.setToolTip("" if avec_robot else "Ouvrez ou créez d'abord un robot (étape Configurer le robot)")
+                self._steps.set_enabled(step, avec_robot, "" if avec_robot else
+                                        "Ouvrez ou créez d'abord un robot (étape Configurer)")
             if not avec_robot and self._steps.currentRow() in (STEP_PILOT, STEP_COLLECT):
                 self._steps.setCurrentRow(STEP_ROBOT)
         if state == MainViewModelState.CONNECTED and previous == MainViewModelState.LOADED:
