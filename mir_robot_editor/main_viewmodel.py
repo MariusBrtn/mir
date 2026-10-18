@@ -13,7 +13,6 @@ from mir_robot_editor.essais.essais_view_model import EssaisViewModel
 from mir_robot_editor.scripts.scripts_view_model import ScriptsViewModel
 from mir_robot_editor.assemblage.assemblage_view_model import AssemblageViewModel
 from mir_robot_editor.edit_configuration_view_model import EditConfigurationViewModel
-from mir_robot_editor.robot_model.robot_model_view_model import RobotModelViewModel
 from mir_robot_editor.robot_model.structure_editor_view_model import StructureEditorViewModel
 from mir_utils.ui.dialogs import DialogResult
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
@@ -36,7 +35,6 @@ class MainVMAction(Enum):
     SCAN = auto()
     EDIT_CONFIGURATION = auto()
     MOTOR_CFG = auto()
-    ROBOT_MODEL = auto()
     STRUCTURE = auto()
     SIMULATION = auto()
     RESET_SIMULATION = auto()
@@ -72,7 +70,6 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.EDIT_CONFIGURATION] = VMAction("Éditer la configuration...", "Ouvrir la fenêtre d'édition de la configuration du robot")
         self._actions[MainVMAction.MOTOR_CFG] = VMAction("Régler les servos...", "Mode, PID, vitesse et couple max des servos du robot construit et branché")
         self._actions[MainVMAction.STRUCTURE] = VMAction("Concevoir la structure...", "Choisir les modules du robot et leurs branchements")
-        self._actions[MainVMAction.ROBOT_MODEL] = VMAction("Modèle 3D...", "Afficher le modèle 3D du robot décrit par la structure de la configuration")
         self._actions[MainVMAction.SIMULATION] = VMAction("Simulé", "Choisir entre le robot réel et le robot simulé (à faire avant la connexion)")
         self._actions[MainVMAction.ASSEMBLE] = VMAction("Construire le robot...", "Guide de montage du robot réel, module par module")
         self._actions[MainVMAction.BUILD_LEADER] = VMAction("Créer le bras leader...", "Construire, avec de nouveaux servos et un nouveau socle, "
@@ -474,19 +471,6 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         except BaseException as e:
             self._dialogProvider.exception(e)
 
-    def execute_robot_model(self, open_view):
-        try:
-            if self._current_configuration is None:
-                raise RuntimeError("Aucune configuration chargée")
-            if not self._current_configuration.structure:
-                self._dialogProvider.information("Modèle 3D", "La configuration active ne contient pas de structure du robot")
-                return
-            vm = RobotModelViewModel(self._dialogProvider, self._current_configuration.get_deep_copy())
-            with vm:
-                open_view(vm)
-        except BaseException as e:
-            self._dialogProvider.exception(e)
-
     def motor_modules(self) -> dict[str, str]:
         """Servos du robot : {moteur: module de la structure qui le porte}."""
         cfg = self._current_configuration
@@ -763,7 +747,6 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         a[MainVMAction.CLOSE].set_enabled(state != MainViewModelState.INIT and state != MainViewModelState.RUNNING)
         a[MainVMAction.STRUCTURE].set_enabled(state == MainViewModelState.INIT or editable)
         a[MainVMAction.EDIT_CONFIGURATION].set_enabled(editable)
-        a[MainVMAction.ROBOT_MODEL].set_enabled(has_structure and state != MainViewModelState.INIT)
         # matériel (robot branché) : pendant la configuration, le robot n'est pas utilisé par ailleurs
         a[MainVMAction.SCAN].set_enabled(state in (MainViewModelState.INIT, MainViewModelState.LOADED))
         # régler n'a de sens qu'une fois le robot construit

@@ -4,7 +4,6 @@ from PySide6.QtGui import QAction, QColor, QDrag, QIcon, QImage, QKeyEvent, QPix
 from PySide6.QtWidgets import (QCheckBox, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget,
                                QListWidgetItem, QMenu, QToolBar, QToolButton, QVBoxLayout, QWidget)
 from mir_sim.model_builder import CONNECTOR_MARKER_GROUP
-from mir_robot_editor.robot_model.joint_sliders_widget import JointSlidersWidget
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_robot_editor.robot_model.structure_editor_view_model import (ModuleInfo, PaletteItem, StructureEditorViewModel,
                                                                       StructureEditorVMAction)
@@ -130,15 +129,11 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
         form.addRow("", self._direction_check)
         form.addRow("", self._delete_button)
 
-        self._joints = JointSlidersWidget()
-        self._joints.joint_changed.connect(vm.set_joint)
         self._errors = QLabel()
         self._errors.setWordWrap(True)
         self._errors.setStyleSheet(f"color: {theme.ERROR}")
         side = QVBoxLayout()
         side.addWidget(self._module_box)
-        side.addWidget(QLabel("<b>Articulations</b> (degrés moteur)"))
-        side.addWidget(self._joints)
         side.addStretch()
         side.addWidget(self._errors)
         side_widget = QWidget()
@@ -164,7 +159,6 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
         self._reframe_action.setToolTip("Recadrer la vue sur tout le robot")
         self._reframe_action.triggered.connect(self._viewport.reset_camera)
         toolbar.addAction(self._reframe_action)
-        self._zero_action = self._make_action(StructureEditorVMAction.ZERO_POSE, self._joints.set_all_zero, "robot", toolbar=toolbar)
         toolbar.addSeparator()
         self._accept_action = self._make_action(StructureEditorVMAction.ACCEPT, vm.accept, "apply", toolbar=toolbar)
         self._cancel_action = self._make_action(StructureEditorVMAction.CANCEL, vm.cancel, "close", toolbar=toolbar)
@@ -264,13 +258,11 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
         super().keyPressEvent(event)
 
     # ------------------------------------------------------------------ modèle
-    def _on_model_changed(self, model, data, joints) -> None:
+    def _on_model_changed(self, model, data) -> None:
         self._viewport.set_model(model, data, keep_camera=self._viewport.has_model())
-        self._joints.set_joints(joints, self._view_model.joint_values())
 
     def _on_model_message(self, message: str) -> None:
         self._viewport.show_message(message)
-        self._joints.set_joints([])
 
     def _on_errors_changed(self, errors: list[str]) -> None:
         self._errors.setText("\n".join(f"• {e}" for e in errors))

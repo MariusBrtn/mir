@@ -14,7 +14,6 @@ from mir_robot_editor.teleop.teleop_view import TeleopView
 from mir_robot_editor.essais.essais_view import EssaisView
 from mir_robot_editor.scripts.scripts_view import ScriptsView
 from mir_robot_editor.assemblage.assemblage_view import AssemblageView
-from mir_robot_editor.robot_model.robot_model_view import RobotModelView
 from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui import theme
@@ -115,7 +114,6 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._build_leader_action = self._make_action(MainVMAction.BUILD_LEADER, self.on_action_build_leader, "construire")
         self._recalibrate_action = self._make_action(MainVMAction.RECALIBRATE, self.on_action_recalibrate, "calibration")
         self._structure_action = self._make_action(MainVMAction.STRUCTURE, self.on_action_structure, "structure")
-        self._robot_model_action = self._make_action(MainVMAction.ROBOT_MODEL, self.on_action_robot_model, "robot")
         self._close_action = self._make_action(MainVMAction.CLOSE, self.on_action_close, "close")
         self._advanced_action = self._make_action(MainVMAction.ADVANCED, self.on_action_advanced, "gear")
         self._servo_id_action = self._make_action(MainVMAction.SERVO_ID, self.on_action_servo_id, "servo_id")
@@ -596,5 +594,3 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
     def on_action_structure(self):
         self._view_model.execute_structure_editor(lambda vm: StructureEditorView(self, vm).exec())
 
-    def on_action_robot_model(self):
-        self._view_model.execute_robot_model(lambda vm: RobotModelView(self, vm).exec())

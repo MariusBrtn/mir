@@ -25,7 +25,6 @@ from mir_sim.model_builder import (MATING_GENDERS, ROOT_TYPE, BuiltModel, ModelB
 from mir_utils.ui.dialogs import IDialogProvider
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
 from mir_utils.ui import theme
-from mir_robot_editor.robot_model.joint_sliders_widget import JointSlider
 
 MARKER_RGBA = theme.MARKER_FREE_RGBA                    # connecteur libre
 MARKER_COMPATIBLE_RGBA = theme.MARKER_COMPATIBLE_RGBA   # connecteur où le module en cours de placement peut se brancher
@@ -39,7 +38,6 @@ class StructureEditorVMAction(Enum):
     REDO = auto()
     CHANGE_CONNECTOR = auto()
     DELETE = auto()
-    ZERO_POSE = auto()
     ACCEPT = auto()
     CANCEL = auto()
 
@@ -71,7 +69,7 @@ class ModuleInfo:
 
 
 class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
-    model_changed = Signal(object, object, list)   # MjModel, MjData, list[JointSlider]
+    model_changed = Signal(object, object)         # MjModel, MjData
     model_message = Signal(str)                     # texte à afficher quand il n'y a pas de modèle
     palette_changed = Signal(list)                  # list[PaletteItem]
     selection_changed = Signal(object)              # ModuleInfo | None
@@ -98,7 +96,6 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._base_rgba: np.ndarray | None = None
         self._selected: str | None = None
         self._placing: tuple[str, str] | None = None     # (élément de la liste, type de module) en attente d'un connecteur
-        self._joint_values: dict[str, float] = {}
         self._undo: list[tuple] = []     # instantanés de _snapshot()
         self._redo: list[tuple] = []
         self._accepted = False
@@ -108,7 +105,6 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         add(StructureEditorVMAction.CHANGE_CONNECTOR, VMAction(
             "Changer de connecteur", "Brancher le module sélectionné par un autre de ses connecteurs"))
         add(StructureEditorVMAction.DELETE, VMAction("Supprimer", "Supprimer le module sélectionné et les modules branchés dessus"))
-        add(StructureEditorVMAction.ZERO_POSE, VMAction("Pose zéro", "Remettre toutes les articulations à 0°"))
         add(StructureEditorVMAction.ACCEPT, VMAction("Valider", "Enregistrer la structure dans la configuration", enabled=True))
         add(StructureEditorVMAction.CANCEL, VMAction("Fermer sans enregistrer", "Fermer sans modifier la configuration", enabled=True))
 
@@ -433,7 +429,6 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._push_undo()
         for name in removed:
             inst = self.modules.pop(name)
-            self._joint_values.pop(inst.get("motor"), None)
             if self._forget_created(inst):
                 continue    # créé dans cet éditeur : il disparaît avec son module
             if "motor" in inst or "motors" in inst or "sensors" in inst:
@@ -495,26 +490,6 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._rebuild()
         self._update_status()
 
-    # ------------------------------------------------------------------ articulations
-    def set_joint(self, motor: str, motor_deg: float) -> None:
-        self._joint_values[motor] = motor_deg
-        self._apply_joint(motor)
-        if self._built is not None and self._data is not None:
-            mujoco.mj_forward(self._built.model, self._data)
-        self.redraw_required.emit()
-
-    def _apply_joint(self, motor: str) -> None:
-        if self._built is None or self._data is None or motor not in self._built.joints:
-            return
-        info = self._built.joints[motor]
-        joint_id = self._built.model.joint(info.joint_name).id
-        lo, hi = self._built.model.jnt_range[joint_id]
-        self._data.qpos[self._built.model.jnt_qposadr[joint_id]] = np.clip(
-            info.motor_to_sim_rad(self._joint_values.get(motor, 0.0)), lo, hi)
-
-    def joint_values(self) -> dict[str, float]:
-        return dict(self._joint_values)
-
     # ------------------------------------------------------------------ validation
     def accept(self) -> None:
         errors = check_structure(self._structure, self._catalog, self._motors, self._sensors) if self.modules else []
@@ -550,7 +525,9 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
             return
         try:
             # construction tolérante (moteurs et capteurs vérifiés à part) pour voir le robot pendant l'édition
-            self._built = ModelBuilder(self._structure, self._motor_params, connector_markers=True).build()
+            # sans objets : un robot mobile n'est pas posé dans son arène pendant la conception
+            self._built = ModelBuilder(self._structure, self._motor_params, scene={"objects": []},
+                                       connector_markers=True).build()
         except StructureError as e:
             self._built, self._data = None, None
             self.model_message.emit("Structure invalide :\n\n" + "\n".join(e.errors))
@@ -558,14 +535,10 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
             return
         self._data = mujoco.MjData(self._built.model)
         self._base_rgba = self._built.model.geom_rgba.copy()
-        for motor in self._built.joints:
-            self._apply_joint(motor)
         mujoco.mj_forward(self._built.model, self._data)
         self._color_markers(None)
         self._update_selection_tint()
-        joints = [JointSlider(motor, *info.range_deg) for motor, info in self._built.joints.items()]
-        self.model_changed.emit(self._built.model, self._data, joints)
-        self._actions[StructureEditorVMAction.ZERO_POSE].set_enabled(bool(joints))
+        self.model_changed.emit(self._built.model, self._data)
         self._emit_selection()
 
     def _color_markers(self, highlighted: set[str] | None) -> None:
