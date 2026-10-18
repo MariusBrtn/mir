@@ -11,7 +11,8 @@ from mir_utils.metrics import SimpleMovingAverage, Stats, DataRecorder
 from mir_utils.period_waiters import PeriodWaiterExact
 from mir_utils.concurrency import BackgroundWorker
 from mir_robot.mir_robot import mirRobot
-from mir_robot.commande import Commande, CommandesDisponibles, ExecutionCommande, decouvrir_commandes, verifier_action
+from mir_robot.commande import Commande, CommandesDisponibles, ExecutionCommande, verifier_action
+from mir_robot.teleop.loading import discover_teleops
 from mir_utils.keyboard_listener import KeyQueue
 from mir_devices.mir_device import ActionValue
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
@@ -64,8 +65,9 @@ class RobotMonitorViewModel(ViewModelBase[RobotMonitorVMAction]):
         self._actions[RobotMonitorVMAction.ACTION] = VMAction("", "")
         self._actions[RobotMonitorVMAction.COMMANDE_START] = VMAction("Démarrer la commande", "Démarrer la commande choisie")
         self._actions[RobotMonitorVMAction.COMMANDE_STOP] = VMAction("Arrêter la commande", "Arrêter la commande en cours")
-        # commandes : None = consigne manuelle
+        # téléopérations : celles fournies avec MIR et celles du dossier teleop du robot ouvert
         self._commandes = CommandesDisponibles()
+        self._teleop_dir: Path | None = None
         self._commande_choisie: str | None = None
         self._commande_lock = Lock()
         self._commande_a_demarrer: Commande | None = None
@@ -189,10 +191,17 @@ class RobotMonitorViewModel(ViewModelBase[RobotMonitorVMAction]):
             self._is_loop_running and self._commande_choisie is not None and not running)
         self._actions[RobotMonitorVMAction.COMMANDE_STOP].set_enabled(running)
 
+    def set_teleop_dir(self, teleop_dir: Path | None):
+        """Dossier teleop du robot ouvert (None : robot pas encore enregistré, ou aucun robot)."""
+        self._teleop_dir = teleop_dir
+        self.refresh_commandes()
+
+    def get_teleop_dir(self) -> Path | None:
+        return self._teleop_dir
+
     def refresh_commandes(self):
-        """Relit les fichiers de commandes (fournies et utilisateur)."""
-        # téléopération et commandes générales (les sollicitations sont dans l'onglet Essais)
-        self._commandes = decouvrir_commandes(familles=("teleop", ""))
+        """Relit les fichiers de téléopération (fournis et ceux du robot)."""
+        self._commandes = discover_teleops(self._teleop_dir)
         self.commandes_list_changed.emit(
             [(nom, classe.description) for nom, classe in self._commandes.commandes.items()])
         if self._commandes.erreurs:
@@ -300,6 +309,10 @@ class RobotMonitorViewModel(ViewModelBase[RobotMonitorVMAction]):
         self._actions[RobotMonitorVMAction.STOP].set_enabled(False)   
         self._actions[RobotMonitorVMAction.ACTION].set_enabled(False)   
 
+    def get_observables(self) -> dict:
+        """Observations du robot connecté {nom: propriété (type, plage, unité)}."""
+        return dict(getattr(self, "_observables", {}) or {})
+
     def apply_observations(self, selected_observables_keys: list[str]):
         self._selected_observables = {name: self._observables[name] for name in selected_observables_keys}
         self.observations_accepted.emit(self._selected_observables)   
@@ -318,7 +331,7 @@ class RobotMonitorViewModel(ViewModelBase[RobotMonitorVMAction]):
         if self._is_loop_running is True:
             return              
         if self._other_busy():
-            self._dialogProvider.information("Mesures impossibles", "Un essai est en cours.")
+            self._dialogProvider.information("Mesures impossibles", "Un essai ou un script fait déjà bouger le robot.")
             return
         self._fps_stats_enabled = fps_stats_enabled
         try:  

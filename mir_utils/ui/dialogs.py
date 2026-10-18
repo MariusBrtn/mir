@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QDialog, 
     QCheckBox,
+    QInputDialog,
 )
 from abc import ABC, abstractmethod
 import sys
@@ -60,6 +61,15 @@ class IDialogProvider(ABC):
 
     @abstractmethod
     def options(self, title:str, text:str, options:dict[str, str], parent:QWidget | None = None )->list[str]|None: ...
+
+    def choose_item(self, title: str, label: str, items: list[str], current: str | None = None,
+                    parent: QWidget | None = None) -> str | None:
+        """Choisir un élément dans une liste ; None si l'utilisateur annule."""
+        raise NotImplementedError
+
+    def ask_text(self, title: str, label: str, default: str = "", parent: QWidget | None = None) -> str | None:
+        """Saisir un texte ; None si l'utilisateur annule."""
+        raise NotImplementedError
 
 
 class QtDialogProvider(IDialogProvider):
@@ -130,6 +140,16 @@ class QtDialogProvider(IDialogProvider):
     def _set_last_path(self, path: str):
         key = self._caller_key()
         self._settings.setValue(key, path)
+
+    def choose_item(self, title: str, label: str, items: list[str], current: str | None = None,
+                    parent: QWidget | None = None) -> str | None:
+        index = items.index(current) if current in items else 0
+        item, ok = QInputDialog.getItem(parent or self._parent, title, label, items, index, False)
+        return item if ok and item else None
+
+    def ask_text(self, title: str, label: str, default: str = "", parent: QWidget | None = None) -> str | None:
+        text, ok = QInputDialog.getText(parent or self._parent, title, label, text=default)
+        return text if ok else None
 
     def open_file(self, title: str, init_directory: str,
                   filters: str = "All files (*.*)",

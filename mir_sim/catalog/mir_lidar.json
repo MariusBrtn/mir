@@ -1,0 +1,121 @@
+{
+    "description": "Module lidar MIR (RPLidar C1 : 10 tours/s, 5000 mesures/s, 0.72°, portée 0.05-12 m, ±30 mm) : embout baïonnette mâle sur le dessus de la CAO (le module est dessiné à l'envers : une fois branché, l'embout est en dessous et la tourelle au-dessus). Fenêtre de mesure : la tourelle, bande circulaire de 13 mm de haut (rayon 25, z de -42.5 à -29.5 dans la CAO), axe en (12.5, 0). Repère de la CAO, en mm. Avant du lidar (angle 0) : provisoire, orienté vers le +x du socle quand le lidar est branché sur son dessus ; à vérifier avec le vrai lidar.",
+    "unit_scale": 0.001,
+    "parts": {
+        "boitier": {
+            "mass": 0.12,
+            "geoms": [
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_Lidar.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.08,
+                        0.08,
+                        0.09,
+                        1
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        12.5,
+                        0,
+                        2.0
+                    ],
+                    "size": [
+                        40.0,
+                        29.0
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        12.5,
+                        0,
+                        -35.0
+                    ],
+                    "size": [
+                        25.0,
+                        8.0
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        12.5,
+                        0,
+                        35.5
+                    ],
+                    "size": [
+                        25.0,
+                        4.5
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        12.5,
+                        0,
+                        44.35
+                    ],
+                    "size": [
+                        16.0,
+                        4.35
+                    ]
+                }
+            ]
+        }
+    },
+    "connectors": {
+        "embout": {
+            "part": "boitier",
+            "gender": "male",
+            "pos": [
+                12.5,
+                0,
+                40.0
+            ],
+            "zaxis": [
+                0,
+                0,
+                1
+            ],
+            "xaxis": [
+                1,
+                0,
+                0
+            ]
+        }
+    },
+    "sensors": {
+        "laser": {
+            "type": "lidar",
+            "part": "boitier",
+            "pos": [
+                12.5,
+                0,
+                -36.0
+            ],
+            "zaxis": [
+                0,
+                0,
+                -1
+            ],
+            "xaxis": [
+                0,
+                -1,
+                0
+            ],
+            "points": 400,
+            "range_m": [
+                0.05,
+                12.0
+            ]
+        }
+    }
+}

@@ -7,23 +7,27 @@ from pathlib import Path
 from typing import Any, Callable
 from PySide6.QtCore import QEvent, QObject, Qt, QSize, QTimer
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QFrame, QGroupBox, QHBoxLayout,
-                               QInputDialog, QLabel, QPushButton, QScrollArea, QSpinBox, QStackedWidget, QToolButton,
-                               QVBoxLayout, QWidget)
+                               QInputDialog, QLabel, QPushButton, QScrollArea, QSpinBox, QSplitter, QStackedWidget,
+                               QToolButton, QVBoxLayout, QWidget)
 from mir_devices.mir_device import (ObservableProperty, ObservablePropertyBitmap, ObservablePropertyFloat,
                                     ObservablePropertyPolar, ObservationValue)
-from mir_robot.commande import DOSSIER_COMMANDES_FOURNIES, DOSSIER_COMMANDES_UTILISATEUR
-from mir_robot_editor.actions_widget import MotorActionWidget
-from mir_robot_editor.observations_widget import ObservationsWidget
+from mir_robot.teleop.loading import PROVIDED_DIR
+from mir_robot_editor.observations_widget import ObservationsWidget, PolarWidget, VideoWidget
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_robot_editor.robot_monitor_view_model import RobotMonitorViewModel, RobotMonitorVMAction
-from mir_robot.mir_robot import robots_disponibles
-from mir_robot_editor.teleop.commande_editor import MODELE_CLAVIER, MODELE_ROBOT, CommandeEditorDialog, nom_de_fichier
+from mir_robot_editor.teleop.commande_editor import (MODELE_BRAS_LEADER, MODELE_CLAVIER, CommandeEditorDialog, nom_de_classe,
+                                                     nom_de_fichier)
 from mir_utils.keyboard_listener import Key, key_from_char
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui.widgets import StateSavedView, ToolButton
 from mir_utils.ui import theme
 
-MANUELLE = "Consigne manuelle"
+PAR_DEFAUT = "Clavier"
+
+
+def est_capteur(prop: ObservableProperty | None) -> bool:
+    """Caméra ou lidar : affichés d'office pendant la téléopération (en simulation comme en réel)."""
+    return isinstance(prop, (ObservablePropertyBitmap, ObservablePropertyPolar))
 QT_KEYS = {
     Qt.Key.Key_Left: Key.Left, Qt.Key.Key_Right: Key.Right, Qt.Key.Key_Up: Key.Up, Qt.Key.Key_Down: Key.Down,
     Qt.Key.Key_Space: Key.Space, Qt.Key.Key_Return: Key.Enter, Qt.Key.Key_Enter: Key.Enter, Qt.Key.Key_Tab: Key.Tab,
@@ -46,6 +50,7 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         self._param_widgets: dict[str, QWidget] = {}
         self._observation_boxes: dict[str, QCheckBox] = {}
         self._commande_affichee: str | None = None
+        self._actions: list[str] = []
         vm.observations_list_changed.connect(self._on_observations_list_changed)
         vm.actions_list_changed.connect(self._on_actions_list_changed)
         vm.observations_accepted.connect(self._on_observations_accepted)
@@ -58,8 +63,7 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         root.addWidget(self._make_left(), 0)
         self._center = QStackedWidget()
         self._center.addWidget(self._make_measures(state_saved_view))   # robot réel : grandeurs choisies
-        self._viewport = MujocoWidget()
-        self._center.addWidget(self._viewport)                           # robot simulé : vue 3D
+        self._center.addWidget(self._make_simulation())                  # robot simulé : vue 3D et capteurs
         root.addWidget(self._center, 1)
         self._timer_3d = QTimer(self)
         self._timer_3d.setInterval(33)
@@ -95,7 +99,7 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         self.lbl_mode.setStyleSheet(f"background: {theme.SIM}; color: white; padding: 8px 10px; border-radius: 8px;")
         layout.addWidget(self.lbl_mode)
 
-        self.commande_box = QGroupBox("Commande")
+        self.commande_box = QGroupBox("Téléopération")
         form = QVBoxLayout(self.commande_box)
         row = QHBoxLayout()
         self.cb_commande = QComboBox()
@@ -115,21 +119,15 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         self.btn_nouvelle.clicked.connect(self._on_nouvelle)
         code_row.addWidget(self.btn_nouvelle)
         self.btn_code = QPushButton(self._icon("edit"), "Voir le code…")
-        self.btn_code.setToolTip("Voir (et modifier, pour vos commandes) le code Python de la commande")
+        self.btn_code.setToolTip("Voir (et modifier, pour celles du robot) le code Python de la téléopération")
         self.btn_code.clicked.connect(self._on_voir_code)
         code_row.addWidget(self.btn_code)
         form.addLayout(code_row)
+        # bras : son bras leader se construit ici ; la téléopération « Bras leader » apparaît dès qu'il est construit
+        self.btn_leader = QPushButton(self._icon("construire"), "Créer le bras leader…")
+        self.btn_leader.setVisible(False)
+        form.addWidget(self.btn_leader)
         layout.addWidget(self.commande_box)
-
-        # consigne manuelle : le widget de consignes existant
-        self.manual_box = QGroupBox(MANUELLE)
-        manual_layout = QVBoxLayout(self.manual_box)
-        self.action_widget = MotorActionWidget(self)
-        self.action_widget.motor_action_changed.connect(self._view_model.on_motor_action_changed)
-        manual_layout.addWidget(self.action_widget)
-        self._action_action = self._make_action(RobotMonitorVMAction.ACTION, None, "")
-        self._action_action.enabledChanged.connect(self.action_widget.set_enabled)
-        layout.addWidget(self.manual_box)
 
         fps_row = QHBoxLayout()
         fps_row.addWidget(QLabel("Fréquence de la boucle"))
@@ -188,6 +186,63 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         layout.addWidget(self.observations_widget, 1)
         return page
 
+    def _make_simulation(self) -> QWidget:
+        """Robot simulé : la vue 3D, et à côté ce que voient ses capteurs (caméra, lidar)."""
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        self._viewport = MujocoWidget()
+        splitter.addWidget(self._viewport)
+        panel = QWidget()
+        self._sensors_layout = QVBoxLayout(panel)
+        self._sensors_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._sensors_hint = QLabel("La vue des capteurs (caméra, lidar) apparaît au démarrage de la téléopération.")
+        self._sensors_hint.setWordWrap(True)
+        self._sensors_hint.setStyleSheet("color: palette(placeholder-text);")
+        self._sensors_layout.addWidget(self._sensors_hint)
+        self._sensors_scroll = QScrollArea()
+        self._sensors_scroll.setWidgetResizable(True)
+        self._sensors_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._sensors_scroll.setWidget(panel)
+        self._sensors_scroll.setMinimumWidth(350)
+        splitter.addWidget(self._sensors_scroll)
+        splitter.setStretchFactor(0, 1)
+        self._sensor_plots: dict[str, Any] = {}
+        return splitter
+
+    def _capteurs(self) -> list[str]:
+        observables = self._view_model.get_observables()
+        return [nom for nom in self._observation_boxes if est_capteur(observables.get(nom))]
+
+    def _afficher_capteurs_simules(self, observables: dict[str, ObservableProperty]):
+        for widget in self._sensor_plots.values():
+            self._sensors_layout.removeWidget(widget)
+            widget.deleteLater()
+        self._sensor_plots = {}
+        for name, prop in observables.items():
+            if isinstance(prop, ObservablePropertyBitmap):
+                widget = VideoWidget(name, width=320, height=240)
+                widget.init_plot()
+            elif isinstance(prop, ObservablePropertyPolar):
+                widget = PolarWidget(name, prop.max_range, size=320)
+            else:
+                continue
+            self._sensor_plots[name] = widget
+            self._sensors_layout.addWidget(widget, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self._sensors_hint.setVisible(not self._sensor_plots)
+        self._sensors_scroll.setVisible(bool(self._sensor_plots) or bool(self._capteurs()))
+
+    def set_leader_action(self, action):
+        """Action « Créer le bras leader » : le bouton la déclenche et suit son état."""
+        self._leader_action = action
+        self.btn_leader.setToolTip(action.toolTip())
+        self.btn_leader.clicked.connect(action.trigger)
+        action.changed.connect(lambda: self.btn_leader.setEnabled(action.isEnabled()))
+        self.btn_leader.setEnabled(action.isEnabled())
+
+    def set_leader_state(self, arm: bool, built: bool):
+        """Le bouton n'apparaît que pour un bras."""
+        self.btn_leader.setVisible(arm)
+        self.btn_leader.setText("Reconstruire le bras leader…" if built else "Créer le bras leader…")
+
     # ------------------------------------------------------------------ mode et robot
     def set_simulation(self, simulation: bool):
         self._simulation = simulation
@@ -216,8 +271,7 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         self.observations_widget.save_state()
 
     def _on_actions_list_changed(self, actions: dict):
-        self.action_widget.build_ui(actions)
-        self.action_widget.set_enabled(self._action_action.isEnabled())
+        self._actions = list(actions)
         self._on_commande_selected()        # les listes d'articulations des paramètres dépendent du robot
 
     def _on_observations_list_changed(self, names: list[str]):
@@ -227,16 +281,20 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
             if item.widget() is not None:
                 item.widget().deleteLater()
         self._observation_boxes = {}
+        observables = self._view_model.get_observables()
         for name in names:
             box = QCheckBox(name)
-            box.setChecked(name.endswith(".position"))
+            # positions (dont les téléopérations ont besoin) et capteurs (caméra, lidar) suivis par défaut
+            box.setChecked(name.endswith(".position") or est_capteur(observables.get(name)))
             self._observation_boxes[name] = box
             self.observations_layout.addWidget(box)
+        self._afficher_capteurs_simules({})
         self._on_busy_changed(self._view_model.is_running())
 
     def _on_observations_accepted(self, observables: dict[str, ObservableProperty]):
         self.observations_widget.clear()
         if self._simulation:
+            self._afficher_capteurs_simules(observables)
             return
         for name, prop in observables.items():
             if isinstance(prop, ObservablePropertyFloat):
@@ -248,6 +306,9 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
 
     def _on_observation_ready(self, observations: dict[str, ObservationValue]):
         if self._simulation:
+            for key, data in observations.items():
+                if key in self._sensor_plots and data is not None:
+                    self._sensor_plots[key].update_plot(data)
             return
         for key, data in observations.items():
             self.observations_widget.get_plot(key).update_plot(data)
@@ -257,10 +318,11 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         current = self.cb_commande.currentText()
         self.cb_commande.blockSignals(True)
         self.cb_commande.clear()
-        self.cb_commande.addItem(MANUELLE)
         for nom, _description in commandes:
             self.cb_commande.addItem(nom)
         index = self.cb_commande.findText(current)
+        if index < 0:
+            index = self.cb_commande.findText(PAR_DEFAUT)
         self.cb_commande.setCurrentIndex(max(index, 0))
         self.cb_commande.blockSignals(False)
         self._on_commande_selected()
@@ -271,12 +333,10 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
     def _on_commande_selected(self, *_):
         nom = self.cb_commande.currentText()
         classe = self._classe()
-        manuelle = classe is None
-        self._view_model.select_commande(None if manuelle else nom)
-        self.manual_box.setVisible(manuelle)
-        self.btn_code.setEnabled(not manuelle)
-        self.lbl_description.setText("Envoyer des consignes à la main, actionneur par actionneur." if manuelle
-                                     else classe.description)
+        aucune = classe is None
+        self._view_model.select_commande(None if aucune else nom)
+        self.btn_code.setEnabled(not aucune)
+        self.lbl_description.setText("Aucune téléopération trouvée." if aucune else classe.description)
         previous = self._param_values() if nom == self._commande_affichee else {}
         if nom != self._commande_affichee and getattr(classe, "frequence", None):
             self.sp_fps.setValue(int(classe.frequence))     # fréquence proposée par le fichier
@@ -284,9 +344,9 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         while self.params_form.rowCount():
             self.params_form.removeRow(0)
         self._param_widgets = {}
-        if manuelle:
+        if aucune:
             return
-        actions = list(self.action_widget._blocks) if hasattr(self.action_widget, "_blocks") else []
+        actions = self._actions
         for pnom, parametre in classe.parametres.items():
             valeur = previous.get(pnom, parametre.defaut)
             if isinstance(parametre.defaut, str):
@@ -325,22 +385,26 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
 
     # ------------------------------------------------------------------ code python
     def _on_nouvelle(self):
+        dossier = self._view_model.get_teleop_dir()
+        if dossier is None:
+            self._view_model._dialogProvider.information("Nouvelle téléopération", "Enregistrez d'abord le robot : ses "
+                                                         "téléopérations sont rangées dans son dossier.")
+            return
         nom, ok = QInputDialog.getText(self, "Nouvelle téléopération", "Nom de la téléopération (ex. « Ma téléop ») :")
         if not ok or not nom.strip():
             return
         nom = nom.strip()
-        choix = ["clavier"] + robots_disponibles()
-        teleoperateur, ok = QInputDialog.getItem(self, "Nouvelle téléopération",
-                                                 "Téléopérateur (le clavier, ou un robot comme un bras leader) :", choix, 0, False)
+        choix = ["Clavier", "Bras leader"]
+        peripherique, ok = QInputDialog.getItem(self, "Nouvelle téléopération", "Périphérique :", choix, 0, False)
         if not ok:
             return
-        fichier = DOSSIER_COMMANDES_UTILISATEUR / nom_de_fichier(nom)
+        fichier = dossier / nom_de_fichier(nom)
         if fichier.exists():
-            self._view_model._dialogProvider.information("Nouvelle commande", f"Le fichier {fichier.name} existe déjà : "
+            self._view_model._dialogProvider.information("Nouvelle téléopération", f"Le fichier {fichier.name} existe déjà : "
                                                          "choisissez-la dans la liste et cliquez sur « Voir le code ».")
             return
-        modele = MODELE_CLAVIER if teleoperateur == "clavier" else MODELE_ROBOT
-        contenu = modele.format(nom=nom.replace('"', "'"), teleoperateur=teleoperateur)
+        modele = MODELE_CLAVIER if peripherique == "Clavier" else MODELE_BRAS_LEADER
+        contenu = modele.format(nom=nom.replace('"', "'"), classe=nom_de_classe(nom))
         dialog = CommandeEditorDialog(self, fichier, contenu)
         dialog.saved.connect(lambda _: self._reload(select=nom))
         dialog.enregistrer()        # le fichier existe tout de suite et la commande apparaît dans la liste
@@ -351,7 +415,7 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         fichier = self._view_model.get_commandes().fichiers.get(nom)
         if fichier is None:
             return
-        modifiable = Path(fichier).parent != DOSSIER_COMMANDES_FOURNIES
+        modifiable = Path(fichier).parent != PROVIDED_DIR
         dialog = CommandeEditorDialog(self, Path(fichier), modifiable=modifiable)
         dialog.saved.connect(lambda _: self._reload(select=nom))
         dialog.exec()
@@ -365,8 +429,8 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
     def _on_start(self):
         vm = self._view_model
         if self._simulation:
-            # rien à afficher : on observe seulement les positions, dont les commandes ont besoin
-            observations = [n for n in self._observation_boxes if n.endswith(".position")]
+            # positions (dont les téléopérations ont besoin) et capteurs, affichés à côté de la vue 3D
+            observations = [n for n in self._observation_boxes if n.endswith(".position")] + self._capteurs()
         else:
             observations = [n for n, box in self._observation_boxes.items() if box.isChecked()]
         vm.apply_observations(observations)
@@ -384,7 +448,7 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
             self._view_model.stop()
 
     def _on_busy_changed(self, busy: bool):
-        robot_ready = bool(self._observation_boxes)
+        robot_ready = bool(self._observation_boxes) and self._classe() is not None
         self.btn_start.setEnabled(robot_ready and not busy)
         self.btn_stop.setEnabled(busy)
         self.btn_emergency.setEnabled(busy)

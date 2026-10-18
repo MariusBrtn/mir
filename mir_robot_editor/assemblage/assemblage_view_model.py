@@ -102,9 +102,14 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
     model_changed = Signal(object, object)      # MjModel, MjData (modules montés + module à poser)
     redraw_required = Signal()
 
-    def __init__(self, dialog_provider: IDialogProvider, config: mirRobotConfig, modules: list[str] | None = None):
-        """modules : limiter le guide à ces modules (ex. recalibrer un moteur sur un robot déjà construit)."""
+    def __init__(self, dialog_provider: IDialogProvider, config: mirRobotConfig, modules: list[str] | None = None,
+                 titre: str | None = None, ports_exclus: list[str] | None = None):
+        """modules : limiter le guide à ces modules (ex. recalibrer un moteur sur un robot déjà construit).
+        titre : titre du guide, si ce n'est pas le robot lui-même qu'on construit (ex. son bras leader).
+        ports_exclus : ports à ne pas proposer (ex. celui du robot réel connecté)."""
         super().__init__(dialog_provider)
+        self._titre = titre
+        self.ports_exclus = set(ports_exclus or [])
         self._config = config.get_deep_copy()
         self._catalog = load_catalog()
         self.etapes = ordre_de_montage(self._config.structure or {}, self._catalog)
@@ -118,6 +123,7 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
         self.detection = ""                     # comment le servo de l'étape a été reconnu
         self._bus: BusAssemblage | None = None
         self._ids_montes: set[int] = set()
+        self._ids_muets: set[int] = set()       # servos montés qui ne répondent plus (doublon d'ID, débranchés)
         self._offset = 0
         self._mini = self._maxi = MILIEU
         self._position: int | None = None
@@ -228,6 +234,8 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
         self._timer.start()
 
     def titre(self) -> str:
+        if self._titre:
+            return self._titre
         return "Recalibrer un servo" if self._partiel else "Construire le robot"
 
     def configuration(self) -> mirRobotConfig:
@@ -404,6 +412,8 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
         for moteur in valides:
             if e is not None and moteur == e.moteur:
                 continue
+            if self._id_courant(moteur) in self._ids_muets:
+                continue        # ne répond plus : chaque lecture attendrait en vain et ralentirait l'interface
             try:
                 position = self._bus.position(moteur)
             except Exception:
@@ -415,6 +425,17 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
         courant, final = self._id_courant(e.moteur), self.moteurs_attendus()[e.moteur]
         nouveaux = presents - self._ids_montes
         logger.debug(f"guide de montage : {e.module} ; servos sur le bus : {sorted(presents)} ; montés : {sorted(self._ids_montes)}")
+        self._ids_muets = self._ids_montes - presents
+        if self._ids_muets:
+            # un servo monté qui se tait dès qu'on branche un module : le nouveau servo a le même ID que lui (servo
+            # réutilisé, ou resté sur un ID de côté d'un guide interrompu) ; leurs réponses se mélangent
+            muets = ", ".join(str(i) for i in sorted(self._ids_muets))
+            logger.warning(f"guide de montage : {e.module} ; servo(s) monté(s) muet(s) : {muets}")
+            self.info = (f"⚠ Le servo déjà monté à l'ID {muets} ne répond plus. Si c'est depuis que vous avez branché ce "
+                         f"module, son servo a sûrement le même ID ({muets}). Débranchez ce module, donnez-lui un autre ID "
+                         "(Paramètres avancés → Changer l'ID d'un servo, par exemple 1), puis rebranchez-le.")
+            self.changed.emit()
+            return
         if courant in nouveaux:
             trouve = courant                     # déjà mis de côté (guide relancé)
         elif final in nouveaux:

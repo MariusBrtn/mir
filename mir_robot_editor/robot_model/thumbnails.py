@@ -22,10 +22,14 @@ def _render(module_type: str, size: int) -> np.ndarray:
     data = mujoco.MjData(model)
     mujoco.mj_forward(model, data)
     visible = [g for g in range(model.ngeom) if model.geom_group[g] < 3 and model.geom_rgba[g][3] > 0]
-    center = np.mean([data.geom_xpos[g] for g in visible], axis=0)
+    # sphère qui englobe toutes les pièces visibles : le module entier tient dans l'image
+    lows = np.array([data.geom_xpos[g] - model.geom_rbound[g] for g in visible])
+    highs = np.array([data.geom_xpos[g] + model.geom_rbound[g] for g in visible])
+    center = (lows.min(axis=0) + highs.max(axis=0)) / 2
+    radius = max(float(np.linalg.norm(data.geom_xpos[g] - center)) + model.geom_rbound[g] for g in visible)
     camera = mujoco.MjvCamera()
     camera.lookat[:] = center
-    camera.distance = 2.2 * max(float(np.max(model.geom_rbound[visible])), 0.03)
+    camera.distance = 2.0 * max(radius, 0.03)
     camera.azimuth, camera.elevation = -135.0, -25.0
     with mujoco.Renderer(model, size, size) as renderer:
         renderer.update_scene(data, camera)

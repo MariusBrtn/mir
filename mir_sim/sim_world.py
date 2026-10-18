@@ -34,6 +34,17 @@ class SimWorld:
         self._gain = {m: (self.model.actuator_gainprm[i].copy(), self.model.actuator_biasprm[i].copy())
                       for m, i in self._act_id.items()}
         self._torque_enabled = {m: True for m in self.motors}
+        # moteurs asservis en vitesse (roues) : la consigne est une vitesse, rejointe aussitôt
+        self._velocity = {m: j.velocity for m, j in self.joints.items()}
+        # lidars : (site de mesure, corps qui le porte, directions des rayons dans le repère du site)
+        self._lidars: dict[str, tuple[int, int, np.ndarray]] = {}
+        for name, lidar in built.lidars.items():
+            site = self.model.site(name).id
+            n = lidar["points"]
+            angles = np.deg2rad(np.arange(n) * 360.0 / n)
+            # angle croissant dans le sens horaire vu de dessus (z) : de x vers -y
+            directions = np.column_stack([np.cos(angles), -np.sin(angles), np.zeros(n)])
+            self._lidars[name] = (site, int(self.model.site_bodyid[site]), directions)
         self._thread: Thread | None = None
         self._stop = Event()
         self._renderers: dict[tuple[int, int, int], mujoco.Renderer] = {}
@@ -51,6 +62,9 @@ class SimWorld:
         with self.lock:
             mujoco.mj_resetData(self.model, self.data)
             for m in self.motors:
+                if self._velocity[m]:
+                    self.data.ctrl[self._act_id[m]] = self._goal[m] = 0.0     # roue à l'arrêt
+                    continue
                 q = self.joints[m].motor_to_sim_rad((motor_positions_deg or {}).get(m, 0.0))
                 q = self._clip_to_range(m, q)
                 self.data.qpos[self._qpos_adr[m]] = q
@@ -69,6 +83,9 @@ class SimWorld:
         for m in self.motors:
             i = self._act_id[m]
             if not self._torque_enabled[m]:
+                continue
+            if self._velocity[m]:
+                self.data.ctrl[i] = self._goal[m]
                 continue
             delta = self._goal[m] - self.data.ctrl[i]
             max_delta = self._max_vel_rad_s[m] * dt
@@ -137,11 +154,30 @@ class SimWorld:
     def set_goal_positions(self, positions_deg: dict[str, float]) -> None:
         with self.lock:
             for m, deg in positions_deg.items():
+                if self._velocity[m]:
+                    raise ValueError(f"{m} est asservi en vitesse : consigne de vitesse ({m}.velocity), pas de position")
                 self._goal[m] = self._clip_to_range(m, self.joints[m].motor_to_sim_rad(float(deg)))
+
+    def set_goal_velocities(self, velocities_rpm: dict[str, float]) -> None:
+        """Consigne de vitesse des moteurs asservis en vitesse (roues), en tr/min, bornée à leur vitesse max."""
+        with self.lock:
+            for m, rpm in velocities_rpm.items():
+                if not self._velocity.get(m):
+                    raise ValueError(f"{m} n'est pas asservi en vitesse")
+                vitesse = np.deg2rad(float(rpm) * 6) * self.joints[m].direction
+                self._goal[m] = float(np.clip(vitesse, -self._max_vel_rad_s[m], self._max_vel_rad_s[m]))
+
+    def is_velocity_motor(self, motor: str) -> bool:
+        return self._velocity.get(motor, False)
 
     def get_positions(self, motors: list[str] | None = None) -> dict[str, float]:
         with self.lock:
-            return {m: self.joints[m].sim_rad_to_motor(self.data.qpos[self._qpos_adr[m]]) for m in (motors or self.motors)}
+            result = {}
+            for m in (motors or self.motors):
+                deg = self.joints[m].sim_rad_to_motor(self.data.qpos[self._qpos_adr[m]])
+                # en mode vitesse, le servo réel donne sa position sur un tour
+                result[m] = (deg + 180.0) % 360.0 - 180.0 if self._velocity[m] else deg
+            return result
 
     def get_velocities_deg_s(self, motors: list[str] | None = None) -> dict[str, float]:
         with self.lock:
@@ -165,7 +201,7 @@ class SimWorld:
                 self._torque_enabled[m] = enabled
                 gain, bias = self._gain[m]
                 if enabled:
-                    q = self.data.qpos[self._qpos_adr[m]]
+                    q = 0.0 if self._velocity[m] else self.data.qpos[self._qpos_adr[m]]
                     self.data.ctrl[i] = q
                     self._goal[m] = q
                     self.model.actuator_gainprm[i] = gain
@@ -177,12 +213,29 @@ class SimWorld:
     def hold_current_positions(self, motors: list[str] | None = None) -> None:
         with self.lock:
             for m in (motors or self.motors):
-                q = self.data.qpos[self._qpos_adr[m]]
+                q = 0.0 if self._velocity[m] else self.data.qpos[self._qpos_adr[m]]    # roue : arrêt
                 self.data.ctrl[self._act_id[m]] = q
                 self._goal[m] = q
 
     def is_moving(self, motors: list[str] | None = None, threshold_deg_s: float = 1.0) -> bool:
         return any(abs(v) > threshold_deg_s for v in self.get_velocities_deg_s(motors).values())
+
+    # ------------------------------------------------------------------ lidar
+    def lidar_scan(self, name: str, range_m: tuple[float, float] = (0.05, 12.0)) -> tuple[np.ndarray, np.ndarray]:
+        """Un tour du lidar : (angles en degrés, distances en m ; 0 si rien n'est touché dans la portée).
+        Les rayons touchent les pièces visibles (STL, objets, sol), pas le lidar lui-même."""
+        site, body, directions = self._lidars[name]
+        n = len(directions)
+        geomid = np.zeros(n, np.int32)
+        dist = np.zeros(n)
+        groupes = np.array([1, 1, 1, 0, 0, 0], np.uint8)    # pas les formes de contact (3) ni les pastilles (4)
+        with self.lock:
+            origine = self.data.site_xpos[site].copy()
+            rot = self.data.site_xmat[site].reshape(3, 3)
+            vec = (directions @ rot.T).flatten()
+            mujoco.mj_multiRay(self.model, self.data, origine, vec, groupes, 1, body, geomid, dist, None, n, range_m[1])
+        dist[(geomid < 0) | (dist < range_m[0]) | (dist > range_m[1])] = 0.0
+        return np.arange(n) * 360.0 / n, dist
 
     # ------------------------------------------------------------------ rendu
     def render(self, camera: str, width: int, height: int) -> np.ndarray:

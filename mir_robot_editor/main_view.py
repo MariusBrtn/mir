@@ -12,6 +12,7 @@ from mir_robot_editor.motor_configuration.motor_configuration_view_model import 
 from mir_robot_editor.main_viewmodel import MainViewModel, MainVMAction, MainViewModelState
 from mir_robot_editor.teleop.teleop_view import TeleopView
 from mir_robot_editor.essais.essais_view import EssaisView
+from mir_robot_editor.scripts.scripts_view import ScriptsView
 from mir_robot_editor.assemblage.assemblage_view import AssemblageView
 from mir_robot_editor.robot_model.robot_model_view import RobotModelView
 from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
@@ -26,7 +27,7 @@ COLOR_RUNNING = theme.RUNNING
 
 # étapes du parcours (colonne de gauche)
 STEP_ROBOT, STEP_PILOT = 0, 1
-TAB_ESSAIS, TAB_TELEOP, TAB_ROBOTIQUE = 0, 1, 2
+TAB_ESSAIS, TAB_TELEOP, TAB_SCRIPTS = 0, 1, 2
 STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter", False), ("Apprendre", False), ("Évaluer", False)]
 
 
@@ -111,6 +112,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._edit_configuration_action = self._make_action(MainVMAction.EDIT_CONFIGURATION, self.on_action_edit_configuration, "edit")
         self._motor_cfg_action = self._make_action(MainVMAction.MOTOR_CFG, self.on_action_motor_cfg, "reglages")
         self._assemble_action = self._make_action(MainVMAction.ASSEMBLE, self.on_action_assemble, "construire")
+        self._build_leader_action = self._make_action(MainVMAction.BUILD_LEADER, self.on_action_build_leader, "construire")
         self._recalibrate_action = self._make_action(MainVMAction.RECALIBRATE, self.on_action_recalibrate, "calibration")
         self._structure_action = self._make_action(MainVMAction.STRUCTURE, self.on_action_structure, "structure")
         self._robot_model_action = self._make_action(MainVMAction.ROBOT_MODEL, self.on_action_robot_model, "robot")
@@ -329,9 +331,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self.teleop_view = TeleopView(self, self._view_model.get_robot_monitor_view_model(), self,
                                       self._view_model.get_sim_world)
         self.teleop_view.restore_state()
+        self.teleop_view.set_leader_action(self._build_leader_action)
         self._pilot_tabs.addTab(self.teleop_view, "Téléopération")
-        self._pilot_tabs.addTab(QLabel("Modèles géométriques direct et inverse, trajectoires : à venir."), "Robotique (à venir)")
-        self._pilot_tabs.setTabEnabled(TAB_ROBOTIQUE, False)
+        self.scripts_view = ScriptsView(self, self._view_model.get_scripts_view_model())
+        self._pilot_tabs.addTab(self.scripts_view, "Scripts")
         self._pilot_tabs.currentChanged.connect(self._on_pilot_tab_changed)
         layout.addWidget(self._pilot_tabs, 1)
         return page
@@ -435,12 +438,18 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                     "bouger. Les <b>mesures</b> se font sur le <b>robot réel</b>.")
         elif self._pilot_tabs.currentIndex() == TAB_ESSAIS:
             text = ("<b>Essais</b> : choisissez l'actionneur et la sollicitation, réglez-les, puis <b>▶ Lancer l'essai</b>. "
-                    "Les essais sont enregistrés et peuvent être superposés (réel et simulé) et analysés à droite.")
+                    "Les essais sont enregistrés et peuvent être superposés à droite.")
+        elif self._pilot_tabs.currentIndex() == TAB_SCRIPTS:
+            text = ("<b>Scripts</b> : écrivez vos propres programmes Python qui commandent le robot "
+                    "(<code>robot.get_observation()</code>, <code>robot.send_action()</code>), puis <b>▶ Lancer</b>. "
+                    + "Les figures (<code>plt.plot</code>…) s'affichent à droite. "
+                    + ("Le robot simulé bouge en 3D au-dessus." if self._view_model.is_simulation() else
+                       "Ils commandent le <b>robot réel</b> : gardez l'arrêt d'urgence à portée de main."))
         elif self._view_model.is_simulation():
-            text = ("<b>Téléopération en simulation</b> : choisissez une commande (ou écrivez la vôtre en Python avec "
-                    "<b>Nouvelle…</b>), réglez-la puis <b>▶ Démarrer</b>. Le robot simulé bouge en 3D.")
+            text = ("<b>Téléopération en simulation</b> : choisissez une téléopération (ou écrivez la vôtre en Python avec "
+                    "<b>Nouvelle…</b>), puis <b>▶ Démarrer</b>. Le robot simulé bouge en 3D.")
         else:
-            text = ("<b>Téléopération</b> : choisissez une commande (ou écrivez la vôtre en Python avec <b>Nouvelle…</b>) "
+            text = ("<b>Téléopération</b> : choisissez une téléopération (ou écrivez la vôtre en Python avec <b>Nouvelle…</b>) "
                     "et les grandeurs à suivre, puis <b>▶ Démarrer</b>.")
         self._pilot_hint.setText(text)
 
@@ -452,10 +461,20 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
     def _on_state_changed(self, state: MainViewModelState, description: str):
         if hasattr(self, "_card_concevoir"):
             self._update_summary()
+        if hasattr(self, "teleop_view"):
+            self.teleop_view.set_leader_state(self._view_model.is_arm(), self._view_model.has_leader_arm())
         previous = getattr(self, "_previous_state", None)
         self._previous_state = state
         self._status_state.setText(description)
         self._update_header()
+        # sans robot ouvert, il n'y a rien à piloter : l'étape est grisée
+        if hasattr(self, "_steps"):
+            pilot = self._steps.item(STEP_PILOT)
+            avec_robot = state != MainViewModelState.INIT
+            pilot.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable if avec_robot else Qt.ItemFlag.NoItemFlags)
+            pilot.setToolTip("" if avec_robot else "Ouvrez ou créez d'abord un robot (étape Configurer le robot)")
+            if not avec_robot and self._steps.currentRow() == STEP_PILOT:
+                self._steps.setCurrentRow(STEP_ROBOT)
         if state == MainViewModelState.CONNECTED and previous == MainViewModelState.LOADED:
             if not self._view_model.is_simulation():
                 # le robot réel vient d'être connecté par l'utilisateur : on passe à l'étape Piloter
@@ -468,6 +487,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
     def _on_simulation_changed(self, simulation: bool):
         self.essais_view.set_simulation(simulation)
         self.teleop_view.set_simulation(simulation)
+        self.scripts_view.set_simulation(simulation)
         self._update_pilot_hint()
         self._update_header()
 
@@ -509,12 +529,15 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                 return
             if state == MainViewModelState.RUNNING:
                 self._view_model.get_robot_monitor_view_model().stop()
+                self._view_model.get_scripts_view_model().arreter()
                 deadline = time.perf_counter() + 3
                 while self._view_model.get_state() == MainViewModelState.RUNNING and time.perf_counter() < deadline:
                     QApplication.processEvents()
                     time.sleep(0.01)
             self._view_model.disconnect_robot()
         self.teleop_view.save_state()
+        self.scripts_view.enregistrer_tout()
+        self.scripts_view.close_3d()
         self.essais_view.close_3d()     # libère les rendus OpenGL avant la sortie
         self.teleop_view.close_3d()
         self._view_model.quit()
@@ -534,6 +557,9 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._view_model.execute_assemblage(lambda vm: AssemblageView(self, vm).exec())
         self._update_summary()
 
+    def on_action_build_leader(self):
+        self._view_model.execute_build_leader(lambda vm: AssemblageView(self, vm).exec())
+
     def on_action_recalibrate(self):
         motors = list(self._view_model.motor_modules())
         motor, ok = QInputDialog.getItem(self, "Recalibrer un servo", "Servo à recalibrer :", motors, 0, False)
@@ -547,6 +573,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._card_construire.set_status(summary.get("construire", ""))
         self._card_reglages.set_status(summary.get("regler", ""))
         self._card_recalibrer.set_status(summary.get("regler", ""))
+
 
     def on_action_motor_cfg(self):
         def open_dialog(vm: MotorConfigurationViewModel):

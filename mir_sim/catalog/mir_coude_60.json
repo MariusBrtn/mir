@@ -1,0 +1,20 @@
+{
+    "description": "Coude MIR à 60° : un embout baïonnette mâle sur chaque face ; les axes des deux embouts se coupent à l'origine de la CAO et font 60° (normales sortantes à 120°). Repère de la CAO (MIR_SIMU_CONNECTEUR_60DEG_1), en mm.",
+    "unit_scale": 0.001,
+    "parts": {
+        "corps": {
+            "mass": 0.03,
+            "geoms": [
+                {"type": "mesh", "file": "../STL/MIR_SIMU_CONNECTEUR_60DEG_1.stl", "visual_only": true, "rgba": [0.08, 0.08, 0.09, 1]},
+                {"type": "cylinder", "collision_only": true, "pos": [-7.0, 12.12, 0], "zaxis": [-0.5, 0.8660254, 0], "size": [25.0, 8.0]},
+                {"type": "cylinder", "collision_only": true, "pos": [-7.0, -12.12, 0], "zaxis": [-0.5, -0.8660254, 0], "size": [25.0, 8.0]},
+                {"type": "cylinder", "collision_only": true, "pos": [-12.68, 21.95, 0], "zaxis": [-0.5, 0.8660254, 0], "size": [16.0, 3.35]},
+                {"type": "cylinder", "collision_only": true, "pos": [-12.68, -21.95, 0], "zaxis": [-0.5, -0.8660254, 0], "size": [16.0, 3.35]}
+            ]
+        }
+    },
+    "connectors": {
+        "face_a": {"part": "corps", "gender": "male", "pos": [-11.0, 19.053, 0], "zaxis": [-0.5, 0.8660254, 0], "xaxis": [0.8660254, 0.5, 0]},
+        "face_b": {"part": "corps", "gender": "male", "pos": [-11.0, -19.053, 0], "zaxis": [-0.5, -0.8660254, 0], "xaxis": [0, 0, 1]}
+    }
+}

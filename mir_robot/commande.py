@@ -1,7 +1,8 @@
 """
 Commandes : ce qui choisit, à chaque tour de boucle, l'action à envoyer au robot à partir de son observation.
 
-Une téléopération, un générateur de trajectoire, une loi de commande ou un modèle appris sont des commandes.
+Un générateur de trajectoire, une loi de commande ou un modèle appris sont des commandes. Les téléopérations
+s'écrivent avec mir_robot.teleop et sont exécutées comme des commandes.
 Elles ont toutes la même forme, ce qui permet à MIR de les lancer de la même façon, depuis l'interface
 ou depuis un script, sur le robot réel comme sur le robot simulé :
 
@@ -153,16 +154,9 @@ def decouvrir_commandes(dossiers: list[Path] | None = None, classe_base: type = 
 
 
 def _classes_du_module(module, fichier: Path, classe_base: type) -> list[type]:
-    """Classes dérivées de classe_base définies dans ce module (pas celles qu'il importe) ; pour un fichier de
-    téléopération écrit avec des fonctions (TELEOPERATEUR + teleoperer), la commande construite à partir d'elles."""
-    classes = [classe for _, classe in inspect.getmembers(module, inspect.isclass)
-               if issubclass(classe, classe_base) and classe is not classe_base and classe.__module__ == module.__name__]
-    if not classes and classe_base is Commande:
-        from mir_robot.teleoperation import commande_depuis_module
-        classe = commande_depuis_module(module, fichier.stem)
-        if classe is not None:
-            classes.append(classe)
-    return classes
+    """Classes dérivées de classe_base définies dans ce module (pas celles qu'il importe)."""
+    return [classe for _, classe in inspect.getmembers(module, inspect.isclass)
+            if issubclass(classe, classe_base) and classe is not classe_base and classe.__module__ == module.__name__]
 
 
 def _charger_module(fichier: Path):

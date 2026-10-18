@@ -84,6 +84,10 @@ class BusFeetech:
         # setup_motor écrit dans le servo l'ID de la table des moteurs du bus
         self._bus.motors[moteur].id = nouvel_id
         self._ids[moteur] = nouvel_id
+        # LeRobot garde ses tables ID -> modèle / nom construites à l'ouverture du bus : sans cette mise à jour,
+        # toute écriture par nom vers un ID qui n'y était pas (ex. l'ID définitif en fin de guide) échoue (KeyError)
+        self._bus._id_to_model_dict = {m.id: m.model for m in self._bus.motors.values()}
+        self._bus._id_to_name_dict = {m.id: nom for nom, m in self._bus.motors.items()}
         self._bus.setup_motor(moteur, initial_baudrate=self._bus.default_baudrate, initial_id=ancien_id)
         # setup_motor laisse l'EEPROM déverrouillée : chaque réglage écrit ensuite (à chaque connexion) l'userait
         self._bus.write("Lock", moteur, 1)

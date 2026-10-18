@@ -10,6 +10,9 @@ Un module du catalogue décrit une pièce MIR, dans le repère de sa CAO, articu
                    Deux connecteurs branchés ont la même origine, des z opposés et des x alignés.
   - "sensors"    : capteurs portés {nom: {"type": "camera", "part", "pos", "zaxis", "xaxis", "fovy"}}
                    (une caméra MuJoCo regarde selon -z de son repère, le haut de l'image selon +y)
+                   ou {"type": "lidar", "part", "pos", "zaxis", "xaxis", "points", "range_m"} : pos = centre de la
+                   fenêtre de mesure, z = haut du lidar, x = angle 0 ; angles croissants dans le sens horaire vu de dessus
+  - une articulation "mode": "velocity" (roue) est asservie en vitesse : rotation continue, sans butées
   - "contact_pairs" : paires [geom1, geom2] (champ "name" des géométries) de pièces du module qui doivent
                    pouvoir se toucher (MuJoCo ignore sinon les contacts entre corps parent et enfant)
 Géométries : "visual_only" (affichage), "collision_only" (contacts, masquées), "stiff_contact" (surface de
@@ -47,12 +50,25 @@ STS3215_RESOLUTION = 4095
 STIFF_SOLREF = [0.004, 1.0]
 STIFF_SOLIMP = [0.99, 0.999, 0.001]
 DEFAULT_RANGE_DEG = (-90.0, 90.0)   # plage d'une articulation sans calibration ni plage dans le catalogue
+VELOCITY_MODE = 1           # OperatingMode.VELOCITY du STS3215
 DEFAULT_STALL_TORQUE = 2.9  # N.m, STS3215 alimenté en 12V (≈1.9 N.m en 7.4V)
 # un connecteur branché sur un autre : demi-tour autour de x (z opposés, détrompeurs alignés)
 FLIP_X = np.array([0.0, 1.0, 0.0, 0.0])
 MATING_GENDERS = {("male", "female"), ("female", "male")}
 # type de capteur de la configuration -> type de capteur porté par les modules du catalogue
-SENSOR_KINDS = {"pi_camera": "camera"}
+SENSOR_KINDS = {"pi_camera": "camera", "esp_lidar": "lidar"}
+# arène par défaut d'un robot mobile : 3 x 3 m, murs de 20 cm, deux obstacles
+_MUR = {"type": "box", "free": False, "rgba": [0.62, 0.57, 0.5, 1]}
+ARENE = [
+    {**_MUR, "name": "mur_nord", "size": [1.5, 0.02, 0.1], "pos": [0, 1.5, 0.1]},
+    {**_MUR, "name": "mur_sud", "size": [1.5, 0.02, 0.1], "pos": [0, -1.5, 0.1]},
+    {**_MUR, "name": "mur_est", "size": [0.02, 1.5, 0.1], "pos": [1.5, 0, 0.1]},
+    {**_MUR, "name": "mur_ouest", "size": [0.02, 1.5, 0.1], "pos": [-1.5, 0, 0.1]},
+    {"type": "box", "free": False, "name": "obstacle_1", "size": [0.15, 0.15, 0.1], "pos": [0.7, 0.6, 0.1],
+     "rgba": [0.35, 0.42, 0.52, 1]},
+    {"type": "cylinder", "free": False, "name": "obstacle_2", "size": [0.12, 0.1], "pos": [-0.6, -0.5, 0.1],
+     "rgba": [0.35, 0.42, 0.52, 1]},
+]
 # pastilles des connecteurs libres (éditeur de structure) : groupe de géométries masqué par défaut au rendu
 CONNECTOR_MARKER_GROUP = 4
 CONNECTOR_MARKER_PREFIX = "connecteur:"
@@ -76,6 +92,7 @@ class SimJointInfo:
     direction: float = 1.0
     zero_offset_deg: float = 0.0
     range_deg: tuple[float, float] = (-180.0, 180.0)  # dans le repère moteur (degrés normalisés lerobot)
+    velocity: bool = False      # asservi en vitesse (roue) : rotation continue, consigne en tr/min
 
     def motor_to_sim_rad(self, motor_deg: float) -> float:
         return float(np.deg2rad(self.direction * motor_deg + self.zero_offset_deg))
@@ -90,6 +107,7 @@ class MotorParams:
     range_deg: tuple[float, float] | None = None   # None : pas de calibration, plage par défaut du module (catalogue)
     torque_limit: int = 1000            # en 0.1% du couple max
     position_mode_velocity: int = 100   # en tr/min, comme sur le bus réel
+    velocity: bool = False              # moteur en mode vitesse (operating_mode VELOCITY de la configuration)
 
 
 @dataclass
@@ -100,6 +118,7 @@ class BuiltModel:
     max_velocity_deg_s: dict[str, float] = field(default_factory=dict)
     body_module: dict[int, str] = field(default_factory=dict)        # id du corps -> module de la structure
     connector_markers: dict[int, str] = field(default_factory=dict)  # id de la pastille -> "module.connecteur" libre
+    lidars: dict[str, dict[str, Any]] = field(default_factory=dict)  # capteur de la config -> {"points", "range_m"}
 
 
 def euler_deg_to_quat(euler_deg: list[float] | None) -> np.ndarray:
@@ -188,7 +207,8 @@ def motor_params_from_config(config: Any) -> dict[str, MotorParams]:
     if config is None or config.motor_bus is None:
         return params
     for name, motor in config.motor_bus.motors.items():
-        p = MotorParams(torque_limit=motor.torque_limit, position_mode_velocity=motor.position_mode_velocity)
+        p = MotorParams(torque_limit=motor.torque_limit, position_mode_velocity=motor.position_mode_velocity,
+                        velocity=int(getattr(motor.operating_mode, "value", motor.operating_mode)) == VELOCITY_MODE)
         cal = config.motor_bus.calibration.get(name)
         if cal is not None:
             half = (cal.range_max - cal.range_min) / 2 * 360 / STS3215_RESOLUTION
@@ -204,7 +224,8 @@ def load_catalog(catalog_dir: str | Path = CATALOG_DIR) -> dict[str, dict[str, A
 
 def motor_module_types(catalog: dict[str, dict[str, Any]]) -> list[str]:
     """Types de module qui contiennent un moteur (une articulation) : servo, pince..."""
-    return [t for t, module in catalog.items() if len(module.get("joints", {})) == 1]
+    # les modules réservés au bras leader ne se choisissent pas pour un robot
+    return [t for t, module in catalog.items() if len(module.get("joints", {})) == 1 and not module.get("leader_only")]
 
 
 def sensor_module_types(catalog: dict[str, dict[str, Any]], sensor_type: str) -> list[str]:
@@ -361,6 +382,7 @@ class ModelBuilder:
         self._part_bodies: dict[str, dict[str, Any]] = {}
         self._geom_body: dict[str, str] = {}
         self._marker_names: list[str] = []
+        self._lidars: dict[str, dict[str, Any]] = {}
 
         root = next(name for name, inst in self._instances.items() if "on" not in inst)
         root_inst = self._instances[root]
@@ -368,23 +390,54 @@ class ModelBuilder:
         robot_pos, robot_quat = frame_from_dict(self._scene.get("robot"))
         root_part = root_inst.get("part", next(iter(root_module["parts"])))
         body = spec.worldbody.add_body(name=f"{root}_{root_part}", pos=robot_pos, quat=robot_quat)
-        if not root_inst.get("fixed", False):
+        mobile = not root_inst.get("fixed", False)
+        if mobile:
             body.add_freejoint(name=f"{root}_libre")
         self._add_instance(spec, root, root_part, body)
 
         for cam in self._scene.get("cameras", []):
             self._add_scene_camera(spec, cam)
-        for obj in self._scene.get("objects", []):
+        objets = self._scene.get("objects")
+        if objets is None and mobile:
+            objets = ARENE        # robot mobile sans scène : une arène avec murs et obstacles, pour le lidar
+        for obj in objets or []:
             self._add_object(spec, obj)
 
         if self._connector_markers:
             self._add_connector_markers()
         model = spec.compile()
+        if mobile and "robot" not in self._scene:
+            # robot mobile sans position imposée : posé sur le sol par son point le plus bas (ses roues)
+            body.pos = robot_pos + [0, 0, 0.0005 - self._lowest_point(model)]
+            model = spec.compile()
         body_module = {model.body(body.name).id: name
                        for name, bodies in self._part_bodies.items() for body in bodies.values()}
         markers = {model.geom(geom).id: geom[len(CONNECTOR_MARKER_PREFIX):] for geom in self._marker_names}
         return BuiltModel(spec=spec, model=model, joints=self._joints, max_velocity_deg_s=self._max_vel,
-                          body_module=body_module, connector_markers=markers)
+                          body_module=body_module, connector_markers=markers, lidars=self._lidars)
+
+    @staticmethod
+    def _lowest_point(model: mujoco.MjModel) -> float:
+        """Altitude du point le plus bas des formes de contact du robot (modèle à sa position de départ)."""
+        data = mujoco.MjData(model)
+        mujoco.mj_forward(model, data)
+        lowest = np.inf
+        for g in range(model.ngeom):
+            if model.geom_bodyid[g] == 0 or model.geom_contype[g] == 0:
+                continue        # sol, objets fixes, géométries visuelles
+            axe = data.geom_xmat[g].reshape(3, 3)[2]      # composantes z des axes de la géométrie
+            size = model.geom_size[g]
+            kind = model.geom_type[g]
+            if kind == mujoco.mjtGeom.mjGEOM_BOX:
+                half = float(np.abs(axe) @ size)
+            elif kind == mujoco.mjtGeom.mjGEOM_CYLINDER:
+                half = size[0] * float(np.sqrt(max(0.0, 1 - axe[2] ** 2))) + size[1] * abs(axe[2])
+            elif kind == mujoco.mjtGeom.mjGEOM_SPHERE:
+                half = size[0]
+            else:
+                half = model.geom_rbound[g]
+            lowest = min(lowest, data.geom_xpos[g][2] - half)
+        return float(lowest) if np.isfinite(lowest) else 0.0
 
     def _add_connector_markers(self) -> None:
         """Pastille sur chaque connecteur libre, légèrement en avant de la face de branchement."""
@@ -456,7 +509,14 @@ class ModelBuilder:
         for sensor_key, config_key in inst.get("sensors", {}).items():
             sensor = module["sensors"][sensor_key]
             pos, quat = frame_from_dict(sensor, scale)
-            bodies[sensor["part"]].add_camera(name=config_key, pos=pos, quat=quat, fovy=sensor.get("fovy", 60))
+            if sensor.get("type") == "lidar":
+                # repère de mesure : les rayons partent de son origine, dans son plan xy
+                bodies[sensor["part"]].add_site(name=config_key, pos=pos, quat=quat, size=[0.004, 0, 0],
+                                                rgba=[0.9, 0.2, 0.2, 0.0])
+                self._lidars[config_key] = {"points": int(sensor.get("points", 400)),
+                                            "range_m": list(sensor.get("range_m", [0.05, 12.0]))}
+            else:
+                bodies[sensor["part"]].add_camera(name=config_key, pos=pos, quat=quat, fovy=sensor.get("fovy", 60))
 
         for geom1, geom2 in module.get("contact_pairs", []):
             g1, g2 = f"{name}_{geom1}", f"{name}_{geom2}"
@@ -487,7 +547,10 @@ class ModelBuilder:
         info = SimJointInfo(motor=motor, joint_name=f"{motor}_joint", actuator_name=motor,
                             direction=float(inst.get("direction", 1)),
                             zero_offset_deg=float(inst.get("zero_offset_deg", 0)),
-                            range_deg=range_deg)
+                            range_deg=range_deg,
+                            velocity=params.velocity or joint.get("mode") == "velocity")
+        if info.velocity:
+            info.range_deg = (-180.0, 180.0)        # position lue sur un tour, comme le servo réel en mode vitesse
         self._joints[motor] = info
         self._max_vel[motor] = params.position_mode_velocity * 6  # tr/min -> deg/s
         return info
@@ -496,8 +559,11 @@ class ModelBuilder:
                    joint_info: SimJointInfo) -> None:
         lo, hi = joint_info.range_deg
         sim_range = sorted([joint_info.motor_to_sim_rad(lo), joint_info.motor_to_sim_rad(hi)])
+        kwargs: dict[str, Any] = {"range": sim_range}
+        if joint_info.velocity:
+            kwargs = {"limited": mujoco.mjtLimited.mjLIMITED_FALSE}     # rotation continue
         body.add_joint(name=joint_info.joint_name, type=mujoco.mjtJoint.mjJNT_HINGE,
-                       pos=pos, axis=axis, range=sim_range,
+                       pos=pos, axis=axis, **kwargs,
                        damping=joint.get("damping", 0.5),
                        armature=joint.get("armature", 0.01),
                        frictionloss=joint.get("frictionloss", 0.02))
@@ -506,11 +572,17 @@ class ModelBuilder:
         max_torque = joint.get("stall_torque", DEFAULT_STALL_TORQUE) * params.torque_limit / 1000
         act = spec.add_actuator(name=joint_info.actuator_name, target=joint_info.joint_name,
                                 trntype=mujoco.mjtTrn.mjTRN_JOINT)
-        act.set_to_position(kp=joint.get("kp", 20.0), kv=joint.get("kv", 0.5))
+        if joint_info.velocity:
+            # asservissement en vitesse : consigne en rad/s, bornée à la vitesse max du moteur
+            max_speed = np.deg2rad(self._max_vel[joint_info.motor])
+            act.set_to_velocity(kv=joint.get("kv_velocity", 2.0))
+            act.ctrlrange = [-max_speed, max_speed]
+        else:
+            act.set_to_position(kp=joint.get("kp", 20.0), kv=joint.get("kv", 0.5))
+            act.ctrlrange = sim_range
         act.forcelimited = mujoco.mjtLimited.mjLIMITED_TRUE
         act.forcerange = [-max_torque, max_torque]
         act.ctrllimited = mujoco.mjtLimited.mjLIMITED_TRUE
-        act.ctrlrange = sim_range
 
     def _add_part(self, spec: mujoco.MjSpec, prefix: str, body: Any, part: dict[str, Any], scale: float = 1.0) -> None:
         geoms = part.get("geoms", [])
@@ -556,7 +628,9 @@ class ModelBuilder:
     def _add_mesh(self, spec: mujoco.MjSpec, file: str, scale: float,
                   select: dict[str, Any] | list[dict[str, Any]] | None = None) -> str:
         """select = {"axis": [x, y, z], "min": a, "max": b} : ne garde que la partie du maillage dont la projection
-        sur axis (unités du STL) est entre min et max ; une liste de conditions doit être vérifiée en entier.
+        sur axis (unités du STL) est entre min et max ; {"axis", "center": [x, y, z], "rmin": a, "rmax": b} : celle
+        dont la distance à l'axe passant par center est entre rmin et rmax (triangles gardés entiers, d'après leur
+        sommet le plus proche de l'axe) ; une liste de conditions doit être vérifiée en entier.
         Sert à colorer différemment des zones d'un même STL."""
         path = (self._catalog_dir / file).resolve()
         key = (str(path), scale, json.dumps(select, sort_keys=True))
@@ -570,6 +644,13 @@ class ModelBuilder:
                     keep = load_stl(path)
                     for cond in select if isinstance(select, list) else [select]:
                         axis = np.asarray(cond["axis"], float)
+                        if "rmin" in cond or "rmax" in cond:
+                            unit = axis / np.linalg.norm(axis)
+                            d = keep - np.asarray(cond.get("center", [0, 0, 0]), float)
+                            # distance à l'axe du sommet le plus proche : rmin et rmax se complètent sans trou
+                            r = np.linalg.norm(d - (d @ unit)[..., None] * unit, axis=2).min(axis=1)
+                            keep = keep[(r >= cond.get("rmin", -np.inf)) & (r <= cond.get("rmax", np.inf))]
+                            continue
                         if "min" in cond:
                             keep = clip_triangles(keep, axis, cond["min"])
                         if "max" in cond:
@@ -593,7 +674,11 @@ class ModelBuilder:
         spec.add_texture(name="sky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
                          rgb1=[0.95, 0.93, 0.89], rgb2=[0.81, 0.78, 0.73], width=256, height=256)
         spec.worldbody.add_light(name="top", pos=[0, 0, 1.5], dir=[0, 0, -1], diffuse=[0.5, 0.5, 0.5])
-        table = self._scene.get("table", {"size": [0.4, 0.3], "pos": [0.1, 0, 0], "rgba": [0.75, 0.68, 0.58, 1]})
+        root = next(inst for inst in self._instances.values() if "on" not in inst)
+        # bras : petite table de travail ; robot mobile : le sol de son arène (3 x 3 m)
+        defaut = ({"size": [0.4, 0.3], "pos": [0.1, 0, 0], "rgba": [0.75, 0.68, 0.58, 1]} if root.get("fixed", False)
+                  else {"size": [1.6, 1.6], "pos": [0, 0, 0], "rgba": [0.75, 0.68, 0.58, 1]})
+        table = self._scene.get("table", defaut)
         spec.worldbody.add_geom(name="table", type=mujoco.mjtGeom.mjGEOM_PLANE,
                                 size=[table["size"][0], table["size"][1], 0.01],
                                 pos=table.get("pos", [0, 0, 0]), rgba=table.get("rgba", [0.75, 0.68, 0.58, 1]))

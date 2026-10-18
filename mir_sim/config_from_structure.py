@@ -5,21 +5,26 @@ Pour chaque module de la structure qui porte un moteur ou un capteur absent de l
 ce moteur (réglages par défaut, pas de calibration) ou ce capteur, ainsi que ses observations. Le robot est
 alors utilisable en simulation ; l'assemblage du robot physique complétera la configuration (port, calibration).
 
+Le moteur d'un module dont l'articulation est asservie en vitesse (roue) est mis en mode vitesse dans la configuration :
+le bus réel écrit ce mode dans le servo à la connexion, la simulation en fait une rotation continue.
+
 Les ID des moteurs ajoutés suivent l'ordre de la structure, à partir de 2 : l'ID 1 est celui d'un servo neuf
 et reste réservé pour reconnaître le module qu'on vient de brancher.
 """
 from __future__ import annotations
 from typing import Any
 from lerobot.motors import MotorNormMode
+from lerobot.motors.feetech import OperatingMode
 from mir_devices.mir_feetech_motor_bus import mirMotor, mirMotorBusConfiguration
-from mir_devices.mir_sensor import mirPiCameraConfiguration
+from mir_devices.mir_sensor import EspSensorLidarConfiguration, mirPiCameraConfiguration
 from mir_sim.model_builder import load_catalog
 from mir_sim.sim_world import SimWorld
-from mir_sim.sim_devices import SimMotorBus, SimCamera
+from mir_sim.sim_devices import SimMotorBus, SimCamera, SimLidar
 
 FIRST_MOTOR_ID = 2          # l'ID 1 est réservé au servo neuf
 MOTOR_MODEL = "sts3215"
 CAMERA_TYPE = "camera"      # type de capteur du catalogue -> configuration pi_camera
+LIDAR_TYPE = "lidar"        # type de capteur du catalogue -> configuration esp_lidar
 CAMERA_WIDTH, CAMERA_HEIGHT, CAMERA_FPS = 640, 480, 30
 
 
@@ -38,6 +43,18 @@ def structure_hardware(structure: dict[str, Any] | None, catalog: dict[str, dict
         for key, sensor in inst.get("sensors", {}).items():
             sensors[sensor] = module.get("sensors", {}).get(key, {}).get("type", "")
     return motors, sensors
+
+
+def velocity_motors(structure: dict[str, Any] | None, catalog: dict[str, dict[str, Any]]) -> list[str]:
+    """Moteurs des modules placés dont l'articulation est asservie en vitesse (roues)."""
+    result: list[str] = []
+    for inst in (structure or {}).get("modules", {}).values():
+        joints = catalog.get(inst.get("type", ""), {}).get("joints", {})
+        motor_map = dict(inst.get("motors", {}))
+        if "motor" in inst and len(joints) == 1:
+            motor_map[next(iter(joints))] = inst["motor"]
+        result += [m for j, m in motor_map.items() if joints.get(j, {}).get("mode") == "velocity"]
+    return result
 
 
 def complete_config_from_structure(config: Any, catalog: dict[str, dict[str, Any]] | None = None) -> list[str]:
@@ -61,16 +78,28 @@ def complete_config_from_structure(config: Any, catalog: dict[str, dict[str, Any
             used_ids.add(next_id)
             added.append(f"moteur {name} (ID {next_id})")
 
+    # roues : moteur asservi en vitesse (aussi pour un moteur déjà dans la configuration, placé sur un module roue)
+    for name in velocity_motors(config.structure, catalog):
+        motor = config.motor_bus.motors[name]
+        if motor.operating_mode != OperatingMode.VELOCITY:
+            motor.operating_mode = OperatingMode.VELOCITY
+            added.append(f"moteur {name} en mode vitesse (roue)")
+
     new_sensors = []
     for name, sensor_type in sensors.items():
         if name in config.sensors:
             continue
-        if sensor_type != CAMERA_TYPE:
-            continue    # seule la caméra a un équivalent dans la configuration pour l'instant
-        config.sensors[name] = mirPiCameraConfiguration(sensor_type=mirPiCameraConfiguration.SENSOR_TYPE, ip=None,
-                                                        width=CAMERA_WIDTH, height=CAMERA_HEIGHT, fps=CAMERA_FPS)
+        if sensor_type == CAMERA_TYPE:
+            config.sensors[name] = mirPiCameraConfiguration(sensor_type=mirPiCameraConfiguration.SENSOR_TYPE, ip=None,
+                                                            width=CAMERA_WIDTH, height=CAMERA_HEIGHT, fps=CAMERA_FPS)
+            added.append(f"caméra {name}")
+        elif sensor_type == LIDAR_TYPE:
+            # adresse du module lidar : renseignée à la construction du robot réel
+            config.sensors[name] = EspSensorLidarConfiguration(sensor_type=EspSensorLidarConfiguration.SENSOR_TYPE, ip="")
+            added.append(f"lidar {name}")
+        else:
+            continue
         new_sensors.append(name)
-        added.append(f"caméra {name}")
 
     if new_motors or new_sensors:
         _add_observations(config, new_motors, new_sensors)
@@ -87,6 +116,9 @@ def _add_observations(config: Any, motors: list[str], sensors: list[str]) -> Non
         observables.update({k: v for k, v in bus.get_observables().items() if k.split(".")[0] in motors})
     for name in sensors:
         cfg = config.sensors[name]
-        observables.update(SimCamera(name, world, cfg.width or CAMERA_WIDTH, cfg.height or CAMERA_HEIGHT).get_observables())
+        if isinstance(cfg, EspSensorLidarConfiguration):
+            observables.update(SimLidar(name, world).get_observables())
+        else:
+            observables.update(SimCamera(name, world, cfg.width or CAMERA_WIDTH, cfg.height or CAMERA_HEIGHT).get_observables())
     for key, prop in observables.items():
         config.observations.setdefault(key, prop.stype)

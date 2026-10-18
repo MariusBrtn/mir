@@ -1,12 +1,11 @@
 from __future__ import annotations
 from typing import Any
-import numpy as np
 import pyqtgraph as pg
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QFrame, QGroupBox,
-                               QHBoxLayout, QHeaderView, QLabel, QListWidget, QListWidgetItem, QPushButton, QScrollArea,
-                               QSpinBox, QStackedWidget, QTableWidget, QTableWidgetItem, QToolBar, QVBoxLayout, QWidget)
+                               QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QScrollArea,
+                               QSpinBox, QStackedWidget, QToolBar, QVBoxLayout, QWidget)
 from mir_robot.essai import CONSIGNE, Essai
 from mir_robot_editor.essais.essais_view_model import REGLAGES_MOTEUR, EssaisViewModel, EssaisVMAction
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
@@ -117,7 +116,7 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self.cb_sollicitation.currentIndexChanged.connect(self._on_sollicitation_changed)
         sollicitation_row.addWidget(self.cb_sollicitation, 1)
         sollicitation_row.addWidget(ToolButton("scan", self._view_model.refresh_briques, True,
-                                               "Relire les fichiers de sollicitations et d'analyses"))
+                                               "Relire les fichiers de sollicitations"))
         form.addRow("Sollicitation", sollicitation_row)
         self.lbl_sollicitation = QLabel()
         self.lbl_sollicitation.setWordWrap(True)
@@ -204,7 +203,7 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         title = QLabel("Essais")
         title.setStyleSheet("font-weight: bold; font-size: 14px;")
         layout.addWidget(title)
-        hint = QLabel("Cochez les essais à superposer ; l'essai sélectionné (trait épais) est analysé. "
+        hint = QLabel("Cochez les essais à superposer ; l'essai sélectionné est en trait épais. "
                       "* : essai pas encore enregistré.")
         hint.setWordWrap(True)
         hint.setStyleSheet("color: palette(placeholder-text);")
@@ -228,23 +227,6 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         btn_retirer.clicked.connect(lambda: self._view_model.retirer(self.list_essais.currentRow()))
         toolbar.addWidget(btn_retirer)
         layout.addWidget(toolbar)
-        analyse_title = QLabel("Analyse")
-        analyse_title.setStyleSheet("font-weight: bold; font-size: 14px; margin-top: 8px;")
-        layout.addWidget(analyse_title)
-        self.cb_analyse = QComboBox()
-        self.cb_analyse.currentIndexChanged.connect(lambda _: self._redraw())
-        layout.addWidget(self.cb_analyse)
-        self.lbl_analyse = QLabel()
-        self.lbl_analyse.setWordWrap(True)
-        self.lbl_analyse.setStyleSheet("color: palette(placeholder-text);")
-        layout.addWidget(self.lbl_analyse)
-        self.table = QTableWidget(0, 2)
-        self.table.setHorizontalHeaderLabels(["Grandeur", "Valeur"])
-        self.table.verticalHeader().setVisible(False)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        layout.addWidget(self.table, 1)
         return panel
 
     # ------------------------------------------------------------------ robot et briques
@@ -292,8 +274,7 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self._on_actionneur_changed()
 
     def _on_briques_changed(self):
-        for combo, disponibles in ((self.cb_sollicitation, self._view_model.sollicitations),
-                                   (self.cb_analyse, self._view_model.analyses)):
+        for combo, disponibles in ((self.cb_sollicitation, self._view_model.sollicitations),):
             current = combo.currentText()
             combo.blockSignals(True)
             combo.clear()
@@ -407,13 +388,12 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
             return self._view_model.essais[row]
         return None
 
-    # ------------------------------------------------------------------ courbes et analyse
+    # ------------------------------------------------------------------ courbes
     def _redraw(self):
         if self._view_model.is_running():
             return
         self._plots_widget.clear()
         self._set_plots_height(0)
-        self.table.setRowCount(0)
         selection = self._essai_at(self.list_essais.currentRow())
         affiches = [self._essai_at(i) for i in range(self.list_essais.count())
                     if self.list_essais.item(i).checkState() == Qt.CheckState.Checked]
@@ -451,31 +431,6 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
                 if nom == essai.actionneur:
                     plot.plot(essai.t, essai.consigne, pen=pg.mkPen(couleur, width=1, style=Qt.PenStyle.DashLine))
         self._set_plots_height(len(plots))
-        self._show_analyse(selection, list(plots.values()))
 
     def _set_plots_height(self, n: int):
         self._plots_widget.setMinimumHeight(n * HAUTEUR_COURBE)
-
-    def _show_analyse(self, essai: Essai | None, plots: list):
-        classe = self._view_model.analyses.commandes.get(self.cb_analyse.currentText())
-        self.lbl_analyse.setText(classe.description if classe is not None else
-                                 "Aucune analyse : écrivez la vôtre dans mir_user_scripts/analyses/ "
-                                 "(exemple : ecart_de_suivi.py), puis relisez les fichiers (bouton loupe à côté "
-                                 "de la sollicitation).")
-        if essai is None or classe is None:
-            return
-        resultat = self._view_model.analyser(self.cb_analyse.currentText(), essai)
-        if resultat is None:
-            return
-        valeurs, reperes = resultat
-        self.table.setRowCount(len(valeurs))
-        for row, (nom, valeur) in enumerate(valeurs.items()):
-            valeur, unite = valeur if isinstance(valeur, tuple) else (valeur, "")
-            texte = f"{valeur:.3g} {unite}" if isinstance(valeur, (int, float, np.floating)) else f"{valeur} {unite}"
-            self.table.setItem(row, 0, QTableWidgetItem(nom))
-            self.table.setItem(row, 1, QTableWidgetItem(texte.strip()))
-        for libelle, t in reperes:
-            for plot in plots:
-                plot.addItem(pg.InfiniteLine(t, angle=90, pen=pg.mkPen("#FFFFFF", width=1, style=Qt.PenStyle.DotLine),
-                                             label=libelle if plot is plots[0] else None,
-                                             labelOpts={"position": 0.9, "color": "#FFFFFF"}))

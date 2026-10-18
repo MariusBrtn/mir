@@ -1,5 +1,8 @@
 from PySide6.QtCore import Signal
-from mir_robot.mir_robot import mirRobotConfig, mirRobot, DOSSIER_ROBOTS
+from pathlib import Path
+from mir_robot.mir_robot import (mirRobotConfig, mirRobot, DOSSIER_ROBOTS, DOSSIER_SCRIPTS, DOSSIER_TELEOP, chemin_robot,
+                                 dossier_du_robot, nom_du_robot, robots_disponibles)
+from mir_sim.leader_structure import is_arm, leader_structure
 from mir_sim.sim_devices_factory import SimDevicesFactory
 from mir_sim.config_from_structure import complete_config_from_structure
 from mir_robot_editor.motor_configuration.motor_configuration_view_model import MotorConfigurationViewModel
@@ -7,6 +10,7 @@ from mir_robot_editor.motor_configuration.servo_id_view_model import ServoIdView
 from mir_robot_editor.scan_devices_view_model import ScanDevicesViewModel
 from mir_robot_editor.robot_monitor_view_model import RobotMonitorViewModel
 from mir_robot_editor.essais.essais_view_model import EssaisViewModel
+from mir_robot_editor.scripts.scripts_view_model import ScriptsViewModel
 from mir_robot_editor.assemblage.assemblage_view_model import AssemblageViewModel
 from mir_robot_editor.edit_configuration_view_model import EditConfigurationViewModel
 from mir_robot_editor.robot_model.robot_model_view_model import RobotModelViewModel
@@ -18,7 +22,9 @@ from mir_utils.concurrency import BackgroundWorker
 
 from contextlib import contextmanager
 from enum import Enum, auto
-import os
+
+LEADER_FIRST_ID = 21         # ID des servos du bras leader : 21, 22... (ceux du bras commencent à 2)
+
 
 class MainVMAction(Enum):
     NEW = auto()
@@ -35,6 +41,7 @@ class MainVMAction(Enum):
     SIMULATION = auto()
     RESET_SIMULATION = auto()
     ASSEMBLE = auto()
+    BUILD_LEADER = auto()
     RECALIBRATE = auto()
     ADVANCED = auto()
     SERVO_ID = auto()
@@ -68,6 +75,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.ROBOT_MODEL] = VMAction("Modèle 3D...", "Afficher le modèle 3D du robot décrit par la structure de la configuration")
         self._actions[MainVMAction.SIMULATION] = VMAction("Simulé", "Choisir entre le robot réel et le robot simulé (à faire avant la connexion)")
         self._actions[MainVMAction.ASSEMBLE] = VMAction("Construire le robot...", "Guide de montage du robot réel, module par module")
+        self._actions[MainVMAction.BUILD_LEADER] = VMAction("Créer le bras leader...", "Construire, avec de nouveaux servos et un nouveau socle, "
+                                                            "le bras leader qui sert à téléopérer ce bras")
         self._actions[MainVMAction.RECALIBRATE] = VMAction("Recalibrer un servo...", "Refaire le milieu et les butées d'un servo du robot construit")
         self._actions[MainVMAction.ADVANCED] = VMAction("Paramètres avancés...", "Outils techniques pour régler ou dépanner le robot à la main")
         self._actions[MainVMAction.SERVO_ID] = VMAction("Changer l'ID d'un servo...", "Donner un nouvel ID à un servo branché seul, même sans robot construit")
@@ -84,10 +93,19 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._robot_monitor_view_model = RobotMonitorViewModel(dialogProvider)
         self._robot_monitor_view_model.busy_state_changed.connect(self.on_observations_vm_busy_state_changed)
         self._essais_view_model = EssaisViewModel(dialogProvider, self._motor_settings, self._apply_motor_settings,
-                                                  self._essai_conditions, other_busy=self._robot_monitor_view_model.is_running,
-                                                  sim_world=lambda: self._sim_factory.world if self._sim_factory else None)
+                                                  self._essai_conditions,
+                                                  other_busy=lambda: self._robot_monitor_view_model.is_running()
+                                                  or self._scripts_view_model.is_running(),
+                                                  sim_world=self.get_sim_world)
         self._essais_view_model.busy_state_changed.connect(self.on_observations_vm_busy_state_changed)
-        self._robot_monitor_view_model.set_other_busy(self._essais_view_model.is_running)
+        self._scripts_view_model = ScriptsViewModel(dialogProvider,
+                                                    other_busy=lambda: self._robot_monitor_view_model.is_running()
+                                                    or self._essais_view_model.is_running(),
+                                                    sim_world=self.get_sim_world)
+        self._scripts_view_model.busy_state_changed.connect(self.on_observations_vm_busy_state_changed)
+        # une seule activité à la fois sur le robot : essai, téléopération ou script
+        self._robot_monitor_view_model.set_other_busy(lambda: self._essais_view_model.is_running()
+                                                      or self._scripts_view_model.is_running())
         self._worker = BackgroundWorker()
         # réglages modifiés pendant les essais : temporaires, MIR remet les siens en quittant les essais
         self._essai_originaux: dict[str, dict[str, int]] = {}      # {moteur: {réglage: valeur de la configuration}}
@@ -105,7 +123,30 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             return None
         if self._current_configuration.path is None:
             return "nouveau robot"
-        return os.path.splitext(os.path.basename(self._current_configuration.path))[0]
+        return nom_du_robot(self._current_configuration.path)
+
+    # ------------------------------------------------------------------ dossier du robot
+    def get_teleop_dir(self) -> Path | None:
+        """Dossier des téléopérations du robot ouvert (None tant qu'il n'est pas enregistré)."""
+        cfg = self._current_configuration
+        if self._state == MainViewModelState.INIT or cfg is None or cfg.path is None:
+            return None
+        return dossier_du_robot(cfg.path) / DOSSIER_TELEOP
+
+    def get_scripts_dir(self) -> Path | None:
+        """Dossier des scripts du robot ouvert (None tant qu'il n'est pas enregistré)."""
+        cfg = self._current_configuration
+        if self._state == MainViewModelState.INIT or cfg is None or cfg.path is None:
+            return None
+        return dossier_du_robot(cfg.path) / DOSSIER_SCRIPTS
+
+    def is_arm(self) -> bool:
+        return self._current_configuration is not None and is_arm(self._current_configuration.structure)
+
+    def _update_teleops(self):
+        """Robot ouvert, enregistré ou modifié : les onglets Téléopération et Scripts proposent ceux du robot."""
+        self._robot_monitor_view_model.set_teleop_dir(self.get_teleop_dir())
+        self._scripts_view_model.set_dossier(self.get_scripts_dir())
 
     @property
     def _configuration_dirty(self) -> bool:
@@ -184,6 +225,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             self._robot.configure()
             self._robot_monitor_view_model.connect_to_robot(self._robot)
             self._essais_view_model.connect_to_robot(self._robot)
+            self._scripts_view_model.connect_to_robot(self._robot)
             self._set_state(MainViewModelState.CONNECTED)
         except Exception as e:
             self._dialogProvider.information("Le robot simulé ne peut pas être construit", str(e))
@@ -223,6 +265,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         return self._dialogProvider.question_yes_no(title, text)
 
     def quit(self):
+        self._scripts_view_model.quit()
         if self._robot is not None:
             self._robot.disconnect()
 
@@ -238,6 +281,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             self._configuration_dirty = True
             self.set_title()
             self._set_state(MainViewModelState.LOADED)
+        self._update_teleops()
         return True
 
     def close_robot(self) -> bool:
@@ -254,15 +298,22 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._configuration_dirty = False
         self.set_title()
         self._set_state(MainViewModelState.INIT)
+        self._update_teleops()
         return True
 
     def load_configuration(self):
         if not self._ask_save_if_dirty():
             return
-        path = self._dialogProvider.open_file("Ouvrir un robot", self.get_data_directory(), "Fichier de configuration robot (*.json)",
-                                              try_use_last_directory=False)
-        if path is None or path.strip() == "":
+        # un robot = un dossier de robots/ : on le choisit par son nom
+        names = robots_disponibles()
+        if not names:
+            self._dialogProvider.information("Ouvrir un robot", "Aucun robot enregistré pour l'instant : créez-en un avec "
+                                             "« Concevoir la structure ».")
             return
+        name = self._dialogProvider.choose_item("Ouvrir un robot", "Robot :", names)
+        if name is None:
+            return
+        path = str(chemin_robot(name))
         with self._configuration_change():
             try:
                 self._current_configuration = mirRobotConfig.load(path)
@@ -272,6 +323,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             self._configuration_dirty = False
             self.set_title()
             self._set_state(MainViewModelState.LOADED)
+        self._update_teleops()
 
     def save(self) -> bool:
         if self._current_configuration is None:
@@ -282,30 +334,35 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             with self._reglages_mir():
                 self._current_configuration.save()
             self._configuration_dirty = False
+            self._update_teleops()
             return True
 
     def save_as(self) -> bool:
         try:
             if self._current_configuration is None:
                 raise RuntimeError("aucune configuration chargée")
-            default_dir = self._current_configuration.get_dir_of_file()
-            if default_dir is None:
-                try_use_last_directory = True
-                default_dir = self.get_data_directory()
-            else:
-                try_use_last_directory = False
-            path = self._dialogProvider.save_file("Sauver la configuration robot",
-                                                  default_dir,
-                                                  "Fichier de configuration robot (*.json)",
-                                                  try_use_last_directory=try_use_last_directory)
-            if not path:
+            current = self._current_configuration.path
+            name = self._dialogProvider.ask_text("Enregistrer le robot", "Nom du robot :",
+                                                 nom_du_robot(current) if current else "")
+            if name is None:
                 return False
-            if not path.endswith(".json"):
-                path += ".json"
+            name = name.strip()
+            if not name or any(c in name for c in '/\\:') or name.startswith("."):
+                self._dialogProvider.information("Enregistrer le robot", f"« {name} » n'est pas un nom de robot possible "
+                                                 "(pas de / \\ : ni de point au début).")
+                return False
+            # un robot = un dossier : « mon_bras » -> robots/mon_bras/robot.json
+            target = chemin_robot(name)
+            if target.exists() and str(target) != self._current_configuration.path and \
+                    not self._dialogProvider.question_yes_no("Enregistrer le robot", f"Le robot « {target.parent.name} » "
+                                                             "existe déjà.\r\nLe remplacer ?"):
+                return False
+            target.parent.mkdir(parents=True, exist_ok=True)
             with self._reglages_mir():
-                self._current_configuration.save_as(path)
+                self._current_configuration.save_as(str(target))
             self.set_title()
             self._configuration_dirty = False
+            self._update_teleops()
             return True
         except ValueError as e:
             self._dialogProvider.information("Erreur sauvegarde de la configuration", str(e))
@@ -327,6 +384,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
                 return
             self._robot_monitor_view_model.connect_to_robot(self._robot)
             self._essais_view_model.connect_to_robot(self._robot)
+            self._scripts_view_model.connect_to_robot(self._robot)
             self._set_state(MainViewModelState.CONNECTED)
         except (ConnectionError, RuntimeError, ValueError, TimeoutError) as e:
             self._dialogProvider.information("La connexion a échoué", str(e))
@@ -344,6 +402,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._sim_factory = None
         self._robot_monitor_view_model.disconnect_from_robot()
         self._essais_view_model.disconnect_from_robot()
+        self._scripts_view_model.disconnect_from_robot()
         self._set_state(MainViewModelState.LOADED)
 
     def execute_scan_devices(self, open_view):
@@ -494,6 +553,55 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         except BaseException as e:
             self._dialogProvider.exception(e)
 
+    def has_leader_arm(self) -> bool:
+        path = self.leader_arm_file()
+        return path is not None and path.exists()
+
+    def leader_arm_file(self) -> Path | None:
+        teleop_dir = self.get_teleop_dir()
+        return teleop_dir / "leader_arm.json" if teleop_dir is not None else None
+
+    def execute_build_leader(self, open_view):
+        """Créer le bras leader : le guide de montage, sur la structure du bras (sans caméra, avec la pince du
+        leader), avec de nouveaux servos et un nouveau socle. Sa configuration va dans teleop/leader_arm.json."""
+        try:
+            cfg = self._current_configuration
+            if cfg is None or not self.is_arm():
+                raise RuntimeError("Le robot n'est pas un bras (au moins deux servos en série)")
+            path = self.leader_arm_file()
+            if path is None:
+                self._dialogProvider.information("Créer le bras leader", "Enregistrez d'abord le robot : la configuration "
+                                                 "du bras leader est rangée dans son dossier.")
+                return
+            if path.exists():
+                if not self._dialogProvider.question_yes_no("Créer le bras leader", "Ce bras a déjà un bras leader.\r\n"
+                                                            "Le reconstruire (ID, calibration) ?"):
+                    return
+                leader = mirRobotConfig.load(str(path))
+                leader.structure = leader_structure(cfg.structure)
+            else:
+                leader = mirRobotConfig(id=f"{nom_du_robot(cfg.path)}_leader", structure=leader_structure(cfg.structure))
+            complete_config_from_structure(leader)
+            if leader.motor_bus is not None and not path.exists():
+                # ID différents de ceux du bras : pas de doublon si un servo passe d'un bus à l'autre
+                for i, motor in enumerate(leader.motor_bus.motors.values()):
+                    motor.id = LEADER_FIRST_ID + i
+            # le port de la carte du bras n'est jamais proposé : le bras leader a sa propre carte
+            occupied = [cfg.motor_bus.motor_port] if cfg.motor_bus is not None and cfg.motor_bus.motor_port else []
+            vm = AssemblageViewModel(self._dialogProvider, leader, titre="Créer le bras leader", ports_exclus=occupied)
+            with vm:
+                accepted = bool(open_view(vm))
+            if not accepted:
+                return      # construction interrompue : rien n'est enregistré
+            path.parent.mkdir(parents=True, exist_ok=True)
+            vm.configuration().save_as(str(path))
+            self._update_teleops()
+            self._set_state(self._state)
+            self._dialogProvider.information("Créer le bras leader", "Le bras leader est prêt : la téléopération "
+                                             "« Bras leader » est maintenant proposée.")
+        except BaseException as e:
+            self._dialogProvider.exception(e)
+
     def execute_structure_editor(self, open_view):
         """Sans robot ouvert, la structure crée un nouveau robot ; sinon, elle modifie le robot ouvert."""
         try:
@@ -516,6 +624,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
                 # moteurs et capteurs des modules ajoutés depuis le catalogue (robot conçu sans matériel)
                 complete_config_from_structure(self._current_configuration)
                 self._set_state(self._state)   # « Modèle 3D » dépend de la présence d'une structure
+            self._update_teleops()
             if self._dialogProvider.question_yes_no("Configuration modifiée", "La structure du robot a été modifiée\r\nSouhaitez-vous sauvegarder la configuration maintenant?"):
                 self._configuration_dirty = not self.save()
             else:
@@ -530,6 +639,9 @@ class MainViewModel(ViewModelBase[MainVMAction]):
 
     def get_essais_view_model(self) -> EssaisViewModel:
         return self._essais_view_model
+
+    def get_scripts_view_model(self) -> ScriptsViewModel:
+        return self._scripts_view_model
 
     def _motor_settings(self, motor: str) -> dict[str, int]:
         cfg = self._current_configuration
@@ -657,6 +769,9 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         # régler n'a de sens qu'une fois le robot construit
         a[MainVMAction.MOTOR_CFG].set_enabled(state == MainViewModelState.LOADED and self.is_built())
         a[MainVMAction.ASSEMBLE].set_enabled(state == MainViewModelState.LOADED and has_structure)
+        # onglet Téléopération : pas pendant un mouvement (le bras leader a son propre bus)
+        a[MainVMAction.BUILD_LEADER].set_enabled(state in (MainViewModelState.LOADED, MainViewModelState.CONNECTED)
+                                                 and self.is_arm())
         a[MainVMAction.RECALIBRATE].set_enabled(state == MainViewModelState.LOADED and self.is_built()
                                                 and bool(self.motor_modules()))
         a[MainVMAction.ADVANCED].set_enabled(True)

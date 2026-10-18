@@ -174,11 +174,11 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
             else:
                 items.append(PaletteItem(fallback_key, label, types, None, False))
         for module_type, module in self._catalog.items():
-            if module.get("joints") or module.get("sensors"):
+            if not module.get("leader_only") and (module.get("joints") or module.get("sensors")):
                 items.append(PaletteItem(f"new:{module_type}", module_type.removeprefix("mir_"), [module_type], None,
                                          False, is_new=True))
         for module_type, module in self._catalog.items():
-            if not module.get("joints") and not module.get("sensors"):
+            if not module.get("leader_only") and (not module.get("joints") and not module.get("sensors")):
                 items.append(PaletteItem(f"block:{module_type}", module_type.removeprefix("mir_"), [module_type], None, True))
         return items
 
@@ -287,7 +287,9 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
             # module du catalogue : nouveau moteur (une articulation) ou nouveaux capteurs
             module = self._catalog[module_type]
             if len(module.get("joints", {})) == 1:
-                motor = self._new_hardware_name("joint", self._motors)
+                joint = next(iter(module["joints"].values()))
+                # une roue (articulation asservie en vitesse) s'appelle roue_N, une articulation joint_N
+                motor = self._new_hardware_name("roue" if joint.get("mode") == "velocity" else "joint", self._motors)
                 self._motors.append(motor)
                 self._created_motors.append(motor)
                 instance["motor"] = motor
@@ -296,7 +298,8 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
                 name = self._unique_name(module_type.removeprefix("mir_"))
             sensors = {}
             for key, sensor in module.get("sensors", {}).items():
-                sensor_name = self._new_hardware_name("cam" if sensor.get("type") == "camera" else key, self._sensors)
+                prefixe = {"camera": "cam", "lidar": "lidar"}.get(sensor.get("type", ""), key)
+                sensor_name = self._new_hardware_name(prefixe, self._sensors)
                 self._sensors.append(sensor_name)
                 self._created_sensors.append(sensor_name)
                 sensors[key] = sensor_name
@@ -307,6 +310,7 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         else:
             name = self._unique_name(module_type.removeprefix("mir_"))
         instance.update({"on": target, "connector": connector})
+        self._set_default_direction(instance)
         self.modules[name] = instance
         self._placing = None
         self._selected = name
@@ -355,7 +359,21 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._push_undo()
         inst = self.modules[self._selected]
         inst["connector"] = choices[(choices.index(inst["connector"]) + 1) % len(choices)]
+        self._set_default_direction(inst)
         self._rebuild()
+
+    def _set_default_direction(self, inst: dict[str, Any]) -> None:
+        """Sens par défaut d'un module à moteur : inversé quand il est branché par sa pièce entraînée (servo posé
+        rotor en premier), c'est ce que le guide de montage constate à chaque fois. Modifiable ensuite (sens inversé)."""
+        module = self._catalog[inst["type"]]
+        joints = module.get("joints", {})
+        if len(joints) != 1 or "connector" not in inst:
+            return
+        part = module["connectors"][inst["connector"]]["part"]
+        if part == next(iter(joints.values()))["child"]:
+            inst["direction"] = -1
+        else:
+            inst.pop("direction", None)
 
     def _connector_choices(self, name: str | None) -> list[str]:
         if name is None or "on" not in self.modules.get(name, {}):

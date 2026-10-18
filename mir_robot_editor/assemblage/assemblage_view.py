@@ -59,6 +59,10 @@ class AssemblageView(DialogBase):
         btn_refresh.clicked.connect(self._fill_ports)
         row.addWidget(btn_refresh)
         layout.addLayout(row)
+        self.lbl_ports_exclus = QLabel()
+        self.lbl_ports_exclus.setWordWrap(True)
+        self.lbl_ports_exclus.setStyleSheet(f"color: {theme.TEXT_MUTED};")
+        layout.addWidget(self.lbl_ports_exclus)
         self.btn_start = QPushButton("Commencer")
         self.btn_start.setStyleSheet("font-weight: bold; padding: 6px;")
         self.btn_start.clicked.connect(self._on_start)
@@ -76,8 +80,14 @@ class AssemblageView(DialogBase):
         if self._essai_sans_materiel:
             self.cb_port.addItem("(bus simulé)")
             return
-        ports = ports_disponibles()
+        tous = ports_disponibles()
+        ports = [p for p in tous if p not in self._vm.ports_exclus]
         self.cb_port.addItems(ports)
+        retires = [p for p in tous if p in self._vm.ports_exclus]
+        self.lbl_ports_exclus.setText(f"Le port de la carte du bras ({', '.join(retires)}) n'est pas proposé. "
+                                      "En cas de doute : débranchez le câble USB à utiliser, cliquez sur Actualiser, "
+                                      "le port qui disparaît est le sien." if retires else "")
+        self.lbl_ports_exclus.setVisible(bool(retires))
         current = self._vm.configuration().motor_bus.motor_port if self._vm.configuration().motor_bus else ""
         if current in ports:
             self.cb_port.setCurrentText(current)

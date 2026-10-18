@@ -10,6 +10,7 @@ from mir_devices.mir_device import (ImirFeetechMotorBus,
                                     ObservableProperty,
                                     ObservablePropertyFloat,
                                     ObservablePropertyBitmap,
+                                    ObservablePropertyPolar,
                                     ObservationValue,
                                     ActionValue,
                                     DeviceAction,
@@ -43,16 +44,23 @@ class SimMotorBus(ImirFeetechMotorBus):
         if missing:
             raise ValueError(f"moteurs absents de l'assemblage simulé : {sorted(missing)}")
         for name, motor in config.motors.items():
-            self._actions[f"{name}.{POSITION_SUFFIX}"] = DeviceAction(
-                name, POSITION_SUFFIX, 0.0, "float", "°", self.mir_get_motor_position_range(name))
+            if world.is_velocity_motor(name):
+                # roue : consigne de vitesse en tr/min, comme le bus réel en mode vitesse
+                self._actions[f"{name}.{VELOCITY_SUFFIX}"] = DeviceAction(
+                    name, VELOCITY_SUFFIX, 0.0, "float", "tr/min", self.mir_get_motor_velocity_range(name))
+            else:
+                self._actions[f"{name}.{POSITION_SUFFIX}"] = DeviceAction(
+                    name, POSITION_SUFFIX, 0.0, "float", "°", self.mir_get_motor_position_range(name))
 
     # ---------------------------------------------------------------- mirDevice
     def mir_connect(self) -> None:
         if not self._connected:
             self._world.acquire()
         self._connected = True
-        for name, pos in self._world.get_positions(list(self._config.motors)).items():
-            self._actions[f"{name}.{POSITION_SUFFIX}"].set_value(pos)
+        positions = self._position_motors()
+        if positions:       # liste vide = que des roues (get_positions([]) lirait tous les moteurs)
+            for name, pos in self._world.get_positions(positions).items():
+                self._actions[f"{name}.{POSITION_SUFFIX}"].set_value(pos)
 
     def mir_disconnect(self) -> None:
         if self._connected:
@@ -93,7 +101,13 @@ class SimMotorBus(ImirFeetechMotorBus):
         goal_positions = {k.split(".")[0]: v for k, v in actions.items() if k.endswith(f".{POSITION_SUFFIX}")}
         if goal_positions:
             self.mir_goal_positions(goal_positions, None)
+        goal_velocities = {k.split(".")[0]: v for k, v in actions.items() if k.endswith(f".{VELOCITY_SUFFIX}")}
+        if goal_velocities:
+            self.mir_goal_velocities(goal_velocities)
         return actions
+
+    def _position_motors(self) -> list[str]:
+        return [m for m in self._config.motors if not self._world.is_velocity_motor(m)]
 
     # ---------------------------------------------------------------- calibration (toujours calibré en simu)
     @property
@@ -135,8 +149,9 @@ class SimMotorBus(ImirFeetechMotorBus):
         raise NotImplementedError(f"SimMotorBus : écriture du registre {data_name} non simulée")
 
     def mir_set_operating_mode(self, motor: str, operating_mode: Any) -> None:
-        if int(getattr(operating_mode, "value", operating_mode)) != 0:
-            raise NotImplementedError("SimMotorBus : seul le mode POSITION est simulé")
+        vitesse = int(getattr(operating_mode, "value", operating_mode)) == 1
+        if vitesse != self._world.is_velocity_motor(motor):
+            raise NotImplementedError("SimMotorBus : le mode d'un moteur simulé vient de la structure et de la configuration")
 
     # ---------------------------------------------------------------- commandes
     def mir_disable_torques(self, motors: list[str] | None = None) -> None:
@@ -154,14 +169,16 @@ class SimMotorBus(ImirFeetechMotorBus):
     def mir_goal_positions(self, positions: dict[str, int | float] | int | float,
                            velocities: dict[str, int | float] | None) -> None:
         if not isinstance(positions, dict):
-            positions = {m: positions for m in self._config.motors}
+            positions = {m: positions for m in self._position_motors()}
         self._world.set_goal_positions({m: float(p) for m, p in positions.items()})
 
     def mir_goal_velocity(self, name: str, velocity: int | float) -> None:
-        raise NotImplementedError("SimMotorBus : seul le mode POSITION est simulé")
+        self._world.set_goal_velocities({name: float(velocity)})
 
     def mir_goal_velocities(self, velocities: int | dict[str, int | float]) -> None:
-        raise NotImplementedError("SimMotorBus : seul le mode POSITION est simulé")
+        if not isinstance(velocities, dict):
+            velocities = {m: velocities for m in self._config.motors if self._world.is_velocity_motor(m)}
+        self._world.set_goal_velocities({m: float(v) for m, v in velocities.items()})
 
     def mir_stop(self, name: str | list[str] | None):
         motors = [name] if isinstance(name, str) else name
@@ -265,6 +282,62 @@ class SimCamera(mirSensor):
         if self.sensor_key not in self.subscribed_observations:
             return {}
         return {self.sensor_key: np.ascontiguousarray(self._world.render(self._camera_name, self._width, self._height))}
+
+    def send_action(self, actions: dict[str, ActionValue]) -> dict[str, ActionValue]:
+        return {}
+
+    def test_connection(self) -> bool:
+        return True
+
+    def get_configurable_properties(self) -> dict[str, SensorProperty]:
+        return {}
+
+    def set_property(self, key: str, value: Any) -> bool:
+        return False
+
+    def reset_sensor(self):
+        pass
+
+
+class SimLidar(mirSensor):
+    """Lidar simulé (RPLidar C1) : un tour de mesures par lancer de rayons dans la scène.
+    Même observation que le lidar réel esp_lidar : tableau (points, 2) = [angle en degrés, distance en cm],
+    distance 0 quand rien n'est mesuré (hors de la portée de 5 cm à 12 m)."""
+
+    MAX_RANGE_CM = 600      # échelle d'affichage, comme EspSensorLidar
+
+    def __init__(self, sensor_key: str, world: SimWorld):
+        super().__init__(sensor_key)
+        self._world = world
+        if sensor_key not in world.built.lidars:
+            raise ValueError(f"lidar '{sensor_key}' absent de l'assemblage simulé")
+        self._points = world.built.lidars[sensor_key]["points"]
+        self._range_m = tuple(world.built.lidars[sensor_key]["range_m"])
+        self._connected = False
+
+    def mir_connect(self) -> None:
+        if not self._connected:
+            self._world.acquire()
+        self._connected = True
+
+    def mir_disconnect(self) -> None:
+        if self._connected:
+            self._world.release()
+        self._connected = False
+
+    def mir_is_connected(self) -> bool:
+        return self._connected
+
+    def get_observables(self) -> dict[str, ObservableProperty]:
+        return {self.sensor_key: ObservablePropertyPolar(self._points, self.MAX_RANGE_CM)}
+
+    def get_observation(self) -> dict[str, ObservationValue]:
+        if self.sensor_key not in self.subscribed_observations:
+            return {}
+        angles, distances_m = self._world.lidar_scan(self.sensor_key, self._range_m)
+        # comme le firmware : centimètres arrondis
+        scan = np.column_stack([angles, np.round(distances_m * 100)]).astype(np.float32)
+        return {self.sensor_key: scan}
 
     def send_action(self, actions: dict[str, ActionValue]) -> dict[str, ActionValue]:
         return {}

@@ -1,0 +1,87 @@
+{
+    "id": "mir_robot",
+    "calibration_dir": null,
+    "motor_bus": {
+        "motor_port": "/dev/cu.usbmodem5B141123301",
+        "motors": {
+            "joint_1": {
+                "id": 2,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            },
+            "joint_2": {
+                "id": 3,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            }
+        },
+        "calibration": {
+            "joint_1": {
+                "id": 2,
+                "drive_mode": 0,
+                "homing_offset": 884,
+                "range_min": 1086,
+                "range_max": 2888
+            },
+            "joint_2": {
+                "id": 3,
+                "drive_mode": 0,
+                "homing_offset": 64,
+                "range_min": 994,
+                "range_max": 3009
+            }
+        }
+    },
+    "sensors": {},
+    "observations": {
+        "joint_1.position": "float",
+        "joint_1.velocity": "float",
+        "joint_1.current": "float",
+        "joint_1.temperature": "float",
+        "joint_1.load": "float",
+        "joint_2.position": "float",
+        "joint_2.velocity": "float",
+        "joint_2.current": "float",
+        "joint_2.temperature": "float",
+        "joint_2.load": "float"
+    },
+    "structure": {
+        "modules": {
+            "socle": {
+                "type": "mir_socle",
+                "fixed": true
+            },
+            "servo_joint_1": {
+                "type": "mir_servo",
+                "motor": "joint_1",
+                "on": "socle.dessus",
+                "connector": "rotor",
+                "direction": -1
+            },
+            "servo_joint_2": {
+                "type": "mir_servo",
+                "motor": "joint_2",
+                "on": "servo_joint_1.stator",
+                "connector": "rotor",
+                "direction": -1
+            }
+        }
+    },
+    "path": "/Users/marius/Documents/Atelier Vectoriel/MIR/MIR-software/mir/robots/test_2ddl.json"
+}

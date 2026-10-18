@@ -1,0 +1,200 @@
+{
+    "description": "Pince du bras leader : support spécifique (stator de servo + mors fixe, sans douille caméra) et le même mors mobile que la pince MIR. Montée à la place de la pince quand on construit le bras leader. Repère de la CAO (identique au module servo), en mm.",
+    "leader_only": true,
+    "unit_scale": 0.001,
+    "parts": {
+        "support": {
+            "mass": 0.09,
+            "geoms": [
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_PINCE_TELEOP.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.08,
+                        0.08,
+                        0.09,
+                        1
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        12.5,
+                        0,
+                        3.85
+                    ],
+                    "size": [
+                        25.0,
+                        27.85
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        -8.75,
+                        0,
+                        1.016
+                    ],
+                    "zaxis": [
+                        1,
+                        0,
+                        0
+                    ],
+                    "size": [
+                        24.66,
+                        21.25
+                    ]
+                },
+                {
+                    "name": "mors_fixe",
+                    "stiff_contact": true,
+                    "type": "box",
+                    "collision_only": true,
+                    "pos": [
+                        54.3,
+                        7.5,
+                        -4.65
+                    ],
+                    "size": [
+                        24.3,
+                        2.5,
+                        9.35
+                    ],
+                    "friction": [
+                        1.5,
+                        0.02,
+                        0.001
+                    ]
+                },
+                {
+                    "type": "box",
+                    "collision_only": true,
+                    "pos": [
+                        35.0,
+                        14.0,
+                        -4.65
+                    ],
+                    "size": [
+                        10.0,
+                        4.0,
+                        9.35
+                    ]
+                }
+            ]
+        },
+        "mors": {
+            "mass": 0.02,
+            "geoms": [
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_PINCE.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.08,
+                        0.08,
+                        0.09,
+                        1
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        12.5,
+                        0,
+                        36.0
+                    ],
+                    "size": [
+                        25.0,
+                        4.0
+                    ]
+                },
+                {
+                    "name": "mors_mobile",
+                    "stiff_contact": true,
+                    "type": "box",
+                    "collision_only": true,
+                    "pos": [
+                        57.8,
+                        -7.5,
+                        -4.5
+                    ],
+                    "size": [
+                        20.8,
+                        2.5,
+                        9.5
+                    ],
+                    "friction": [
+                        1.5,
+                        0.02,
+                        0.001
+                    ]
+                },
+                {
+                    "type": "box",
+                    "collision_only": true,
+                    "pos": [
+                        39.0,
+                        -12.5,
+                        13.0
+                    ],
+                    "size": [
+                        9.0,
+                        7.5,
+                        27.0
+                    ]
+                }
+            ]
+        }
+    },
+    "joints": {
+        "axe": {
+            "parent": "support",
+            "child": "mors",
+            "pos": [
+                12.5,
+                0,
+                40.0
+            ],
+            "axis": [
+                0,
+                0,
+                1
+            ],
+            "default_range_deg": [
+                -14,
+                14
+            ]
+        }
+    },
+    "connectors": {
+        "stator": {
+            "part": "support",
+            "gender": "female",
+            "pos": [
+                -38.85,
+                0,
+                1.016
+            ],
+            "zaxis": [
+                -1,
+                0,
+                0
+            ],
+            "xaxis": [
+                0,
+                0,
+                1
+            ]
+        }
+    },
+    "contact_pairs": [
+        [
+            "mors_fixe",
+            "mors_mobile"
+        ]
+    ]
+}

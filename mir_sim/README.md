@@ -61,6 +61,21 @@ comme dans lerobot), le couple max de `torque_limit`, la vitesse de `position_mo
 **Réglage de `direction` / `zero_offset_deg`** : téléopère le robot simulé et compare avec le robot réel,
 articulation par articulation.
 
+## Robot mobile
+
+Modules : `mir_socle` (hexagonal, douille femelle `dessus` et six douilles latérales `cote_0` ... `cote_300`),
+`mir_roue` (servo en mode vitesse + roue de 70 mm, douille femelle `stator`), `mir_coude_60` et sa variante
+symétrique `mir_coude_60_b` (mâle-mâle à 60°, faces `face_a` / `face_b`), `mir_lidar` (RPLidar C1, embout mâle).
+
+- Racine non fixée (`"fixed": false`, case « Bâti » décochée dans l'éditeur) : le robot est posé sur le sol par son
+  point le plus bas et, sans scène, placé dans une arène de 3 x 3 m (murs, deux obstacles) pour le lidar.
+- Roue : le moteur est mis en mode vitesse dans la configuration (`operating_mode` VELOCITY, écrit dans le servo à
+  la connexion du robot réel) ; action `<moteur>.velocity` en tr/min, position lue sur un tour (-180..180°).
+- Lidar : capteur `esp_lidar` de la configuration ; observation = tableau (400, 2) `[angle en °, distance en cm]`,
+  0 = rien mesuré (portée 5 cm - 12 m), comme le firmware ESP32. L'avant du lidar (angle 0) est provisoire.
+- Exemple 4 roues parallèles : coudes branchés par `face_b`, `mir_coude_60_b` sur `cote_60` et `cote_240`,
+  `mir_coude_60` sur `cote_120` et `cote_300`, roues sur `face_a` (robot `robots/test_mobile`).
+
 ## Scène (propre à une tâche, facultative)
 
 Fichier JSON à côté des scripts de la tâche (ex. `scene_de.json`) : position du robot sur la table
@@ -73,9 +88,9 @@ Tout est exprimé dans le repère de la CAO du module (en mm avec `"unit_scale":
 | champ | rôle |
 |---|---|
 | `parts` | pièces rigides `{nom: {"mass", "geoms"}}` (ex. `stator`, `rotor`) |
-| `joints` | articulations `{nom: {"parent", "child", "pos", "axis"}}` entre deux pièces |
+| `joints` | articulations `{nom: {"parent", "child", "pos", "axis"}}` entre deux pièces ; `"mode": "velocity"` = asservie en vitesse (roue : rotation continue, sans butées) |
 | `connectors` | baïonnettes `{nom: {"part", "gender": "male"/"female", "pos", "zaxis", "xaxis"}}` : z sort du module, détrompeur côté -x |
-| `sensors` | capteurs `{nom: {"type": "camera", "part", "pos", "zaxis", "xaxis", "fovy"}}` (la caméra regarde selon -z, haut de l'image selon +y) |
+| `sensors` | capteurs `{nom: {"type": "camera", "part", "pos", "zaxis", "xaxis", "fovy"}}` (la caméra regarde selon -z, haut de l'image selon +y), ou `{"type": "lidar", "part", "pos", "zaxis", "xaxis", "points", "range_m"}` (pos = centre de la fenêtre de mesure, z = haut du lidar, x = angle 0, angles croissants dans le sens horaire vu de dessus) |
 | `contact_pairs` | paires de géométries nommées du module qui doivent pouvoir se toucher (ex. mors d'une pince) |
 
 Géométries : un STL `"visual_only": true` pour l'affichage, des formes simples `"collision_only": true` pour les

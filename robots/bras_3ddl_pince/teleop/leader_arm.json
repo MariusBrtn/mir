@@ -1,0 +1,124 @@
+{
+    "id": "bras_3ddl_pince_leader",
+    "calibration_dir": null,
+    "motor_bus": {
+        "motor_port": "/dev/cu.usbmodem5B141123301",
+        "motors": {
+            "joint_1": {
+                "id": 21,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            },
+            "joint_2": {
+                "id": 22,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            },
+            "joint_3": {
+                "id": 23,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 0,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            }
+        },
+        "calibration": {
+            "joint_1": {
+                "id": 21,
+                "drive_mode": 0,
+                "homing_offset": -684,
+                "range_min": 1119,
+                "range_max": 2951
+            },
+            "joint_2": {
+                "id": 22,
+                "drive_mode": 0,
+                "homing_offset": -1783,
+                "range_min": 1136,
+                "range_max": 2964
+            },
+            "joint_3": {
+                "id": 23,
+                "drive_mode": 0,
+                "homing_offset": 1796,
+                "range_min": 1904,
+                "range_max": 2189
+            }
+        }
+    },
+    "sensors": {},
+    "observations": {
+        "joint_1.position": "float",
+        "joint_1.velocity": "float",
+        "joint_1.current": "float",
+        "joint_1.temperature": "float",
+        "joint_1.load": "float",
+        "joint_2.position": "float",
+        "joint_2.velocity": "float",
+        "joint_2.current": "float",
+        "joint_2.temperature": "float",
+        "joint_2.load": "float",
+        "joint_3.position": "float",
+        "joint_3.velocity": "float",
+        "joint_3.current": "float",
+        "joint_3.temperature": "float",
+        "joint_3.load": "float"
+    },
+    "structure": {
+        "modules": {
+            "socle": {
+                "type": "mir_socle",
+                "fixed": true
+            },
+            "servo_joint_1": {
+                "type": "mir_servo",
+                "motor": "joint_1",
+                "on": "socle.dessus",
+                "connector": "rotor",
+                "direction": -1
+            },
+            "servo_joint_2": {
+                "type": "mir_servo",
+                "motor": "joint_2",
+                "on": "servo_joint_1.stator",
+                "connector": "rotor",
+                "direction": -1
+            },
+            "jonction": {
+                "type": "mir_jonction",
+                "on": "servo_joint_2.stator",
+                "connector": "face_a"
+            },
+            "pince_joint_3": {
+                "type": "mir_pince_teleop",
+                "motor": "joint_3",
+                "on": "jonction.face_b",
+                "connector": "stator",
+                "direction": -1
+            }
+        }
+    },
+    "path": "/Users/marius/Documents/Atelier Vectoriel/MIR/MIR-software/mir/robots/bras_3ddl_pince/teleop/leader_arm.json"
+}

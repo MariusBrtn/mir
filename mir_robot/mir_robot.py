@@ -8,18 +8,35 @@ from mir_devices.mir_devices_factory import ImirDevicesFactory, DefaultDevicesFa
 from mir_robot.mir_robot_config import mirRobotConfig
 from mir_devices.mir_feetech_motor_bus import ImirFeetechMotorBus
 
-# dossier où sont rangées les configurations des robots (un fichier .json par robot, nommé comme le robot)
+# dossier où sont rangés les robots : un dossier par robot, nommé comme le robot, qui contient
+#   robot.json : sa configuration
+#   teleop/    : ses téléopérations (et la configuration de leurs périphériques, ex. leader_arm.json)
+#   essais/    : les essais faits avec lui
 DOSSIER_ROBOTS = Path(__file__).parent.parent / "robots"
+FICHIER_ROBOT = "robot.json"
+DOSSIER_TELEOP = "teleop"
+DOSSIER_ESSAIS = "essais"
+DOSSIER_SCRIPTS = "scripts"
 
 
 def chemin_robot(nom: str) -> Path:
     """Fichier de configuration du robot de ce nom, dans le dossier des robots."""
-    return DOSSIER_ROBOTS / f"{nom}.json"
+    return DOSSIER_ROBOTS / nom / FICHIER_ROBOT
 
 
 def robots_disponibles() -> list[str]:
     """Noms des robots du dossier des robots."""
-    return sorted(p.stem for p in DOSSIER_ROBOTS.glob("*.json")) if DOSSIER_ROBOTS.is_dir() else []
+    return sorted(p.parent.name for p in DOSSIER_ROBOTS.glob(f"*/{FICHIER_ROBOT}")) if DOSSIER_ROBOTS.is_dir() else []
+
+
+def dossier_du_robot(chemin_config: str | Path) -> Path:
+    """Dossier d'un robot à partir du chemin de sa configuration."""
+    return Path(chemin_config).parent
+
+
+def nom_du_robot(chemin_config: str | Path) -> str:
+    """Nom d'un robot : celui de son dossier."""
+    return dossier_du_robot(chemin_config).name
 
 
 class mirRobot(Robot):

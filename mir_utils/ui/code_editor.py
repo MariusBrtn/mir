@@ -383,7 +383,7 @@ class CodeEditor(QPlainTextEdit):
             fmt.setProperty(QTextFormat.Property.FullWidthSelection, True)
             
             doc = self.document()
-            block = doc.findBlockByLineNumber(self.error_lineno - 1)
+            block = doc.findBlockByNumber(self.error_lineno - 1)
             if block.isValid():
                 cur = self.textCursor()
                 cur.setPosition(block.position())

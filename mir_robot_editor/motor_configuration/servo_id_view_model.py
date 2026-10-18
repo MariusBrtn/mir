@@ -3,6 +3,7 @@ Changer l'ID d'un servo branché seul sur le bus, sans robot ni configuration : 
 connaît pas l'ID (servo neuf, réutilisé, ou resté sur un ID réservé du guide de montage).
 """
 from __future__ import annotations
+import time
 from typing import Protocol
 from PySide6.QtCore import Signal
 from mir_utils.concurrency import BackgroundWorker
@@ -48,13 +49,22 @@ class BusServosFeetech:
         return [i for i in range(ID_MAX + 1) if self._paquets.ping(self._port, i)[1] == scs.COMM_SUCCESS]
 
     def changer_id(self, ancien_id: int, nouvel_id: int) -> None:
+        self._ecrire(ancien_id, REG_LOCK, 0)
+        # le servo prend son nouvel ID tout de suite et répond sous ce nouvel ID : attendre une réponse de
+        # l'ancien ID échouerait (« no status packet ») alors que l'ID a bien changé. On n'attend donc pas.
+        self._paquets.write1ByteTxOnly(self._port, ancien_id, REG_ID, nouvel_id)
+        time.sleep(0.05)
+        # reverrouiller sous le nouvel ID vérifie aussi que le changement a eu lieu
+        try:
+            self._ecrire(nouvel_id, REG_LOCK, 1)
+        except ConnectionError as e:
+            raise ConnectionError(f"le servo ne répond pas sous son nouvel ID {nouvel_id} : {e}") from e
+
+    def _ecrire(self, servo: int, registre: int, valeur: int) -> None:
         import scservo_sdk as scs
-        for servo, registre, valeur in ((ancien_id, REG_LOCK, 0), (ancien_id, REG_ID, nouvel_id),
-                                        (nouvel_id, REG_LOCK, 1)):
-            comm, erreur = self._paquets.write1ByteTxRx(self._port, servo, registre, valeur)
-            if comm != scs.COMM_SUCCESS:
-                raise ConnectionError(f"écriture refusée par le servo (ID {servo}) : "
-                                      f"{self._paquets.getTxRxResult(comm)}")
+        comm, erreur = self._paquets.write1ByteTxRx(self._port, servo, registre, valeur)
+        if comm != scs.COMM_SUCCESS:
+            raise ConnectionError(f"écriture refusée par le servo (ID {servo}) : {self._paquets.getTxRxResult(comm)}")
 
 
 class ServoIdViewModel(ViewModelBase):

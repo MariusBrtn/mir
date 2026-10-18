@@ -1,5 +1,5 @@
 {
-    "description": "Socle MIR. Dessous à z=0. Douille baïonnette femelle sur le dessus. (Les douilles latérales, pour des roues par exemple, ne sont pas encore dans le STL.) Repère de la CAO, en mm.",
+    "description": "Socle MIR hexagonal. Dessous à z=0. Douille baïonnette femelle sur le dessus, et une douille femelle au centre de chaque face latérale (cote_0 ... cote_300 : direction de la face, en degrés autour de z depuis +x ; centre à z=25.07, face extérieure à 78.06 mm de l'axe, détrompeur vers le bas). Repère de la CAO, en mm.",
     "unit_scale": 0.001,
     "parts": {
         "corps": {
@@ -9,22 +9,474 @@
                     "type": "mesh",
                     "file": "../STL/MIR_SIMU_BASE.stl",
                     "visual_only": true,
-                    "rgba": [0.08, 0.08, 0.09, 1],
-                    "select": {"axis": [0, 0, 1], "max": 58.15}
+                    "rgba": [
+                        0.08,
+                        0.08,
+                        0.09,
+                        1
+                    ],
+                    "select": [
+                        {
+                            "axis": [
+                                0,
+                                0,
+                                1
+                            ],
+                            "max": 58.15
+                        },
+                        {
+                            "axis": [
+                                1.0,
+                                0.0,
+                                0
+                            ],
+                            "max": 69.6
+                        },
+                        {
+                            "axis": [
+                                0.5,
+                                0.8660254,
+                                0
+                            ],
+                            "max": 69.6
+                        },
+                        {
+                            "axis": [
+                                -0.5,
+                                0.8660254,
+                                0
+                            ],
+                            "max": 69.6
+                        },
+                        {
+                            "axis": [
+                                -1.0,
+                                0.0,
+                                0
+                            ],
+                            "max": 69.6
+                        },
+                        {
+                            "axis": [
+                                -0.5,
+                                -0.8660254,
+                                0
+                            ],
+                            "max": 69.6
+                        },
+                        {
+                            "axis": [
+                                0.5,
+                                -0.8660254,
+                                0
+                            ],
+                            "max": 69.6
+                        }
+                    ]
                 },
                 {
                     "type": "mesh",
                     "file": "../STL/MIR_SIMU_BASE.stl",
                     "visual_only": true,
-                    "rgba": [0.87, 0.78, 0.64, 1],
-                    "select": {"axis": [0, 0, 1], "min": 58.15}
+                    "rgba": [
+                        0.87,
+                        0.78,
+                        0.64,
+                        1
+                    ],
+                    "select": {
+                        "axis": [
+                            0,
+                            0,
+                            1
+                        ],
+                        "min": 58.15
+                    }
                 },
-                {"type": "cylinder", "collision_only": true, "pos": [0, 0, 29.05], "size": [69.0, 29.05]},
-                {"type": "cylinder", "collision_only": true, "pos": [0, 0, 59.1], "size": [25.0, 1.0]}
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_BASE.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.87,
+                        0.78,
+                        0.64,
+                        1
+                    ],
+                    "select": {
+                        "axis": [
+                            1.0,
+                            0.0,
+                            0
+                        ],
+                        "min": 69.6
+                    }
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_BASE.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.87,
+                        0.78,
+                        0.64,
+                        1
+                    ],
+                    "select": {
+                        "axis": [
+                            0.5,
+                            0.8660254,
+                            0
+                        ],
+                        "min": 69.6
+                    }
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_BASE.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.87,
+                        0.78,
+                        0.64,
+                        1
+                    ],
+                    "select": {
+                        "axis": [
+                            -0.5,
+                            0.8660254,
+                            0
+                        ],
+                        "min": 69.6
+                    }
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_BASE.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.87,
+                        0.78,
+                        0.64,
+                        1
+                    ],
+                    "select": {
+                        "axis": [
+                            -1.0,
+                            0.0,
+                            0
+                        ],
+                        "min": 69.6
+                    }
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_BASE.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.87,
+                        0.78,
+                        0.64,
+                        1
+                    ],
+                    "select": {
+                        "axis": [
+                            -0.5,
+                            -0.8660254,
+                            0
+                        ],
+                        "min": 69.6
+                    }
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_BASE.stl",
+                    "visual_only": true,
+                    "rgba": [
+                        0.87,
+                        0.78,
+                        0.64,
+                        1
+                    ],
+                    "select": {
+                        "axis": [
+                            0.5,
+                            -0.8660254,
+                            0
+                        ],
+                        "min": 69.6
+                    }
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        0,
+                        0,
+                        29.05
+                    ],
+                    "size": [
+                        69.0,
+                        29.05
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        0,
+                        0,
+                        59.1
+                    ],
+                    "size": [
+                        25.0,
+                        1.0
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        73.7,
+                        0.0,
+                        25.07
+                    ],
+                    "zaxis": [
+                        1.0,
+                        0.0,
+                        0
+                    ],
+                    "size": [
+                        25.0,
+                        4.35
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        36.85,
+                        63.826,
+                        25.07
+                    ],
+                    "zaxis": [
+                        0.5,
+                        0.8660254,
+                        0
+                    ],
+                    "size": [
+                        25.0,
+                        4.35
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        -36.85,
+                        63.826,
+                        25.07
+                    ],
+                    "zaxis": [
+                        -0.5,
+                        0.8660254,
+                        0
+                    ],
+                    "size": [
+                        25.0,
+                        4.35
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        -73.7,
+                        0.0,
+                        25.07
+                    ],
+                    "zaxis": [
+                        -1.0,
+                        0.0,
+                        0
+                    ],
+                    "size": [
+                        25.0,
+                        4.35
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        -36.85,
+                        -63.826,
+                        25.07
+                    ],
+                    "zaxis": [
+                        -0.5,
+                        -0.8660254,
+                        0
+                    ],
+                    "size": [
+                        25.0,
+                        4.35
+                    ]
+                },
+                {
+                    "type": "cylinder",
+                    "collision_only": true,
+                    "pos": [
+                        36.85,
+                        -63.826,
+                        25.07
+                    ],
+                    "zaxis": [
+                        0.5,
+                        -0.8660254,
+                        0
+                    ],
+                    "size": [
+                        25.0,
+                        4.35
+                    ]
+                }
             ]
         }
     },
     "connectors": {
-        "dessus": {"part": "corps", "gender": "female", "pos": [0, 0, 69.06], "zaxis": [0, 0, 1], "xaxis": [0, -1, 0]}
+        "dessus": {
+            "part": "corps",
+            "gender": "female",
+            "pos": [
+                0,
+                0,
+                69.06
+            ],
+            "zaxis": [
+                0,
+                0,
+                1
+            ],
+            "xaxis": [
+                0,
+                -1,
+                0
+            ]
+        },
+        "cote_0": {
+            "part": "corps",
+            "gender": "female",
+            "pos": [
+                78.06,
+                0.0,
+                25.07
+            ],
+            "zaxis": [
+                1.0,
+                0.0,
+                0
+            ],
+            "xaxis": [
+                0,
+                0,
+                1
+            ]
+        },
+        "cote_60": {
+            "part": "corps",
+            "gender": "female",
+            "pos": [
+                39.03,
+                67.602,
+                25.07
+            ],
+            "zaxis": [
+                0.5,
+                0.8660254,
+                0
+            ],
+            "xaxis": [
+                0,
+                0,
+                1
+            ]
+        },
+        "cote_120": {
+            "part": "corps",
+            "gender": "female",
+            "pos": [
+                -39.03,
+                67.602,
+                25.07
+            ],
+            "zaxis": [
+                -0.5,
+                0.8660254,
+                0
+            ],
+            "xaxis": [
+                0,
+                0,
+                1
+            ]
+        },
+        "cote_180": {
+            "part": "corps",
+            "gender": "female",
+            "pos": [
+                -78.06,
+                0.0,
+                25.07
+            ],
+            "zaxis": [
+                -1.0,
+                0.0,
+                0
+            ],
+            "xaxis": [
+                0,
+                0,
+                1
+            ]
+        },
+        "cote_240": {
+            "part": "corps",
+            "gender": "female",
+            "pos": [
+                -39.03,
+                -67.602,
+                25.07
+            ],
+            "zaxis": [
+                -0.5,
+                -0.8660254,
+                0
+            ],
+            "xaxis": [
+                0,
+                0,
+                1
+            ]
+        },
+        "cote_300": {
+            "part": "corps",
+            "gender": "female",
+            "pos": [
+                39.03,
+                -67.602,
+                25.07
+            ],
+            "zaxis": [
+                0.5,
+                -0.8660254,
+                0
+            ],
+            "xaxis": [
+                0,
+                0,
+                1
+            ]
+        }
     }
 }

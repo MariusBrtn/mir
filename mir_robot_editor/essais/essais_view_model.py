@@ -1,5 +1,5 @@
 """
-Étape Piloter → Essais : solliciter un actionneur, enregistrer et analyser sa réponse, comparer plusieurs essais
+Étape Piloter → Essais : solliciter un actionneur, enregistrer sa réponse, comparer plusieurs essais
 (par exemple le même essai sur le robot réel et sur le robot simulé).
 """
 from __future__ import annotations
@@ -11,12 +11,13 @@ from typing import Any, Callable
 from loguru import logger
 from PySide6.QtCore import Signal
 from mir_devices.mir_device import ObservablePropertyFloat
-from mir_robot.mir_robot import mirRobot
+from mir_robot.mir_robot import DOSSIER_ESSAIS as DOSSIER_ESSAIS_ROBOT, dossier_du_robot, mirRobot
 from mir_robot.commande import CommandesDisponibles, decouvrir_commandes
-from mir_robot.essai import Essai, Sollicitation, decouvrir_analyses, lancer_essai
+from mir_robot.essai import Essai, Sollicitation, lancer_essai
 from mir_utils.concurrency import BackgroundWorker
 from mir_utils.ui.view_model_base import VMAction, ViewModelBase
 
+# essais d'un robot pas encore enregistré (ceux d'un robot enregistré vont dans son dossier : robots/<robot>/essais)
 DOSSIER_ESSAIS = Path(__file__).parent.parent.parent / "data" / "essais"
 # réglages du moteur modifiables dans un essai : attribut de mirMotor -> (libellé, min, max)
 REGLAGES_MOTEUR = {
@@ -37,7 +38,7 @@ class EssaisVMAction(Enum):
 
 class EssaisViewModel(ViewModelBase[EssaisVMAction]):
     robot_changed = Signal()                 # actionneurs et grandeurs disponibles changés
-    briques_changed = Signal()               # sollicitations ou analyses relues
+    briques_changed = Signal()               # sollicitations relues
     essais_changed = Signal()                # liste des essais changée
     essai_termine = Signal(object)           # Essai
     busy_state_changed = Signal(bool)
@@ -62,7 +63,6 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         self._running = False
         self._stop = False
         self.sollicitations = CommandesDisponibles()
-        self.analyses = CommandesDisponibles()
         self.essais: list[Essai] = []
         self.refresh_briques()
         self._essai_echoue.connect(lambda tb: self._dialogProvider.error("L'essai a échoué", tb))
@@ -127,8 +127,7 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
     # ------------------------------------------------------------------ briques
     def refresh_briques(self):
         self.sollicitations = decouvrir_commandes(familles=("essai",))
-        self.analyses = decouvrir_analyses()
-        erreurs = {**self.sollicitations.erreurs, **self.analyses.erreurs}
+        erreurs = self.sollicitations.erreurs
         if erreurs:
             details = "\r\n\r\n".join(f"{fichier} :\r\n{erreur}" for fichier, erreur in erreurs.items())
             self._dialogProvider.warning("Fichiers non chargés", details)
@@ -140,7 +139,7 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         if self._robot is None or self._running:
             return
         if self._other_busy():
-            self._dialogProvider.information("Essai impossible", "Arrêtez d'abord les mesures en cours (Téléopération).")
+            self._dialogProvider.information("Essai impossible", "Arrêtez d'abord ce qui fait bouger le robot (Téléopération ou Scripts).")
             return
         moteur = actionneur.split(".")[0]
         if reglages and reglages != self.reglages(actionneur) and self._apply_motor_settings is not None:
@@ -196,7 +195,7 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
 
     # ------------------------------------------------------------------ liste des essais
     def ouvrir(self):
-        chemin = self._dialogProvider.open_file("Ouvrir un essai", str(DOSSIER_ESSAIS), "Essai MIR (*.npz)")
+        chemin = self._dialogProvider.open_file("Ouvrir un essai", str(self._dossier_essais()), "Essai MIR (*.npz)")
         if not chemin:
             return
         try:
@@ -206,8 +205,12 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
             return
         self.essais_changed.emit()
 
-    @staticmethod
-    def _chemin_par_defaut(essai: Essai) -> Path:
+    def _dossier_essais(self) -> Path:
+        """Dossier essais du robot ouvert (s'il est enregistré)."""
+        configuration = self._conditions().get("configuration")
+        return dossier_du_robot(configuration) / DOSSIER_ESSAIS_ROBOT if configuration else DOSSIER_ESSAIS
+
+    def _chemin_par_defaut(self, essai: Essai) -> Path:
         # ex. 2026-10-16_12h55m29_joint_1_Echelon_0-30deg_500Hz_reel.npz
         mode = "simule" if essai.conditions.get("simulation") else "reel"
         moteur = essai.actionneur.split(".")[0]
@@ -216,7 +219,7 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         date = date.replace(" ", "_").replace(":", "h", 1).replace(":", "m", 1)
         nom = f"{date}_{moteur}_{essai.resume_sollicitation(fichier=True)}" \
               f"{f'_{fps:g}Hz' if fps else ''}_{mode}"
-        return DOSSIER_ESSAIS / f"{nom}.npz"
+        return self._dossier_essais() / f"{nom}.npz"
 
     def _enregistrer(self, essai: Essai, chemin: str | Path) -> bool:
         try:
@@ -249,16 +252,3 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
                 return
             del self.essais[index]
             self.essais_changed.emit()
-
-    def analyser(self, analyse_nom: str, essai: Essai) -> tuple[dict[str, Any], list[tuple[str, float]]] | None:
-        """Résultats et repères de l'analyse ; None (et message) si elle échoue."""
-        classe = self.analyses.commandes.get(analyse_nom)
-        if classe is None:
-            return None
-        try:
-            analyse = classe()
-            resultats = analyse.analyser(essai)
-            return resultats, analyse.reperes(essai, resultats)
-        except Exception as e:
-            self._dialogProvider.information(f"Analyse « {analyse_nom} » impossible", str(e))
-            return None

@@ -52,7 +52,7 @@ class PolarPlotControl(pg.PlotWidget):
     def update_plot(self, data: np.ndarray):
         """
         Met à jour le graphique avec un nouveau tableau numpy (N, 2).
-        Colonne 0 : Angle en radians (0 = Haut, pi/2 = Droite)
+        Colonne 0 : Angle en degrés (0 = Haut, 90 = Droite)
         Colonne 1 : Distance (rayon)
         """
         if data.ndim != 2 or data.shape[1] != 2:
@@ -62,8 +62,8 @@ class PolarPlotControl(pg.PlotWidget):
         # Rotation de 90° pour que 0° soit en haut :
         # x = r * sin(theta)
         # y = r * cos(theta)
-        #theta = -np.deg2rad(data[:, 0]) + 3*np.pi/2
-        theta = -np.deg2rad(data[:, 0])
+        # angles du lidar dans le sens horaire vu de dessus (fiche du RPLidar C1) : 90° est à droite
+        theta = np.deg2rad(data[:, 0])
         r = data[:, 1]
         
         x = r * np.sin(theta)
