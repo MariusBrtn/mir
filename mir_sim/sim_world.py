@@ -220,6 +220,22 @@ class SimWorld:
     def is_moving(self, motors: list[str] | None = None, threshold_deg_s: float = 1.0) -> bool:
         return any(abs(v) > threshold_deg_s for v in self.get_velocities_deg_s(motors).values())
 
+    # ------------------------------------------------------------------ objets de la scène
+    def set_object_pose(self, name: str, pos: list[float] | np.ndarray, yaw_deg: float = 0.0) -> None:
+        """Replace un objet libre de la scène (position en m, rotation autour de la verticale), immobile."""
+        with self.lock:
+            joint = self.model.joint(f"{name}_free")
+            adr, dof = self.model.jnt_qposadr[joint.id], self.model.jnt_dofadr[joint.id]
+            demi = np.radians(yaw_deg) / 2
+            self.data.qpos[adr:adr + 7] = [*pos, np.cos(demi), 0.0, 0.0, np.sin(demi)]
+            self.data.qvel[dof:dof + 6] = 0.0
+            mujoco.mj_forward(self.model, self.data)
+
+    def get_object_position(self, name: str) -> np.ndarray:
+        """Position (m) du centre d'un objet de la scène."""
+        with self.lock:
+            return self.data.xpos[self.model.body(name).id].copy()
+
     # ------------------------------------------------------------------ lidar
     def lidar_scan(self, name: str, range_m: tuple[float, float] = (0.05, 12.0)) -> tuple[np.ndarray, np.ndarray]:
         """Un tour du lidar : (angles en degrés, distances en m ; 0 si rien n'est touché dans la portée).
