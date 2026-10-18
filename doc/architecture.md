@@ -1,6 +1,6 @@
 # Architecture de MIR
 
-*Document de conception — version de travail du 15/10/2026, à valider avant de coder.*
+*Document de conception — version du 18/10/2026 (première version le 15/10). La partie 4 (couches et interfaces) a été validée le 18/10 ; les interfaces encore « à définir » le seront une par une.*
 
 ## 1. Ce qu'est MIR
 
@@ -23,6 +23,14 @@ Presque tous les usages se ramènent à « quelque chose qui décide de l'action
 | Un algorithme de l'élève | SLAM, navigation |
 
 C'est aussi une progression pédagogique : *j'écris la loi de commande* → *un humain décide* → *la machine apprend à décider*.
+
+### Ambition : rester ouvert sur l'état de l'art
+
+Le robot learning avance très vite (modèles vision-langage-action, world models, planificateurs à base de modèles de langage). MIR ne cherche pas à **implémenter** ces modèles, mais à pouvoir les **brancher** dès qu'ils sortent, sans être réécrit. C'est son point fort visé.
+
+Pour cela, MIR garde des **interfaces stables et compatibles avec l'écosystème** (LeRobot, Hugging Face, MuJoCo), et sa valeur propre reste ce que les autres n'ont pas : des modules physiques, leur jumeau simulé, une interface pédagogique et la colle entre les trois.
+
+MIR ne se limite pas non plus à des tâches de quelques secondes : à terme, il doit permettre de programmer des **activités longues**, qui enchaînent des compétences et prennent des décisions (partie 4.4).
 
 ## 2. Use cases
 
@@ -99,31 +107,51 @@ Cas particuliers :
 
 ## 4. Architecture en couches
 
+### 4.1 Les couches et leurs interfaces
+
+MIR est organisé en cinq couches, posées sur la description du robot. Chacune a **une interface simple et stable** : une nouveauté (un modèle, un planificateur, un simulateur) s'ajoute comme un module de plus dans une couche, sans refonte des autres.
+
 ```
-  Interface par étapes                  Scripts Python
- ─────────────────────────────────────────────────────────────────────
-  Commandes              consigne · trajectoire · téléop · modèle appris  
-  Briques d'analyse      post-traitement d'un essai · évaluation
-  Outils de modèle       MGD/MGI · cinématique · statique · dynamique
-  Données                essais (DataRecorder) · datasets (LeRobot)
-  Apprentissage          LeRobot (imitation) · RL (MuJoCo + gymnasium)
- ─────────────────────────────────────────────────────────────────────
-  mirRobot               connect · get_observation · send_action · disconnect
+  Tâche          enchaîner des compétences, décider, gérer les échecs     à définir
+ ─────────────────────────────────────────────────────────────────────────────────
+  Compétence     action = politique(observation), sur quelques secondes   en partie
+                 consigne · PID · téléop · script · MLP · ACT · VLA
+ ─────────────────────────────────────────────────────────────────────────────────
+  Données        épisodes enregistrés : LeRobotDataset                     à faire
+                 (essais de mesure : DataRecorder)                         fait
+ ─────────────────────────────────────────────────────────────────────────────────
+  Robot          connect · get_observation · send_action · disconnect     fait
         ├── Réel    →  mir_devices (bus Feetech, caméras, ESP32, lidar)
         └── Simulé  →  mir_sim (appareils simulés sur MuJoCo)
- ─────────────────────────────────────────────────────────────────────
-  Description du robot   catalogue de modules + structure + configuration
+ ─────────────────────────────────────────────────────────────────────────────────
+  Monde simulé   robot + scène (mir/scenes) ; environnement Gym pour le RL  en partie
+ ─────────────────────────────────────────────────────────────────────────────────
+  Description    catalogue de modules + structure + configuration          fait
 ```
 
-### Règles
+| Couche | Interface | Compatible avec | État au 18/10 |
+|---|---|---|---|
+| **Robot** | `get_observation()` / `send_action()` | `Robot` de LeRobot | fait |
+| **Données** | LeRobotDataset (épisodes, images, actions, métadonnées) | Hub Hugging Face, outils LeRobot | à faire : étape Collecter |
+| **Compétence** | `action = politique(observation)` | politiques LeRobot (`select_action`) | en partie : téléop, scripts |
+| **Tâche** | enchaînement de compétences (partie 4.4) | — | à définir |
+| **Monde simulé** | scène + robot ; plus tard `reset()` / `step()` | Gymnasium, MuJoCo | en partie : scènes à sortir du code |
+
+Les **données** sont la pièce maîtresse : les modèles appris, les modèles de fondation et les world models s'entraînent tous sur des données. Un format standard permet de réutiliser celles des autres et de partager les siennes.
+
+Dans la couche **compétence**, tout a la même forme, du PID au VLA : c'est ce qui permet de passer d'une loi de commande écrite par l'élève à un modèle appris sans rien changer autour.
+
+### 4.2 Règles et paquets
 
 1. **Tout passe par `mirRobot`.** Pilotage, essais, téléop, collecte et inférence n'utilisent que `get_observation()` et `send_action()`, qu'ils soient lancés depuis l'interface ou depuis un script. Seuls les outils de mise en service (assemblage, ID, calibration, réglage des registres) accèdent directement au matériel.
 2. **Réel et simulé sont interchangeables.** Le simulé est le même `mirRobot`, construit avec les appareils simulés de `mir_sim` : aucune activité ne doit savoir sur quel backend elle tourne.
 3. **La préparation des observations est déclarée une fois** dans la configuration (rotation et taille d'image…) et appliquée par `mirRobot`, jamais recopiée dans chaque script. Les erreurs du diagnostic ACT (division par 255, préparation d'image dupliquée) venaient de là.
 4. **L'interface et les scripts utilisent les mêmes briques.** Une téléop ou un modèle écrit pour l'interface se lance aussi en script, et inversement.
 5. **Le vocabulaire du code générique reste générique** (`mir_devices`, éditeur) : pas de « leader/follower » ni de cas d'usage précis. Ces notions vivent dans les briques et dans les exemples.
+6. **Brancher plutôt que réimplémenter.** Un modèle, un format ou un outil de l'écosystème s'utilise par son interface standard ; MIR n'en écrit pas sa propre version.
+7. **Le robot appartient à l'application.** Un script ou une politique peut tourner dans un autre processus, voire sur une autre machine (par exemple une politique lourde sur un serveur à carte graphique), mais passe par l'interface robot de l'application : l'arrêt d'urgence, la vue 3D et l'affichage des capteurs restent toujours dans MIR. C'est déjà le cas des scripts élèves (`mir_robot/script.py`).
 
-### Paquets
+#### Paquets
 
 | Paquet | Rôle |
 |---|---|
@@ -134,7 +162,33 @@ Cas particuliers :
 | `mir_utils` | Outils transverses (UI de base, enregistrement, métriques, concurrence) |
 | `mir_user_scripts` | Exemples et scripts d'élèves |
 
-À créer au fil de l'eau : un emplacement pour les **briques** (classes de base et briques fournies), les **outils de modèle** (MGD/MGI…) et la gestion des **essais**.
+Dossiers de travail (hors paquets) : `robots/<nom>/` (configuration `robot.json`, `teleop/`, `scripts/`, `essais/`) et `scenes/` (scènes de simulation, voir 4.3).
+
+### 4.3 Scènes
+
+Une **scène** décrit l'environnement simulé : sol ou table, position de départ du robot, objets (formes simples ou objets 3D texturés), caméras fixes, éclairage. Elle n'appartient pas à un robot : n'importe quel robot peut être posé dans n'importe quelle scène. Les scènes sont des fichiers de `mir/scenes/` (table de travail, arène, dé à attraper…) ; la scène se choisit dans l'application, en simulé seulement. Par défaut : la table pour un robot fixé au sol, l'arène pour un robot mobile.
+
+Le réalisme utile dépend du capteur : la géométrie suffit pour le lidar et la navigation, la physique compte pour l'asservissement, l'apparence seulement pour l'apprentissage sur images. Pour ce dernier, la priorité est de **faire varier** la scène (éclairage, couleurs, position des objets) plutôt que de la copier parfaitement ; des objets ou une pièce scannés (maillages texturés) pourront s'y ajouter sans changer d'outil.
+
+### 4.4 Activités longues : la couche tâche
+
+Les systèmes récents sont **hiérarchiques** : en bas, des compétences courtes (« attraper le dé », « aller jusqu'au mur ») ; au-dessus, une couche qui décide quoi faire ensuite, dans quel ordre, et que faire en cas d'échec. Dans MIR, cette couche se construira en trois niveaux, du plus pédagogique au plus avancé :
+
+1. **Un script Python** qui enchaîne les compétences avec des conditions et des boucles (l'onglet Scripts le permet presque déjà).
+2. **Une machine à états ou un arbre de comportement**, lisibles et proches de ce qu'utilise l'industrie.
+3. **Un modèle de langage (LLM ou VLM) planificateur**, qui choisit la compétence suivante à partir de la caméra et d'un objectif exprimé en langage naturel.
+
+Condition commune : des compétences **nommées, lançables, qui signalent leur fin et leur réussite**. C'est ce qu'il faut définir avant de construire cette couche.
+
+### 4.5 Ouverture vers les modèles avancés
+
+| Famille | Ce qu'il faut à MIR pour l'accueillir |
+|---|---|
+| Politiques apprises (ACT, diffusion…) | données LeRobotDataset + interface compétence |
+| Modèles vision-langage-action (π0, SmolVLA…) | idem, plus l'inférence éventuellement sur une autre machine (règle 7) |
+| World models | des données en quantité, réelles et simulées, au format standard |
+| Apprentissage par renforcement | le monde simulé sous forme d'environnement Gym (`reset`, `step`) |
+| Planificateurs à base de modèles de langage | des compétences nommées (4.4) |
 
 ## 5. Réel, simulé et jumeau numérique
 
@@ -152,6 +206,8 @@ Tout ce qui relève du simulé fonctionne **hors ligne**, sans robot connecté.
 ## 6. Briques Python
 
 L'interface gère la mécanique (connexion, boucle, cadence, enregistrement, affichage) ; l'élève code la partie intéressante dans un petit fichier qui respecte une classe de base. MIR détecte les briques présentes et les propose dans une liste. Elles s'utilisent de la même façon en script.
+
+*Mise à jour du 18/10 : la téléopération utilise désormais des classes de périphérique façon LeRobot (`Teleoperator.get_action(observation)`, dossier `mir_robot/teleop/`), et les élèves écrivent aussi des scripts libres (onglet Scripts : `robot.get_observation()`, `robot.send_action()`, `boucle()`, figures matplotlib dans l'application). Commandes, téléopérations et scripts seront rapprochés dans l'interface « compétence » (partie 4.1) au moment de la définir.*
 
 ### 6.1 Commandes
 
@@ -177,6 +233,8 @@ MIR trouve les commandes dans `mir_robot/commandes/` (fournies) et `mir_user_scr
 Pour les modèles appris, une seconde forme décrit le réseau lui-même, par exemple `Modele.construire(n_entrees, n_sorties)` ; l'entraînement et l'inférence sont gérés par MIR et LeRobot.
 
 ### 6.2 Briques d'analyse
+
+*Retirées de l'interface le 18/10/2026 (le code de base est conservé dans `mir_robot/essai.py`) : l'analyse reste le travail de l'élève, en script.*
 
 Elles servent au post-traitement d'un essai, directement dans l'application (pas d'export CSV : l'export servait justement à faire ce post-traitement en Python).
 
@@ -218,7 +276,7 @@ Format LeRobot, pour rester compatible avec ses outils d'entraînement et de vis
 
 ### Expérience
 
-Notion à préciser : un dossier qui regroupe la configuration, la scène, les essais, les datasets, les modèles et les logs d'un même travail.
+Notion à préciser : un dossier qui regroupe la configuration, la scène, les essais, les datasets, les modèles et les logs d'un même travail. Les scènes vivent dans `mir/scenes/` ; une expérience en garderait une copie, comme de la configuration.
 
 ## 8. Interface par étapes
 
@@ -227,7 +285,7 @@ Une colonne à gauche suit le parcours, plutôt qu'une icône par fonction. Une 
 | Étape | Contenu | Vues existantes concernées |
 |---|---|---|
 | **Robot** | concevoir le modèle, assembler, calibrer, configurer les capteurs | `structure_editor`, `scan_devices`, `motor_configuration`, `calibration`, `sensor_configuration` |
-| **Piloter** | trois sous-parties : **Essais** (sollicitation paramétrable, registres P/I/D, analyse), **Robotique** (MGD/MGI, trajectoires, vue 3D), **Téléopération** (modalité au choix, codable) ; une seule boucle de mesures et un seul REC | `robot_monitor` (devient la base d'Essais), `observations_widget`, `mujoco_widget` |
+| **Piloter** | trois onglets (état au 18/10) : **Essais** (sollicitation, réglages du moteur, courbes), **Téléopération** (modalité au choix, codable ; vue de la caméra et du lidar), **Scripts** (petit environnement de programmation : éditeur, console, figures) ; une seule activité à la fois sur le robot | `essais`, `teleop`, `scripts`, `observations_widget`, `mujoco_widget` |
 | **Modéliser** | MGD/MGI, trajectoires, études méca | à créer |
 | **Collecter** | enregistrer, visualiser et éditer des datasets | à créer |
 | **Apprendre** | choisir ou écrire un modèle, entraîner | à créer |
@@ -237,7 +295,7 @@ Le monitor est à revoir en s'inspirant des logiciels des systèmes didactiques 
 
 ## 9. Ce que MIR ne construit pas
 
-- **Pas de middleware à la ROS** : un seul processus, une seule boucle.
+- **Pas de middleware à la ROS.** ROS est avant tout une infrastructure (des processus qui s'échangent des messages, du réseau, des outils de lancement et de configuration) : puissante mais lourde, et c'est ce que LeRobot a choisi d'éviter. MIR **emprunte les idées, pas l'infrastructure** : pas de bus de messages général ni de « nœuds » à configurer ; une application qui possède le robot et une interface Python minimale. Si un jour il faut parler à ROS, ce sera par un pont vers ROS 2.
 - **Pas de nouveau framework d'apprentissage** : LeRobot pour l'imitation (ACT, diffusion, VLA) et des bibliothèques existantes pour le RL.
 - **Pas de moteur physique** : MuJoCo.
 
@@ -257,7 +315,14 @@ Ordre validé le 15/10/2026 :
 3. Piloter → Téléopération ;
 4. Piloter → Robotique.
 
-Premiers chantiers proposés pour le parcours 1 :
+Suite décidée le 18/10/2026 :
+1. ce document (vision en couches) ;
+2. **Collecter** : enregistrement de démonstrations au format LeRobotDataset, en réel et en simulé ;
+3. **interface « compétence »**, reprise de celle des politiques LeRobot ;
+4. ensuite seulement, la couche **tâche** ;
+5. en parallèle, quand c'est utile : scènes dans `mir/scenes/` (prérequis de la collecte en simulé), chaîne réelle du robot mobile (guide de montage des roues et du lidar).
+
+Premiers chantiers proposés le 15/10 pour le parcours 1 (en grande partie faits) :
 - plages par défaut dans le catalogue (±90°, pince) ;
 - assistant d'assemblage (ID + retour en direct + calibration par module) ;
 - commandes : noyau (fait), choix de la commande dans le monitor à la place d'`actions_widget`, éditeur intégré ;
@@ -268,6 +333,10 @@ Premiers chantiers proposés pour le parcours 1 :
 - **Plage de la pince** : valeur à mesurer.
 - **Fidélité de la simulation des registres** : régler le PID ou passer en vitesse ou en position, c'est modifier les registres du servo (déjà possible depuis l'éditeur). Pour qu'un essai simulé soit comparable au réel, les servos simulés doivent tenir compte de ces registres (P/I/D, mode, vitesse, couple max). Il reste à mesurer à quel point.
 - **Fréquence maximale d'un essai** : limitée par le bus et le wifi, à mesurer.
-- **Robot mobile** : comment décrire les roues (rotation continue) et l'odométrie dans la structure.
+- **Robot mobile** : roues décrites par une articulation `"mode": "velocity"` du catalogue (réglé le 18/10) ; reste l'odométrie, l'avant du lidar et le guide de montage des roues et du lidar.
+- **Interface compétence** : forme exacte (méthode `select_action` de LeRobot ou équivalent ; comment une compétence signale sa fin et sa réussite).
+- **Couche tâche** : machine à états ou arbre de comportement, et leur représentation dans l'interface.
+- **Inférence distante** : politique lourde sur une autre machine, avec quelle latence acceptable.
+- **Données** : où stocker les datasets (dossier du robot, d'une expérience, Hub Hugging Face).
 - **RL** : forme de l'environnement gymnasium construit à partir de la description.
 - **Expérience** : structure exacte du dossier.
