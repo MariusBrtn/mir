@@ -61,3 +61,5 @@ logs_essais_ACT/
 robots/*/datasets/
 .pytest_cache/
 .venv/
+# modèles entraînés (poids, lourds) ; les scripts des modèles (modeles/*.py) restent suivis
+robots/*/modeles/*/
