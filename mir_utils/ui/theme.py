@@ -122,6 +122,17 @@ QScrollBar::add-page, QScrollBar::sub-page { background: none; }
 #CardChevron { font-size: 24px; color: $TEXT_DISABLED; padding-bottom: 3px; }
 #SectionTitle { font-size: 16px; font-weight: 600; margin-top: 10px; }
 #Muted { color: $TEXT_MUTED; }
+/* modalités de Piloter : une carte par façon de commander le robot */
+#Modalites { background: $WINDOW; border-bottom: 1px solid $BORDER; }
+#Modalite { background: $SURFACE; border: 1px solid $BORDER; border-radius: 10px; }
+#Modalite:hover { background: $PANEL; border-color: $BORDER_STRONG; }
+#Modalite[selected="true"] { background: $INK; border-color: $INK; }
+#Modalite[selected="true"] #ModaliteTitre { color: $WINDOW; }
+#Modalite[selected="true"] #ModaliteDescription { color: $SAND; }
+#Modalite:disabled { background: transparent; border-style: dashed; }
+#ModaliteTitre { font-size: 15px; font-weight: 600; color: $TEXT; }
+#ModaliteDescription { color: $TEXT_MUTED; font-size: 12px; }
+#ModaliteTitre:disabled, #ModaliteDescription:disabled { color: $TEXT_DISABLED; }
 #Hint { background: $PANEL; color: $TEXT; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid $BORDER; }
 """)
 

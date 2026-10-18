@@ -94,10 +94,6 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
         panel = QWidget()
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(4, 4, 4, 4)
-        self.lbl_mode = QLabel("En simulation, on voit le robot bouger en 3D. Les mesures se font sur le robot réel.")
-        self.lbl_mode.setWordWrap(True)
-        self.lbl_mode.setStyleSheet(f"background: {theme.SIM}; color: white; padding: 8px 10px; border-radius: 8px;")
-        layout.addWidget(self.lbl_mode)
 
         self.commande_box = QGroupBox("Téléopération")
         form = QVBoxLayout(self.commande_box)
@@ -246,7 +242,6 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
     # ------------------------------------------------------------------ mode et robot
     def set_simulation(self, simulation: bool):
         self._simulation = simulation
-        self.lbl_mode.setVisible(simulation)
         self._center.setCurrentIndex(1 if simulation else 0)
         self._update_3d()
 

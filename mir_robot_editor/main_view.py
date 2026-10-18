@@ -27,8 +27,53 @@ COLOR_RUNNING = theme.RUNNING
 
 # étapes du parcours (colonne de gauche)
 STEP_ROBOT, STEP_PILOT, STEP_COLLECT = 0, 1, 2
-TAB_ESSAIS, TAB_TELEOP, TAB_SCRIPTS = 0, 1, 2
-STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Apprendre", False), ("Évaluer", False)]
+TAB_ESSAIS, TAB_TELEOP, TAB_SCRIPTS, TAB_POLITIQUE = 0, 1, 2, 3
+# les façons de commander le robot dans Piloter : (titre, explication, icône, disponible)
+MODALITES = [
+    ("Essais", "Solliciter un moteur et mesurer sa réponse", "stats", True),
+    ("Téléopération", "Piloter à la main : clavier, bras leader…", "actions", True),
+    ("Scripts", "Programmer le robot en Python", "edit", True),
+    ("Politique", "Un modèle entraîné pilote le robot (à venir)", "robot", False),
+]
+STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", False)]
+
+
+class ModaliteCard(QFrame):
+    """Une modalité de Piloter : toute la carte est le bouton (icône, titre, explication) ; la choisie est en noir."""
+
+    def __init__(self, titre: str, description: str, icone, icone_choisie, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setObjectName("Modalite")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._icones = (icone, icone_choisie)
+        self.on_click = None
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(12, 9, 14, 9)
+        layout.setSpacing(10)
+        self._icone = QLabel()
+        layout.addWidget(self._icone)
+        textes = QVBoxLayout()
+        textes.setSpacing(1)
+        self._titre = QLabel(titre)
+        self._titre.setObjectName("ModaliteTitre")
+        textes.addWidget(self._titre)
+        self._description = QLabel(description)
+        self._description.setObjectName("ModaliteDescription")
+        textes.addWidget(self._description)
+        layout.addLayout(textes, 1)
+        self.set_selected(False)
+
+    def set_selected(self, selected: bool):
+        self.setProperty("selected", selected)
+        self._icone.setPixmap(self._icones[1 if selected else 0])
+        for w in (self, self._titre, self._description):     # le style dépend de la propriété : on le réapplique
+            w.style().unpolish(w)
+            w.style().polish(w)
+
+    def mouseReleaseEvent(self, event):
+        if self.isEnabled() and self.rect().contains(event.position().toPoint()) and self.on_click is not None:
+            self.on_click()
+        super().mouseReleaseEvent(event)
 
 
 class ActionCard(QFrame):
@@ -226,9 +271,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         steps.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         steps.setObjectName("Steps")
         for i, (name, available) in enumerate(STEPS):
-            item = QListWidgetItem(f"{i + 1}   {name}" + ("" if available else "   (à venir)"))
+            item = QListWidgetItem(f"{i + 1}   {name}")
             if not available:
-                item.setFlags(Qt.ItemFlag.NoItemFlags)
+                item.setFlags(Qt.ItemFlag.NoItemFlags)      # grisée
+                item.setToolTip("À venir")
             steps.addItem(item)
         steps.currentRowChanged.connect(self._on_step_changed)
         return steps
@@ -320,13 +366,24 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        self._pilot_hint = QLabel()
-        self._pilot_hint.setWordWrap(True)
-        self._pilot_hint.setObjectName("Hint")
-        layout.addWidget(self._pilot_hint)
-        # trois façons de piloter, une même boucle de mesures (une seule activité à la fois)
+        # plusieurs façons de commander le robot (une seule activité à la fois) : une carte par modalité
+        bandeau = QWidget()
+        bandeau.setObjectName("Modalites")
+        rangee = QHBoxLayout(bandeau)
+        rangee.setContentsMargins(14, 12, 14, 12)
+        rangee.setSpacing(10)
+        self._modalites: list[ModaliteCard] = []
+        for index, (titre, description, icone, disponible) in enumerate(MODALITES):
+            carte = ModaliteCard(titre, description, self._icone_coloree(icone, theme.INK, 26),
+                                 self._icone_coloree(icone, theme.SAND, 26))
+            carte.setEnabled(disponible)
+            carte.on_click = (lambda i: lambda: self._pilot_tabs.setCurrentIndex(i))(index)
+            rangee.addWidget(carte, 1)
+            self._modalites.append(carte)
+        layout.addWidget(bandeau)
         self._pilot_tabs = QTabWidget()
         self._pilot_tabs.setDocumentMode(True)
+        self._pilot_tabs.tabBar().hide()       # les cartes ci-dessus remplacent les onglets
         self.essais_view = EssaisView(self, self._view_model.get_essais_view_model())
         self._pilot_tabs.addTab(self.essais_view, "Essais")
         self.teleop_view = TeleopView(self, self._view_model.get_robot_monitor_view_model(), self,
@@ -336,7 +393,15 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._pilot_tabs.addTab(self.teleop_view, "Téléopération")
         self.scripts_view = ScriptsView(self, self._view_model.get_scripts_view_model())
         self._pilot_tabs.addTab(self.scripts_view, "Scripts")
+        politique = QLabel("<b>Politique</b> : choisir un modèle entraîné (étape « Entraîner un modèle ») et le laisser "
+                           "piloter le robot, réel ou simulé. À venir.")
+        politique.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        politique.setWordWrap(True)
+        politique.setObjectName("Muted")
+        self._pilot_tabs.addTab(politique, "Politique")
+        self._pilot_tabs.setTabEnabled(TAB_POLITIQUE, False)
         self._pilot_tabs.currentChanged.connect(self._on_pilot_tab_changed)
+        self._on_pilot_tab_changed(self._pilot_tabs.currentIndex())
         layout.addWidget(self._pilot_tabs, 1)
         return page
 
@@ -423,41 +488,12 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             dot, text = (COLOR_SIM, "Mouvement en cours (simulation)") if simulation else \
                         (COLOR_RUNNING, "Mesures en cours sur le robot réel")
         self._status_label.setText(f"<span style='color:{dot}; font-size:16px;'>●</span>&nbsp;{text}")
-        self._update_pilot_hint()
-
-    def _update_pilot_hint(self):
-        state = self._view_model.get_state()
-        if state == MainViewModelState.INIT:
-            text = "Créez un robot (<b>Concevoir la structure</b>) ou ouvrez-en un dans l'étape <b>Configurer le robot</b>."
-        elif state == MainViewModelState.LOADED and self._view_model.is_simulation():
-            text = ("Le robot simulé est construit à partir de la structure du robot : "
-                    "concevez-la dans l'étape <b>Configurer le robot → Concevoir la structure</b>.")
-        elif state == MainViewModelState.LOADED:
-            text = "Connectez le robot réel (bouton <b>Connecter</b> en haut) pour faire des mesures et le commander."
-        elif self._pilot_tabs.currentIndex() == TAB_ESSAIS and self._view_model.is_simulation():
-            text = ("<b>Essais en simulation</b> : envoyez un échelon, une rampe ou un sinus et regardez le robot simulé "
-                    "bouger. Les <b>mesures</b> se font sur le <b>robot réel</b>.")
-        elif self._pilot_tabs.currentIndex() == TAB_ESSAIS:
-            text = ("<b>Essais</b> : choisissez l'actionneur et la sollicitation, réglez-les, puis <b>▶ Lancer l'essai</b>. "
-                    "Les essais sont enregistrés et peuvent être superposés à droite.")
-        elif self._pilot_tabs.currentIndex() == TAB_SCRIPTS:
-            text = ("<b>Scripts</b> : écrivez vos propres programmes Python qui commandent le robot "
-                    "(<code>robot.get_observation()</code>, <code>robot.send_action()</code>), puis <b>▶ Lancer</b>. "
-                    + "Les figures (<code>plt.plot</code>…) s'affichent à droite. "
-                    + ("Le robot simulé bouge en 3D au-dessus." if self._view_model.is_simulation() else
-                       "Ils commandent le <b>robot réel</b> : gardez l'arrêt d'urgence à portée de main."))
-        elif self._view_model.is_simulation():
-            text = ("<b>Téléopération en simulation</b> : choisissez une téléopération (ou écrivez la vôtre en Python avec "
-                    "<b>Nouvelle…</b>), puis <b>▶ Démarrer</b>. Le robot simulé bouge en 3D.")
-        else:
-            text = ("<b>Téléopération</b> : choisissez une téléopération (ou écrivez la vôtre en Python avec <b>Nouvelle…</b>) "
-                    "et les grandeurs à suivre, puis <b>▶ Démarrer</b>.")
-        self._pilot_hint.setText(text)
 
     def _on_pilot_tab_changed(self, index: int):
+        for i, carte in enumerate(self._modalites):
+            carte.set_selected(i == index)
         if index != TAB_ESSAIS:
             self._view_model.restore_essai_settings()     # réglages d'essai temporaires
-        self._update_pilot_hint()
 
     def _on_state_changed(self, state: MainViewModelState, description: str):
         if hasattr(self, "_card_concevoir"):
@@ -491,7 +527,6 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self.teleop_view.set_simulation(simulation)
         self.scripts_view.set_simulation(simulation)
         self.collecte_view.set_simulation(simulation)
-        self._update_pilot_hint()
         self._update_header()
 
     def _on_step_changed(self, row: int):

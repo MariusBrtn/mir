@@ -99,12 +99,6 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         layout = QVBoxLayout(panel)
         layout.setContentsMargins(4, 4, 4, 4)
 
-        self.lbl_mode = QLabel()
-        self.lbl_mode.setWordWrap(True)
-        self.lbl_mode.setStyleSheet(f"background: {theme.SIM}; color: white; padding: 8px 10px; border-radius: 8px;")
-        self.lbl_mode.setText("En simulation, on visualise le mouvement du robot. Les mesures se font sur le robot réel.")
-        self.lbl_mode.setVisible(False)
-        layout.addWidget(self.lbl_mode)
 
         essai_box = QGroupBox("Essai")
         form = QFormLayout(essai_box)
@@ -235,7 +229,6 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
         self._center.setCurrentIndex(1 if simulation else 0)
         self._right_panel.setVisible(not simulation)
         self.grandeurs_box.setVisible(not simulation)
-        self.lbl_mode.setVisible(simulation)
         # en simulation, rien n'est mesuré et l'asservissement est idéal : ni PID ni fréquence d'acquisition
         self._fps_widget.setVisible(not simulation)
         for attr in PID:

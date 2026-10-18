@@ -307,6 +307,11 @@ Notion à préciser : un dossier qui regroupe la configuration, la scène, les e
 
 ## 8. Interface par étapes
 
+*État au 18/10/2026* : quatre étapes, **Configurer le robot** → **Piloter** → **Collecter des données** → **Entraîner un modèle** (à venir). « Évaluer » est retiré pour l'instant. Piloter regroupe les **modalités de commande** du robot, présentées comme des cartes : **Essais**, **Téléopération**, **Scripts** et **Politique** (à venir : un modèle entraîné pilote le robot). Le déploiement d'une politique est une façon de plus de commander le robot (couche compétence), au même titre que la téléopération : il est donc dans Piloter, pas dans une étape à part. « Entraîner un modèle » couvre tout ce qui produit une politique ou un modèle : behavior cloning écrit à la main, ACT, diffusion, réglage fin d'un VLA, et plus tard RL en simulation et world models.
+
+### Historique (15/10)
+
+
 Une colonne à gauche suit le parcours, plutôt qu'une icône par fonction. Une barre du haut minimale : ouvrir, enregistrer, connecter, Réel/Simulé.
 
 | Étape | Contenu | Vues existantes concernées |
