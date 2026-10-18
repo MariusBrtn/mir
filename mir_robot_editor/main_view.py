@@ -27,7 +27,7 @@ COLOR_RUNNING = theme.RUNNING
 # étapes du parcours (colonne de gauche)
 STEP_ROBOT, STEP_PILOT = 0, 1
 TAB_ESSAIS, TAB_TELEOP, TAB_SCRIPTS = 0, 1, 2
-STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter", False), ("Apprendre", False), ("Évaluer", False)]
+STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", False), ("Apprendre", False), ("Évaluer", False)]
 
 
 class ActionCard(QFrame):

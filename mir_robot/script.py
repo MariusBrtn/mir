@@ -18,6 +18,7 @@ import traceback
 import time
 from multiprocessing.connection import Client
 from typing import Any, Iterator
+from mir_utils.period_waiters import PeriodWaiterSafeForJitter
 
 ADRESSE_ENV = "MIR_SCRIPT_ADRESSE"      # « hôte:port » du serveur du robot, donné par l'application
 CLE_ENV = "MIR_SCRIPT_CLE"
@@ -86,12 +87,13 @@ def boucle(frequence: float, duree: float | None = None) -> Iterator[float]:
     Donne à chaque tour le temps t (en s) écoulé depuis le début.
         for t in boucle(frequence=50, duree=5):
             ...
-    Si un tour dure plus longtemps que la période, le tour suivant démarre aussitôt (la boucle prend du retard)."""
+    Cadencée par PeriodWaiterSafeForJitter (mir_utils), comme les essais et la collecte : si un tour dure plus
+    longtemps que la période, le tour manqué est sauté (pas de tours en rafale pour rattraper le retard)."""
     if frequence <= 0:
         raise ValueError("la fréquence doit être positive")
     periode = 1 / frequence
+    attente = PeriodWaiterSafeForJitter(periode)
     debut = time.perf_counter()
-    prochain = debut
     tours = retards = 0
     while True:
         t = time.perf_counter() - debut
@@ -103,14 +105,10 @@ def boucle(frequence: float, duree: float | None = None) -> Iterator[float]:
             return
         tours += 1
         yield t
-        prochain += periode
-        attente = prochain - time.perf_counter()
-        if attente > 0:
-            time.sleep(attente)
-        else:
-            if tours > 1:       # le premier tour comprend la connexion au robot : son retard ne compte pas
-                retards += 1
-            prochain = time.perf_counter()      # en retard : on ne rattrape pas les tours manqués
+        # en retard si le tour a dépassé la période ; le premier comprend la connexion au robot : il ne compte pas
+        if tours > 1 and time.perf_counter() > attente.next_tick + periode:
+            retards += 1
+        attente.wait()
 
 
 def _afficher_erreur(type_erreur, erreur, tb):
