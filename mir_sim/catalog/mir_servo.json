@@ -26,7 +26,7 @@
         "rotor": {
             "mass": 0.025,
             "geoms": [
-                {"type": "mesh", "file": "../STL/MIR_SIMU_SERVO_ROTOR.stl", "visual_only": true, "rgba": [0.08, 0.08, 0.09, 1]},
+                {"type": "mesh", "file": "../STL/MIR_SIMU_SERVO_ROTOR.stl", "visual_only": true, "rgba": [0.87, 0.78, 0.64, 1]},
                 {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 36.0], "size": [25.0, 4.0]},
                 {"type": "cylinder", "collision_only": true, "pos": [12.5, 0, 44.35], "size": [16.0, 4.35]}
             ]

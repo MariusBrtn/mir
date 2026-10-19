@@ -5,7 +5,27 @@
         "corps": {
             "mass": 0.03,
             "geoms": [
-                {"type": "mesh", "file": "../STL/MIR_SIMU_CONNECTEUR_60DEG_1.stl", "visual_only": true, "rgba": [0.08, 0.08, 0.09, 1]},
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_CONNECTEUR_60DEG_1.stl",
+                    "visual_only": true,
+                    "rgba": [0.08, 0.08, 0.09, 1],
+                    "select": [{"axis": [-0.5, 0.8660254, 0], "max": 20.3}, {"axis": [-0.5, -0.8660254, 0], "max": 20.3}]
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_CONNECTEUR_60DEG_1.stl",
+                    "visual_only": true,
+                    "rgba": [0.87, 0.78, 0.64, 1],
+                    "select": [{"axis": [-0.5, -0.8660254, 0], "min": 20.3}, {"axis": [-0.5, -0.8660254, 0], "center": [-10.0, -17.321, 0], "rmax": 18.5}]
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_CONNECTEUR_60DEG_1.stl",
+                    "visual_only": true,
+                    "rgba": [0.87, 0.78, 0.64, 1],
+                    "select": [{"axis": [-0.5, 0.8660254, 0], "min": 20.3}, {"axis": [-0.5, 0.8660254, 0], "center": [-10.0, 17.321, 0], "rmax": 18.5}]
+                },
                 {"type": "cylinder", "collision_only": true, "pos": [-7.0, 12.12, 0], "zaxis": [-0.5, 0.8660254, 0], "size": [25.0, 8.0]},
                 {"type": "cylinder", "collision_only": true, "pos": [-7.0, -12.12, 0], "zaxis": [-0.5, -0.8660254, 0], "size": [25.0, 8.0]},
                 {"type": "cylinder", "collision_only": true, "pos": [-12.68, 21.95, 0], "zaxis": [-0.5, 0.8660254, 0], "size": [16.0, 3.35]},
