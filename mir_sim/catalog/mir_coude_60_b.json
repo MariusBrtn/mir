@@ -14,7 +14,7 @@
         }
     },
     "connectors": {
-        "face_a": {"part": "corps", "gender": "male", "pos": [81.0, 19.053, 0], "zaxis": [0.5, 0.8660254, 0], "xaxis": [-0.8660254, 0.5, 0]},
-        "face_b": {"part": "corps", "gender": "male", "pos": [81.0, -19.053, 0], "zaxis": [0.5, -0.8660254, 0], "xaxis": [0, 0, 1]}
+        "face_a": {"part": "corps", "gender": "male", "pos": [80.0, 17.321, 0], "zaxis": [0.5, 0.8660254, 0], "xaxis": [-0.8660254, 0.5, 0]},
+        "face_b": {"part": "corps", "gender": "male", "pos": [80.0, -17.321, 0], "zaxis": [0.5, -0.8660254, 0], "xaxis": [0, 0, 1]}
     }
 }

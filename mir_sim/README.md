@@ -64,7 +64,7 @@ articulation par articulation.
 ## Robot mobile
 
 Modules : `mir_socle` (hexagonal, douille femelle `dessus` et six douilles latérales `cote_0` ... `cote_300`),
-`mir_roue` (servo en mode vitesse + roue de 70 mm, douille femelle `stator`), `mir_coude_60` et sa variante
+`mir_roue` (servo en mode vitesse + roue de 90 mm, douille femelle `stator`), `mir_coude_60` et sa variante
 symétrique `mir_coude_60_b` (mâle-mâle à 60°, faces `face_a` / `face_b`), `mir_lidar` (RPLidar C1, embout mâle).
 
 - Racine non fixée (`"fixed": false`, case « Bâti » décochée dans l'éditeur) : le robot est posé sur le sol par son

@@ -51,6 +51,9 @@ STIFF_SOLREF = [0.004, 1.0]
 STIFF_SOLIMP = [0.99, 0.999, 0.001]
 DEFAULT_RANGE_DEG = (-90.0, 90.0)   # plage d'une articulation sans calibration ni plage dans le catalogue
 VELOCITY_MODE = 1           # OperatingMode.VELOCITY du STS3215
+# rendu : couleurs du catalogue = vraies couleurs ; à l'écran, un noir pur écrase les volumes dans l'ombre
+NOIR_AFFICHE = 0.17         # luminance minimale des couleurs sombres (PLA noir -> gris très foncé)
+MATIERE = {"specular": 0.25, "shininess": 0.35}     # plastique mat : reflets doux
 DEFAULT_STALL_TORQUE = 2.9  # N.m, STS3215 alimenté en 12V (≈1.9 N.m en 7.4V)
 # un connecteur branché sur un autre : demi-tour autour de x (z opposés, détrompeurs alignés)
 FLIP_X = np.array([0.0, 1.0, 0.0, 0.0])
@@ -364,6 +367,7 @@ class ModelBuilder:
         self._motor_params = motor_params or {}
         self._scene = scene or {}
         self._mesh_names: dict[tuple[str, float, str], str] = {}
+        self._materials: dict[tuple[float, ...], str] = {}
         self._connector_markers = connector_markers
 
     def build(self) -> BuiltModel:
@@ -603,7 +607,7 @@ class ModelBuilder:
                 kwargs["name"] = f"{prefix}_{g['name']}"
                 self._geom_body[kwargs["name"]] = body.name
             if "rgba" in g:
-                kwargs["rgba"] = g["rgba"]
+                kwargs["material"] = self._material(spec, g["rgba"])
             if "friction" in g:
                 kwargs["friction"] = g["friction"]
             if g.get("stiff_contact", False):
@@ -624,6 +628,17 @@ class ModelBuilder:
                 kwargs["meshname"] = self._add_mesh(spec, g["file"], g.get("scale", scale if scale != 1.0 else 0.001),
                                                     g.get("select"))
             body.add_geom(**kwargs)
+
+    def _material(self, spec: mujoco.MjSpec, rgba: list[float]) -> str:
+        """Matière d'une couleur du catalogue (une par couleur) : plastique mat, noirs éclaircis pour l'écran."""
+        key = tuple(round(float(v), 4) for v in rgba)
+        if key not in self._materials:
+            r, g, b, a = key
+            affiche = [NOIR_AFFICHE + (1 - NOIR_AFFICHE) * c for c in (r, g, b)] + [a]
+            name = f"matiere_{len(self._materials)}"
+            spec.add_material(name=name, rgba=affiche, **MATIERE)
+            self._materials[key] = name
+        return self._materials[key]
 
     def _add_mesh(self, spec: mujoco.MjSpec, file: str, scale: float,
                   select: dict[str, Any] | list[dict[str, Any]] | None = None) -> str:
@@ -666,22 +681,39 @@ class ModelBuilder:
 
     # ------------------------------------------------------------------ scène
     def _add_scene(self, spec: mujoco.MjSpec) -> None:
-        spec.visual.headlight.ambient = [0.4, 0.4, 0.4]
-        spec.visual.headlight.diffuse = [0.6, 0.6, 0.6]
+        # éclairage de studio : une lumière principale qui porte des ombres douces, une lumière d'appoint, un peu de
+        # lumière ambiante (la lampe frontale de MuJoCo, forte par défaut, aplatissait tout)
+        spec.visual.headlight.ambient = [0.36, 0.36, 0.36]
+        spec.visual.headlight.diffuse = [0.28, 0.28, 0.28]
+        spec.visual.headlight.specular = [0.05, 0.05, 0.05]
+        spec.visual.quality.shadowsize = 8192          # ombres nettes mais douces
+        spec.visual.quality.offsamples = 8             # contours lissés (anticrénelage)
         spec.visual.global_.offwidth = 1280
         spec.visual.global_.offheight = 960
         # ciel gris chaud, accordé au thème « Atelier » de l'éditeur (mir_utils/ui/theme.py)
         spec.add_texture(name="sky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
                          rgb1=[0.95, 0.93, 0.89], rgb2=[0.81, 0.78, 0.73], width=256, height=256)
-        spec.worldbody.add_light(name="top", pos=[0, 0, 1.5], dir=[0, 0, -1], diffuse=[0.5, 0.5, 0.5])
+        spec.worldbody.add_light(name="principale", pos=[0.6, -0.8, 1.6], dir=[-0.35, 0.45, -1.0],
+                                 diffuse=[0.62, 0.62, 0.6], specular=[0.18, 0.18, 0.18], castshadow=True,
+                                 type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
+        spec.worldbody.add_light(name="appoint", pos=[-1.0, 0.8, 1.2], dir=[0.6, -0.5, -0.6],
+                                 diffuse=[0.22, 0.22, 0.24], specular=[0, 0, 0], castshadow=False,
+                                 type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
         root = next(inst for inst in self._instances.values() if "on" not in inst)
         # bras : petite table de travail ; robot mobile : le sol de son arène (3 x 3 m)
         defaut = ({"size": [0.4, 0.3], "pos": [0.1, 0, 0], "rgba": [0.75, 0.68, 0.58, 1]} if root.get("fixed", False)
                   else {"size": [1.6, 1.6], "pos": [0, 0, 0], "rgba": [0.75, 0.68, 0.58, 1]})
         table = self._scene.get("table", defaut)
+        # trame discrète (carreaux de 5 cm) : elle donne la profondeur et l'échelle
+        couleur = np.array(table.get("rgba", [0.75, 0.68, 0.58, 1])[:3])
+        spec.add_texture(name="trame", type=mujoco.mjtTexture.mjTEXTURE_2D, builtin=mujoco.mjtBuiltin.mjBUILTIN_CHECKER,
+                         rgb1=couleur, rgb2=couleur, mark=mujoco.mjtMark.mjMARK_EDGE, markrgb=couleur * 0.93,
+                         width=512, height=512)
+        spec.add_material(name="table", textures=["", "trame"], texrepeat=[10, 10], texuniform=True,
+                          specular=0.1, shininess=0.1)
         spec.worldbody.add_geom(name="table", type=mujoco.mjtGeom.mjGEOM_PLANE,
                                 size=[table["size"][0], table["size"][1], 0.01],
-                                pos=table.get("pos", [0, 0, 0]), rgba=table.get("rgba", [0.75, 0.68, 0.58, 1]))
+                                pos=table.get("pos", [0, 0, 0]), material="table")
 
     def _add_scene_camera(self, spec: mujoco.MjSpec, cam: dict[str, Any]) -> None:
         if "lookat" in cam:
@@ -700,7 +732,7 @@ class ModelBuilder:
         for forme in formes:
             body.add_geom(type=self.GEOM_TYPES[forme.get("type", "box")], size=forme["size"],
                           pos=forme.get("pos", [0, 0, 0]), mass=obj.get("mass", 0.01) / len(formes),
-                          rgba=forme.get("rgba", obj.get("rgba", [0.8, 0.2, 0.2, 1])),
+                          material=self._material(spec, forme.get("rgba", obj.get("rgba", [0.8, 0.2, 0.2, 1]))),
                           friction=obj.get("friction", [1.0, 0.02, 0.001]),
                           solref=STIFF_SOLREF, solimp=STIFF_SOLIMP + [0.5, 2])
 
