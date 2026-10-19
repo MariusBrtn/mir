@@ -14,7 +14,7 @@ from pathlib import Path
 from loguru import logger
 from mir_robot.commande import ExecutionCommande
 from mir_robot.mir_robot import chemin_robot
-from mir_robot.training import TrainedPolicy, trained_models
+from mir_robot.training import load_policy, trained_models
 
 GENERATEUR = runpy.run_path(str(Path(__file__).with_name("generer_ramassage.py")))
 OBJET, FPS, DUREE_S, DEPART = GENERATEUR["OBJET"], GENERATEUR["FPS"], GENERATEUR["DUREE_S"], GENERATEUR["DEPART"]
@@ -45,7 +45,7 @@ def essai(robot, monde, politique, x, y, orientation_deg, images=None):
 
 
 def evaluer(dossier_modele, essais=20, graine=1000, video=None):
-    politique = TrainedPolicy(dossier_modele)
+    politique = load_policy(dossier_modele)          # écrit en PyTorch ou modèle LeRobot
     robot, monde, _ = GENERATEUR["ouvrir_robot"]()
     ik = GENERATEUR["GripperIK"](monde)
     hasard = random.Random(graine)
