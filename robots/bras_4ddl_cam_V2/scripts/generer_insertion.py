@@ -13,7 +13,6 @@ la boîte) sont enregistrées dans un dataset de MIR : image de cam_1, angles de
 """
 from __future__ import annotations
 import argparse
-import math
 import random
 import time
 from pathlib import Path
@@ -21,21 +20,21 @@ import numpy as np
 from loguru import logger
 from mir_robot.donnees import DatasetMIR, FormatDataset
 from mir_robot.mir_robot import chemin_robot
-from mir_sim.demonstrations import interpolate, open_sim_robot, place_in_gripper, record_episode
+from mir_sim.demonstrations import interpolate, open_sim_robot, record_episode
 from mir_sim.grasp import GripperIK
+from mir_sim.scenes import load_scene_file, place_scene
 
 ROBOT = "bras_4ddl_cam_V2"
-SCENE = Path(__file__).with_name("insertion_boite.json")
+SCENE = chemin_robot(ROBOT).parent / "scenes" / "insertion_boite.json"
 BOITE, OBJET = "boite", "objet"
 CAMERA = "cam_1"
 FPS = 20
 TACHE = "Mettre le cube dans la boîte"
 
 PINCE_OUVERTE, PINCE_FERMEE = -14.0, 14.0
-# posture de départ, cube en main : la caméra de la pince voit la boîte, où qu'elle soit dans sa zone
-DEPART = {"joint_1": 0.0, "joint_2": -50.0, "joint_3": 90.0, "joint_4": -90.0, "joint_5": PINCE_FERMEE}
-RAYON_M = (0.205, 0.22)                 # zone de la boîte : distance de son centre à l'axe du socle
-ANGLE_DEG = (-15.0, 15.0)               # et angle autour de l'axe du bras
+# posture de départ (cube en main) et zone de la boîte : celles de la scène (les mêmes que « Replacer la scène »)
+_SCENE = load_scene_file(SCENE)
+DEPART = {m: float(v) for m, v in _SCENE["start_pose"].items()}    # la caméra voit la boîte, où qu'elle soit
 HAUTEUR_BOITE_M = 0.04
 DEMI_LARGEUR_BOITE_M = 0.04
 PASSAGE_M = 0.11                        # hauteur du cube pendant le trajet vers le trou (au-dessus de la boîte)
@@ -51,12 +50,10 @@ def ouvrir_robot():
     return open_sim_robot(ROBOT, SCENE, CAMERA)
 
 
-def mettre_en_place(monde, ik, x, y, orientation_deg):
-    """Bras en posture de départ, cube dans la pince, boîte posée en (x, y)."""
-    monde.reset({**DEPART, "joint_5": PINCE_OUVERTE})
-    monde.set_object_pose(BOITE, [x, y, 0.0], orientation_deg)
-    bras = {m: v for m, v in DEPART.items() if m in ik.arm}
-    place_in_gripper(monde, ik, OBJET, bras, PINCE_FERMEE)
+def mettre_en_place(monde, hasard):
+    """Bras en posture de départ, cube dans la pince, boîte posée au hasard selon les règles de la scène.
+    Renvoie la position de la boîte (x, y, orientation)."""
+    return place_scene(monde, _SCENE, hasard)[BOITE]
 
 
 def postures(ik, monde, x, y):
@@ -98,11 +95,6 @@ def demonstration(robot, monde, fmt, cles, taille=None):
     return trames, dans_la_boite(monde)
 
 
-def tirer_boite(hasard):
-    rayon, angle = hasard.uniform(*RAYON_M), math.radians(hasard.uniform(*ANGLE_DEG))
-    return rayon * math.cos(angle), rayon * math.sin(angle), hasard.uniform(0.0, 90.0)
-
-
 def generer(nombre, dataset, graine=0, taille=None):
     """Enregistre `nombre` démonstrations réussies dans le dataset (dossier) ; renvoie (réussies, essayées).
     taille : (largeur, hauteur) des images enregistrées ; None : taille de la caméra."""
@@ -117,8 +109,7 @@ def generer(nombre, dataset, graine=0, taille=None):
         reussies = essais = 0
         while reussies < nombre and essais < 2 * nombre + 10:
             essais += 1
-            x, y, orientation = tirer_boite(hasard)
-            mettre_en_place(monde, ik, x, y, orientation)
+            x, y, orientation = mettre_en_place(monde, hasard)
             cles = postures(ik, monde, x, y)
             if cles is None:
                 print(f"  boîte en ({x*100:.1f}, {y*100:.1f}) cm : trou hors de portée, ignorée")

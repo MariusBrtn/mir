@@ -246,7 +246,7 @@ class EssaisView(QWidget, ViewBase[EssaisViewModel, EssaisVMAction]):
             self._viewport.show_message("Le robot simulé apparaît ici dès qu'un robot avec une structure est ouvert."
                                         if self._simulation else "")
             return
-        self._viewport.set_model(world.model, world.data, keep_camera=True, lock=world.lock)
+        self._viewport.set_sim_world(world)
         self._timer_3d.start()
 
     def close_3d(self):

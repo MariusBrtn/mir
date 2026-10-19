@@ -237,7 +237,7 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         if world is None:
             self._timer_3d.stop()
             return
-        self._viewport.set_model(world.model, world.data, keep_camera=True, lock=world.lock)
+        self._viewport.set_sim_world(world)
         self._timer_3d.start()
 
     def close_3d(self):

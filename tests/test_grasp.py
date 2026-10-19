@@ -9,7 +9,8 @@ from mir_sim.sim_world import SimWorld
 from conftest import config_robot
 
 GENERATEUR = chemin_robot("bras_4ddl_cam_V2").parent / "scripts" / "generer_ramassage.py"
-SCENE = GENERATEUR.with_name("ramassage_de.json")
+SCENES = chemin_robot("bras_4ddl_cam_V2").parent / "scenes"
+SCENE = SCENES / "ramassage_de.json"
 
 
 @pytest.fixture(scope="module")
@@ -55,7 +56,7 @@ def test_generateur_de_ramassage(tmp_path):
 
 def test_objet_fait_de_plusieurs_formes():
     """La boîte percée de l'insertion : un seul objet (un corps), plusieurs formes."""
-    monde = SimWorld.from_config(config_robot("bras_4ddl_cam_V2"), GENERATEUR.with_name("insertion_boite.json"))
+    monde = SimWorld.from_config(config_robot("bras_4ddl_cam_V2"), SCENES / "insertion_boite.json")
     corps = monde.model.body("boite").id
     formes = [i for i in range(monde.model.ngeom) if monde.model.geom_bodyid[i] == corps]
     assert len(formes) == 9                                  # fond, 4 parois, couvercle en 4 plaques
@@ -71,3 +72,27 @@ def test_generateur_d_insertion(tmp_path):
     episode = ds.charger_episode(0)
     assert episode["actions"][0][4] == pytest.approx(14.0)                      # cube tenu au départ
     assert episode["actions"][-1][4] == pytest.approx(-14.0)                    # pince ouverte à la fin
+
+
+def test_replacer_les_scenes_selon_leurs_regles():
+    import math
+    import random
+    from mir_sim.scenes import load_scene_file, place_scene, scene_files
+    assert {p.name for p in scene_files(SCENES.parent)} >= {"ramassage_de.json", "insertion_boite.json"}
+    for nom, objet, rayon in (("ramassage_de.json", "de", (0.18, 0.20)), ("insertion_boite.json", "boite", (0.205, 0.22))):
+        scene = load_scene_file(SCENES / nom)
+        monde = SimWorld.from_config(config_robot("bras_4ddl_cam_V2"), scene)
+        hasard = random.Random(4)
+        for _ in range(5):
+            x, y, _ = place_scene(monde, scene, hasard)[objet]
+            assert rayon[0] <= math.hypot(x, y) <= rayon[1] and abs(math.degrees(math.atan2(y, x))) <= 15
+            assert monde.get_object_position(objet)[:2] == pytest.approx([x, y], abs=1e-6)
+            depart = monde.get_positions()
+            # (la pince serre le cube : pas à sa consigne ; l'épaule fléchit un peu sous la charge)
+            assert all(depart[m] == pytest.approx(v, abs=2.0) for m, v in scene["start_pose"].items()
+                       if m != "joint_5")
+    # insertion : le cube est dans la pince, et il y reste
+    ik = GripperIK(monde)
+    monde.step(500)
+    point = ik.forward({m: monde.get_positions()[m] for m in ik.arm})[0]
+    assert np.linalg.norm(monde.get_object_position("objet") - point) < 0.012

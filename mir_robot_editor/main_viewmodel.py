@@ -5,6 +5,7 @@ from mir_robot.mir_robot import (mirRobotConfig, mirRobot, DOSSIER_ROBOTS, DOSSI
 from mir_sim.leader_structure import is_arm, leader_structure
 from mir_sim.sim_devices_factory import SimDevicesFactory
 from mir_sim.config_from_structure import complete_config_from_structure
+from mir_sim.scenes import load_scene_file, place_scene, scene_files
 from mir_robot_editor.motor_configuration.motor_configuration_view_model import MotorConfigurationViewModel
 from mir_robot_editor.motor_configuration.servo_id_view_model import ServoIdViewModel
 from mir_robot_editor.scan_devices_view_model import ScanDevicesViewModel
@@ -57,6 +58,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
     state_changed = Signal(MainViewModelState, str)
     title_changed = Signal(str)
     simulation_changed = Signal(bool)
+    scenes_changed = Signal()           # scènes du robot ouvert, ou scène choisie
     # En mode simulé, CONNECTED signifie « robot simulé construit » : il n'y a pas de connexion à faire,
     # le robot simulé est construit dès qu'un robot avec une structure est ouvert, et reconstruit après chaque modification.
     def __init__(self, dialogProvider: IDialogProvider):
@@ -83,6 +85,9 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.QUIT] = VMAction("Quitter", "Quitter l'application")
         self._simulation = False
         self._sim_factory: SimDevicesFactory | None = None
+        # scène du robot simulé (robots/<robot>/scenes/*.json) ; None : table vide
+        self._scene_path: Path | None = None
+        self._scene: dict | None = None
         # étape « Configurer le robot » : on décrit et règle le robot, sans choisir réel ou simulé ;
         # le robot (réel ou simulé) n'est utilisé qu'à partir de l'étape Piloter
         self._configuring = True
@@ -147,8 +152,55 @@ class MainViewModel(ViewModelBase[MainVMAction]):
     def is_arm(self) -> bool:
         return self._current_configuration is not None and is_arm(self._current_configuration.structure)
 
+    # ------------------------------------------------------------------ scène du robot simulé
+    def get_scenes(self) -> list[Path]:
+        """Scènes du robot ouvert (robots/<robot>/scenes/*.json)."""
+        cfg = self._current_configuration
+        if self._state == MainViewModelState.INIT or cfg is None or cfg.path is None:
+            return []
+        return scene_files(dossier_du_robot(cfg.path))
+
+    def get_scene(self) -> Path | None:
+        return self._scene_path
+
+    def scene_name(self, path: Path | None) -> str:
+        if path is None:
+            return "Table vide"
+        try:
+            return load_scene_file(path).get("name") or path.stem.replace("_", " ").capitalize()
+        except (OSError, ValueError):
+            return path.stem
+
+    def scene_description(self, path: Path | None) -> str:
+        if path is None:
+            return "Le robot seul sur sa table"
+        try:
+            return load_scene_file(path).get("description", path.stem)
+        except (OSError, ValueError) as e:
+            return f"Scène illisible : {e}"
+
+    def set_scene(self, path: Path | None) -> bool:
+        """Choisit la scène du robot simulé (reconstruit avec elle) ; False si une activité utilise le robot."""
+        if path == self._scene_path:
+            return True
+        if self.activite_en_cours() is not None:
+            self._dialogProvider.information("Changer de scène", "Arrêtez d'abord le mouvement en cours.")
+            return False
+        try:
+            scene = load_scene_file(path) if path is not None else None
+        except (OSError, ValueError) as e:
+            self._dialogProvider.information("Scène illisible", f"{path.name} : {e}")
+            return False
+        with self._configuration_change():
+            self._scene_path, self._scene = path, scene
+        self.scenes_changed.emit()
+        return True
+
     def _update_teleops(self):
         """Robot ouvert, enregistré ou modifié : les onglets Téléopération et Scripts proposent ceux du robot."""
+        if self._scene_path is not None and self._scene_path not in self.get_scenes():
+            self._scene_path, self._scene = None, None        # autre robot : sa scène n'est plus proposée
+        self.scenes_changed.emit()
         self._robot_monitor_view_model.set_teleop_dir(self.get_teleop_dir())
         self._scripts_view_model.set_dossier(self.get_scripts_dir())
         cfg = self._current_configuration
@@ -226,10 +278,12 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             return
         try:
             # même configuration que le robot réel, appareils simulés construits à partir de la structure
-            self._sim_factory = SimDevicesFactory()
+            self._sim_factory = SimDevicesFactory(scene=self._scene)
             self._robot = mirRobot(self._current_configuration, devices_factory=self._sim_factory)
             self._robot.connect()
             self._robot.configure()
+            if self._scene is not None:
+                place_scene(self._sim_factory.world, self._scene)
             self._robot_monitor_view_model.connect_to_robot(self._robot)
             self._connecter_activites(self._robot)
             self._set_state(MainViewModelState.CONNECTED)
@@ -270,8 +324,12 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         return next((a for a in self._activites if a.is_running()), None)
 
     def reset_simulation(self):
+        """Robot en posture de départ ; objets de la scène replacés (au hasard s'ils ont des règles de placement)."""
         if self._sim_factory is not None and self._sim_factory.world is not None:
-            self._sim_factory.world.reset()
+            if self._scene is not None:
+                place_scene(self._sim_factory.world, self._scene)
+            else:
+                self._sim_factory.world.reset()
 
     def _ask_save_if_dirty(self) -> bool:
         """Propose d'enregistrer une configuration modifiée ; False si l'utilisateur annule."""
@@ -727,7 +785,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
     def _essai_conditions(self) -> dict:
         cfg = self._current_configuration
         return {"simulation": self._simulation, "robot": self.get_robot_name(),
-                "configuration": cfg.path if cfg is not None else None}
+                "configuration": cfg.path if cfg is not None else None,
+                **({"scene": self._scene_path.name if self._scene_path else "table vide"} if self._simulation else {})}
 
     def get_robot_monitor_view_model(self):
         return self._robot_monitor_view_model

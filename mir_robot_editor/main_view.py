@@ -1,7 +1,7 @@
 import time
 from PySide6.QtCore import Signal, Qt, QSize
 from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPixmap
-from PySide6.QtWidgets import (QApplication, QButtonGroup, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
+from PySide6.QtWidgets import (QApplication, QButtonGroup, QComboBox, QFrame, QHBoxLayout, QLabel, QListWidget, QListWidgetItem,
                                QInputDialog, QMenu, QPushButton, QScrollArea, QStackedWidget, QTabWidget, QToolButton,
                                QVBoxLayout, QWidget)
 from mir_utils.ui.widgets import MainWindowBase
@@ -198,6 +198,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._view_model.state_changed.connect(self._on_state_changed)
         self._view_model.title_changed.connect(self._on_title_changed)
         self._view_model.simulation_changed.connect(self._on_simulation_changed)
+        self._view_model.scenes_changed.connect(self._remplir_scenes)
         self.setWindowTitle("MIR")
         self._new_action = self._make_action(MainVMAction.NEW, self.on_action_new, "new", "Ctrl+N")
         self._save_action = self._make_action(MainVMAction.SAVE, self._view_model.save, "save", "Ctrl+S")
@@ -251,6 +252,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._make_menus()
         self._steps.setCurrentRow(STEP_ROBOT)
         self._on_simulation_changed(self._view_model.is_simulation())
+        self._remplir_scenes()
         self._view_model.update_state_notifications()
 
     # ------------------------------------------------------------------ construction
@@ -310,6 +312,11 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._btn_connect.setIconSize(QSize(20, 20))
         self._btn_connect.clicked.connect(self._on_connect_clicked)
         layout.addWidget(self._btn_connect)
+        # en simulé : la scène du robot (objets sur la table), qu'on peut replacer
+        self._cb_scene = QComboBox()
+        self._cb_scene.setMinimumWidth(150)
+        self._cb_scene.activated.connect(self._on_scene_choisie)
+        layout.addWidget(self._cb_scene)
         # en simulé, rien à connecter : le robot simulé est toujours prêt, on peut seulement le remettre à zéro
         self._btn_reset_sim = QPushButton("↺  Replacer la scène")
         self._btn_reset_sim.setToolTip(self._reset_sim_action.toolTip())
@@ -527,6 +534,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._btn_connect.setVisible(not simulation and not configuring)
         self._btn_reset_sim.setVisible(simulation and not configuring)
         self._btn_reset_sim.setEnabled(self._reset_sim_action.isEnabled())
+        self._cb_scene.setVisible(simulation and not configuring and robot_ouvert)
+        self._cb_scene.setEnabled(state != MainViewModelState.RUNNING)
         if connected:
             self._btn_connect.setText("Déconnecter")
             self._btn_connect.setIcon(self._icon("unplug"))
@@ -554,6 +563,23 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         # en simulé, le robot est toujours prêt : l'état ne s'affiche que s'il y a un problème (pas de structure)
         if simulation and state != MainViewModelState.LOADED:
             self._status_label.setVisible(False)
+
+    def _remplir_scenes(self):
+        """Scènes du robot ouvert : « Table vide », puis robots/<robot>/scenes/*.json."""
+        vm = self._view_model
+        self._cb_scene.blockSignals(True)
+        self._cb_scene.clear()
+        for path in [None] + vm.get_scenes():
+            self._cb_scene.addItem(f"Scène : {vm.scene_name(path)}", path)
+            self._cb_scene.setItemData(self._cb_scene.count() - 1, vm.scene_description(path), Qt.ItemDataRole.ToolTipRole)
+        index = self._cb_scene.findData(vm.get_scene())
+        self._cb_scene.setCurrentIndex(max(0, index))
+        self._cb_scene.setToolTip(vm.scene_description(vm.get_scene()))
+        self._cb_scene.blockSignals(False)
+
+    def _on_scene_choisie(self, index: int):
+        if not self._view_model.set_scene(self._cb_scene.itemData(index)):
+            self._remplir_scenes()          # refusé (mouvement en cours) : on revient à la scène actuelle
 
     def _update_activites(self):
         etapes_occupees = set()

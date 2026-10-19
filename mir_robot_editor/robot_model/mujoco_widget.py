@@ -3,8 +3,11 @@ Widget Qt affichant un modèle MuJoCo (rendu hors écran de MuJoCo, affiché com
 
 Souris : glisser (bouton gauche) pour tourner, bouton droit pour déplacer, molette pour zoomer.
 Un clic gauche sans glisser émet geom_clicked(id de la géométrie sous la souris, -1 si aucune).
+Robot simulé (set_sim_world) : les objets libres de la scène se déplacent à la souris, glisser un objet le fait glisser
+sur la table et la molette sur un objet le fait tourner.
 """
 from __future__ import annotations
+import math
 import mujoco
 import numpy as np
 from PySide6.QtCore import Qt, QPointF, QTimer, Signal
@@ -14,6 +17,7 @@ from mir_utils.ui import theme
 
 
 CLICK_MAX_MOVE_PX = 4
+ROTATION_PAR_CRAN_DEG = 15.0        # molette sur un objet de la scène
 
 
 class MujocoWidget(QWidget):
@@ -40,6 +44,8 @@ class MujocoWidget(QWidget):
         self._resize_timer.setSingleShot(True)
         self._resize_timer.setInterval(150)
         self._resize_timer.timeout.connect(self._recreate_renderer)
+        self._world = None              # monde simulé dont les objets se déplacent à la souris
+        self._drag: tuple[str, float, np.ndarray] | None = None     # objet saisi : nom, hauteur, décalage souris -> objet
 
     # ------------------------------------------------------------------ contenu
     def set_model(self, model: mujoco.MjModel, data: mujoco.MjData, keep_camera: bool = False, lock=None) -> None:
@@ -54,6 +60,13 @@ class MujocoWidget(QWidget):
             self.reset_camera()
         self.update()
 
+    def set_sim_world(self, world) -> None:
+        """Affiche le robot simulé (SimWorld) ; les objets libres de sa scène se déplacent à la souris."""
+        self._world = world
+        self._drag = None
+        self.setMouseTracking(True)         # curseur « main » au-dessus d'un objet déplaçable
+        self.set_model(world.model, world.data, keep_camera=True, lock=world.lock)
+
     def has_model(self) -> bool:
         return self._model is not None
 
@@ -61,6 +74,7 @@ class MujocoWidget(QWidget):
         """Affiche un texte à la place du modèle (chargement, erreur...)."""
         self._close_renderer()
         self._model, self._data, self._lock = None, None, None
+        self._world, self._drag = None, None
         self._message = message
         self.update()
 
@@ -137,8 +151,16 @@ class MujocoWidget(QWidget):
         self._last_mouse = event.position()
         self._press_pos = event.position()
         self._mouse_button = event.button()
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._saisir(event.position())
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._drag is not None:
+            self._drag = None
+            self._last_mouse = self._press_pos = None
+            self._mouse_button = Qt.MouseButton.NoButton
+            self._update_cursor(event.position())
+            return
         is_click = (self._mouse_button == Qt.MouseButton.LeftButton and self._press_pos is not None
                     and (event.position() - self._press_pos).manhattanLength() <= CLICK_MAX_MOVE_PX)
         self._last_mouse = None
@@ -159,7 +181,13 @@ class MujocoWidget(QWidget):
         return int(geomid[0])
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if self._last_mouse is None or self._renderer is None or self._model is None:
+        if self._drag is not None:
+            self._glisser(event.position())
+            return
+        if self._last_mouse is None:
+            self._update_cursor(event.position())
+            return
+        if self._renderer is None or self._model is None:
             return
         delta = event.position() - self._last_mouse
         self._last_mouse = event.position()
@@ -178,7 +206,84 @@ class MujocoWidget(QWidget):
         if self._renderer is None or self._model is None:
             return
         steps = event.angleDelta().y() / 120.0
+        objet = self._objet_sous(event.position())
+        if objet is not None:
+            self._tourner(objet, steps * ROTATION_PAR_CRAN_DEG)
+            return
         mujoco.mjv_moveCamera(self._model, mujoco.mjtMouse.mjMOUSE_ZOOM, 0, -0.05 * steps,
                               self._renderer.scene, self._camera)
         self._camera_moved_by_user = True
         self.update()
+
+    # ------------------------------------------------------------------ objets de la scène (robot simulé)
+    def _objet_sous(self, position: QPointF) -> str | None:
+        """Objet libre de la scène sous la souris (son nom), ou None."""
+        if self._world is None or self._model is None:
+            return None
+        geom = self.pick(position)
+        if geom < 0:
+            return None
+        corps = self._model.body(int(self._model.body_rootid[self._model.geom_bodyid[geom]])).name
+        try:
+            self._model.joint(f"{corps}_free")       # objet libre de la scène (pas le robot)
+        except KeyError:
+            return None
+        return corps
+
+    def _rayon(self, position: QPointF) -> tuple[np.ndarray, np.ndarray]:
+        """Rayon (origine, direction) partant de la caméra et passant par ce point du widget (comme mjv_select)."""
+        scene = self._renderer.scene
+        camera = mujoco.mjv_averageCamera(scene.camera[0], scene.camera[1])
+        avant, haut = np.array(camera.forward), np.array(camera.up)
+        droite = np.cross(avant, haut)
+        relx, rely = position.x() / self.width(), 1.0 - position.y() / self.height()
+        demi_largeur = 0.5 * self.width() / self.height() * (camera.frustum_top - camera.frustum_bottom)
+        x = camera.frustum_center + (2 * relx - 1) * demi_largeur
+        y = camera.frustum_bottom + rely * (camera.frustum_top - camera.frustum_bottom)
+        direction = avant * camera.frustum_near + droite * x + haut * y
+        return np.array(camera.pos), direction / np.linalg.norm(direction)
+
+    def _sur_le_plan(self, position: QPointF, hauteur: float) -> np.ndarray | None:
+        """Point (x, y) du plan horizontal z = hauteur sous la souris, ou None (souris au-dessus de l'horizon)."""
+        origine, direction = self._rayon(position)
+        if abs(direction[2]) < 1e-6:
+            return None
+        t = (hauteur - origine[2]) / direction[2]
+        return (origine + t * direction)[:2] if t > 0 else None
+
+    def _saisir(self, position: QPointF) -> None:
+        objet = self._objet_sous(position)
+        if objet is None:
+            return
+        centre = self._world.get_object_position(objet)
+        point = self._sur_le_plan(position, centre[2])
+        if point is None:
+            return
+        self._drag = (objet, float(centre[2]), centre[:2] - point)
+        self.setCursor(Qt.CursorShape.ClosedHandCursor)
+
+    def _glisser(self, position: QPointF) -> None:
+        objet, hauteur, decalage = self._drag
+        point = self._sur_le_plan(position, hauteur)
+        if point is None:
+            return
+        x, y = point + decalage
+        self._world.set_object_pose(objet, [x, y, hauteur], self._lacet(objet))
+        self.update()
+
+    def _tourner(self, objet: str, angle_deg: float) -> None:
+        centre = self._world.get_object_position(objet)
+        self._world.set_object_pose(objet, centre, self._lacet(objet) + angle_deg)
+        self.update()
+
+    def _lacet(self, objet: str) -> float:
+        """Orientation (°) de l'objet autour de la verticale."""
+        with self._world.lock:
+            w, x, y, z = self._world.data.xquat[self._model.body(objet).id]
+        return math.degrees(math.atan2(2 * (w * z + x * y), 1 - 2 * (y * y + z * z)))
+
+    def _update_cursor(self, position: QPointF) -> None:
+        if self._world is None:
+            return
+        self.setCursor(Qt.CursorShape.OpenHandCursor if self._objet_sous(position) is not None
+                       else Qt.CursorShape.ArrowCursor)

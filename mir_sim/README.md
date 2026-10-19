@@ -78,13 +78,19 @@ symétrique `mir_coude_60_b` (mâle-mâle à 60°, faces `face_a` / `face_b`), `
 
 ## Scène (propre à une tâche, facultative)
 
-Fichier JSON à côté des scripts de la tâche (ex. `scene_de.json`) : position du robot sur la table
+Fichier JSON dans le dossier `scenes` du robot (`robots/<robot>/scenes/*.json`), proposé dans l'en-tête de MIR en
+simulé (`name`, `description`) : position du robot sur la table
 (`robot`: `pos`, `euler_deg`), `table`, caméras fixes (`cameras`) et objets (`objects`).
 
 Un objet est une forme simple (`type` : `box`, `cylinder`, `sphere`... ; `size` en m, demi-dimensions comme MuJoCo),
 ou plusieurs formes réunies (`geoms` : liste de `{"type", "size", "pos"}` dans le repère de l'objet, ex. une boîte
 percée d'un trou). `free` : `false` pour un objet fixe ; `mass`, `rgba`, `friction`. Un objet libre se replace
 avec `SimWorld.set_object_pose(nom, position, yaw_deg)`.
+
+Remise en place (`mir_sim/scenes.py`, `place_scene`), utilisée par « Replacer la scène » et par les générateurs de
+démonstrations : `start_pose` (posture de départ du robot, angles moteur), `placement` d'un objet (`radius_m`,
+`angle_deg` : zone tirée au hasard autour du socle ; `yaw_deg`, `yaw_relative` : orientation), `in_gripper` : objet mis
+dans la pince. Dans les vues 3D de MIR, les objets libres se déplacent à la souris (glisser, molette pour tourner).
 
 ## Module du catalogue (`catalog/<type>.json`)
 

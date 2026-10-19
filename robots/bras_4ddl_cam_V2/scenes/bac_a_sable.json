@@ -1,0 +1,76 @@
+{
+    "name": "Bac à sable",
+    "description": "Bac à sable : quelques objets de types différents rangés dans les coins de la table. On les dispose à la souris dans la vue 3D (glisser pour déplacer, molette pour tourner) ; « Replacer la scène » les remet dans leur coin.",
+    "robot": {
+        "pos": [0, 0, 0],
+        "euler_deg": [0, 0, 180]
+    },
+    "start_pose": {"joint_1": 0, "joint_2": -60, "joint_3": 90, "joint_4": -90, "joint_5": -14},
+    "cameras": [
+        {
+            "name": "overview",
+            "pos": [0.5, -0.45, 0.38],
+            "lookat": [0.12, 0, 0.08],
+            "fovy": 50
+        }
+    ],
+    "objects": [
+        {
+            "name": "cube",
+            "type": "box",
+            "size": [0.007, 0.007, 0.007],
+            "pos": [0.32, 0.22, 0.007],
+            "mass": 0.006,
+            "rgba": [0.85, 0.25, 0.2, 1]
+        },
+        {
+            "name": "de",
+            "type": "box",
+            "size": [0.008, 0.008, 0.008],
+            "pos": [0.36, 0.22, 0.008],
+            "mass": 0.004,
+            "rgba": [0.9, 0.9, 0.9, 1]
+        },
+        {
+            "name": "pion",
+            "type": "cylinder",
+            "size": [0.007, 0.012],
+            "pos": [0.4, 0.22, 0.012],
+            "mass": 0.008,
+            "rgba": [0.25, 0.45, 0.85, 1]
+        },
+        {
+            "name": "balle",
+            "type": "sphere",
+            "size": [0.009],
+            "pos": [0.32, 0.26, 0.009],
+            "mass": 0.005,
+            "rgba": [0.95, 0.8, 0.2, 1]
+        },
+        {
+            "name": "bloc",
+            "type": "box",
+            "size": [0.02, 0.007, 0.007],
+            "pos": [0.37, 0.26, 0.007],
+            "mass": 0.01,
+            "rgba": [0.3, 0.7, 0.35, 1]
+        },
+        {
+            "name": "boite",
+            "geoms": [
+                {"type": "box", "size": [0.04, 0.04, 0.0015], "pos": [0, 0, 0.0015]},
+                {"type": "box", "size": [0.04, 0.0015, 0.0185], "pos": [0, 0.0385, 0.0185]},
+                {"type": "box", "size": [0.04, 0.0015, 0.0185], "pos": [0, -0.0385, 0.0185]},
+                {"type": "box", "size": [0.0015, 0.04, 0.0185], "pos": [0.0385, 0, 0.0185]},
+                {"type": "box", "size": [0.0015, 0.04, 0.0185], "pos": [-0.0385, 0, 0.0185]},
+                {"type": "box", "size": [0.04, 0.0135, 0.0015], "pos": [0, 0.0265, 0.0385]},
+                {"type": "box", "size": [0.04, 0.0135, 0.0015], "pos": [0, -0.0265, 0.0385]},
+                {"type": "box", "size": [0.0135, 0.013, 0.0015], "pos": [0.0265, 0, 0.0385]},
+                {"type": "box", "size": [0.0135, 0.013, 0.0015], "pos": [-0.0265, 0, 0.0385]}
+            ],
+            "pos": [0.36, -0.2, 0],
+            "mass": 0.3,
+            "rgba": [0.25, 0.45, 0.75, 1]
+        }
+    ]
+}

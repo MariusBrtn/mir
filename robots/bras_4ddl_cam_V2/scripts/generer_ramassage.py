@@ -23,20 +23,23 @@ from mir_robot.donnees import DatasetMIR, FormatDataset
 from mir_robot.mir_robot import chemin_robot
 from mir_sim.demonstrations import interpolate, open_sim_robot, record_episode
 from mir_sim.grasp import GripperIK
+from mir_sim.scenes import load_scene_file
 
 ROBOT = "bras_4ddl_cam_V2"
-SCENE = Path(__file__).with_name("ramassage_de.json")
+SCENE = chemin_robot(ROBOT).parent / "scenes" / "ramassage_de.json"
 OBJET = "de"
 CAMERA = "cam_1"
 FPS = 20
 TACHE = "Ramasser le dé"
 
 PINCE_OUVERTE, PINCE_FERMEE = -14.0, 14.0
-# posture de départ : la caméra de la pince voit toute la zone du dé
-DEPART = {"joint_1": 0.0, "joint_2": -60.0, "joint_3": 90.0, "joint_4": -90.0, "joint_5": PINCE_OUVERTE}
-RAYON_M = (0.18, 0.20)                  # zone du dé : distance à l'axe du socle
-ANGLE_DEG = (-15.0, 15.0)               # et angle autour de l'axe du bras
-ORIENTATION_DEG = 5.0                   # le dé est tourné au hasard de ± cette valeur par rapport aux mors
+# posture de départ et zone du dé : celles de la scène (les mêmes que « Replacer la scène » dans MIR)
+_SCENE = load_scene_file(SCENE)
+_PLACEMENT = next(o for o in _SCENE["objects"] if o["name"] == OBJET)["placement"]
+DEPART = {m: float(v) for m, v in _SCENE["start_pose"].items()}    # la caméra de la pince voit toute la zone du dé
+RAYON_M = tuple(_PLACEMENT["radius_m"])     # zone du dé : distance à l'axe du socle
+ANGLE_DEG = tuple(_PLACEMENT["angle_deg"])  # et angle autour de l'axe du bras
+ORIENTATION_DEG = _PLACEMENT["yaw_deg"][1]  # le dé est tourné au hasard de ± cette valeur par rapport aux mors
 HAUTEUR_DE_M = 0.008                    # centre du dé (16 mm) posé sur la table
 APPROCHE_M = 0.05                       # hauteur de la pince au-dessus du dé avant de descendre
 LEVEE_M = 0.06                          # hauteur de levée

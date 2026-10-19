@@ -1,9 +1,11 @@
 {
-    "description": "Insertion : le bras tient un cube de 14 mm et doit le lâcher dans le trou (26 mm) du couvercle d'une boîte de 8 x 8 x 4 cm ; la boîte est replacée à chaque démonstration par generer_insertion.py.",
+    "name": "Insertion dans la boîte",
+    "description": "Insertion : le bras tient un cube de 14 mm et doit le lâcher dans le trou (26 mm) du couvercle d'une boîte de 8 x 8 x 4 cm. À chaque essai, la boîte est posée au hasard dans une zone que la caméra voit depuis la posture de départ et où le bras peut lâcher le cube au-dessus du trou.",
     "robot": {
         "pos": [0, 0, 0],
         "euler_deg": [0, 0, 180]
     },
+    "start_pose": {"joint_1": 0, "joint_2": -50, "joint_3": 90, "joint_4": -90, "joint_5": 14},
     "cameras": [
         {
             "name": "overview",
@@ -28,7 +30,8 @@
             ],
             "pos": [0.21, 0, 0],
             "mass": 0.3,
-            "rgba": [0.25, 0.45, 0.75, 1]
+            "rgba": [0.25, 0.45, 0.75, 1],
+            "placement": {"radius_m": [0.205, 0.22], "angle_deg": [-15, 15], "yaw_deg": [0, 90]}
         },
         {
             "name": "objet",
@@ -36,7 +39,8 @@
             "size": [0.007, 0.007, 0.007],
             "pos": [0.15, 0, 0.1],
             "mass": 0.006,
-            "rgba": [0.85, 0.25, 0.2, 1]
+            "rgba": [0.85, 0.25, 0.2, 1],
+            "in_gripper": true
         }
     ]
 }
