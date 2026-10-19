@@ -317,8 +317,10 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
             self._remplir_observations(ds.format())
             self.lbl_dataset.setText(f"{len(episodes)} épisode(s), {ds.fps()} Hz. Les observations et la fréquence "
                                      f"sont celles du dataset.\n{ds.dossier}")
-            if episodes and not self.ed_tache.text():
+            if episodes:
+                # les démonstrations suivantes continuent celles du dataset : même tâche, même durée
                 self.ed_tache.setText(episodes[-1].tache)
+                self.sp_duree.setValue(episodes[-1].duree_s)
         else:
             episodes = []
             self.sp_fps.setEnabled(True)
@@ -396,10 +398,16 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         self.btn_recommencer.setVisible(nouvelle)
         self.btn_fermer_revue.setVisible(not nouvelle)
         self._center.setCurrentIndex(1)
+        self._update_buttons()
+
+    def _en_revue(self) -> bool:
+        """Un épisode est affiché (démonstration à valider, ou épisode enregistré qu'on revoit)."""
+        return self._center.currentIndex() == 1
 
     def _fermer_revue(self):
         self.episode_view.arreter()
         self._center.setCurrentIndex(0)
+        self._update_buttons()
 
     def _on_valider(self):
         ds = self._dataset()
@@ -436,6 +444,8 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         question = (f"Supprimer l'épisode {index + 1} ?" + ("\r\nC'est le dernier : le dataset entier sera supprimé."
                                                             if dernier else ""))
         if self._view_model._dialogProvider.question_yes_no("Supprimer un épisode", question):
+            if self._en_revue():
+                self._fermer_revue()            # l'épisode affiché va peut-être disparaître
             self._view_model.supprimer_episode(ds, index)
 
     def _visualiseur(self):
@@ -449,14 +459,15 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         en_cours = vm.is_running()
         phase = vm.phase()
         sauvegarde = vm.sauvegarde_en_cours()
-        self.btn_demarrer.setEnabled(not en_cours and vm.has_robot() and self.cb_teleop.count() > 0
-                                     and phase != Phase.REVUE)
-        self.btn_arreter.setEnabled(en_cours)
-        self.btn_demo.setEnabled(en_cours and phase == Phase.LIBRE and not sauvegarde)
+        # revoir un épisode (enregistré ou à valider) : lecture seule, rien ne se règle ni ne démarre
+        lecture = phase == Phase.REVUE or (hasattr(self, "_center") and self._en_revue())
+        self.btn_demarrer.setEnabled(not en_cours and vm.has_robot() and self.cb_teleop.count() > 0 and not lecture)
+        self.btn_arreter.setEnabled(en_cours)           # arrêter le robot reste toujours possible
+        self.btn_demo.setEnabled(en_cours and phase == Phase.LIBRE and not sauvegarde and not lecture)
         self.btn_valider.setEnabled(not sauvegarde)
         for w in (self.cb_dataset, self.cb_teleop, self.sp_duree, self.ed_tache):
-            w.setEnabled(not en_cours and phase != Phase.REVUE)
-        if en_cours or phase == Phase.REVUE:
+            w.setEnabled(not en_cours and not lecture)
+        if en_cours or lecture:
             self.sp_fps.setEnabled(False)
             for box in self._boxes.values():
                 box.setEnabled(False)
