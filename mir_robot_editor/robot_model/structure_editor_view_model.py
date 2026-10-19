@@ -103,7 +103,7 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         add(StructureEditorVMAction.UNDO, VMAction("Annuler l'action", "Annuler la dernière modification de la structure"))
         add(StructureEditorVMAction.REDO, VMAction("Rétablir", "Rétablir la modification annulée"))
         add(StructureEditorVMAction.CHANGE_CONNECTOR, VMAction(
-            "Changer de connecteur", "Brancher le module sélectionné par un autre de ses connecteurs"))
+            "Changer de connecteur", "Brancher le module sélectionné par un autre de ses connecteurs (touche R)"))
         add(StructureEditorVMAction.DELETE, VMAction("Supprimer", "Supprimer le module sélectionné et les modules branchés dessus"))
         add(StructureEditorVMAction.ACCEPT, VMAction("Valider", "Enregistrer la structure dans la configuration", enabled=True))
         add(StructureEditorVMAction.CANCEL, VMAction("Fermer sans enregistrer", "Fermer sans modifier la configuration", enabled=True))
@@ -346,17 +346,26 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         self._selected = name
         self._update_selection_tint()
         self._emit_selection()
+        self._update_status()
 
     def change_connector(self) -> None:
-        """Branche le module sélectionné par son connecteur compatible suivant (ex. servo par le rotor ou le stator)."""
+        """Branche le module sélectionné par son connecteur compatible suivant (ex. servo par le rotor ou le stator).
+        Si ce connecteur porte déjà des modules, ils passent sur le connecteur libéré : le module se retourne (ex. un
+        coude qui porte une roue : la roue suit)."""
         choices = self._connector_choices(self._selected)
         if self._selected is None or len(choices) < 2:
             return
         self._push_undo()
         inst = self.modules[self._selected]
-        inst["connector"] = choices[(choices.index(inst["connector"]) + 1) % len(choices)]
+        ancien = inst["connector"]
+        nouveau = choices[(choices.index(ancien) + 1) % len(choices)]
+        for child in self.modules.values():
+            if child.get("on") == f"{self._selected}.{nouveau}":
+                child["on"] = f"{self._selected}.{ancien}"
+        inst["connector"] = nouveau
         self._set_default_direction(inst)
         self._rebuild()
+        self._update_status()
 
     def _set_default_direction(self, inst: dict[str, Any]) -> None:
         """Sens par défaut d'un module à moteur : inversé quand il est branché par sa pièce entraînée (servo posé
@@ -376,10 +385,14 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
             return []
         inst = self.modules[name]
         parent_gender = self._connector(str(inst["on"]))["gender"]
+        connectors = self._catalog[inst["type"]]["connectors"]
+        actuel = connectors[inst["connector"]]
         used_by_children = {str(child["on"]).partition(".")[2] for child in self.modules.values()
                             if str(child.get("on", "")).partition(".")[0] == name}
-        return [conn_name for conn_name, conn in self._catalog[inst["type"]]["connectors"].items()
-                if (conn["gender"], parent_gender) in MATING_GENDERS and conn_name not in used_by_children]
+        # un connecteur occupé reste possible si ses modules peuvent passer sur le connecteur actuel (même genre)
+        return [conn_name for conn_name, conn in connectors.items()
+                if (conn["gender"], parent_gender) in MATING_GENDERS
+                and (conn_name not in used_by_children or conn["gender"] == actuel["gender"])]
 
     def set_direction_inverted(self, inverted: bool) -> None:
         inst = self._selected_instance()
@@ -591,6 +604,12 @@ class StructureEditorViewModel(ViewModelBase[StructureEditorVMAction]):
         if self._placing is not None:
             self.status_changed.emit("Plusieurs points de connexion possibles : cliquez la pastille verte où brancher "
                                      f"{self._placing[1].removeprefix('mir_')} (Échap pour annuler).")
+        elif len(self._connector_choices(self._selected)) > 1:
+            # le module peut se brancher autrement (ex. coude par l'une ou l'autre face) : on le dit tout de suite
+            inst = self.modules[self._selected]
+            autres = [c for c in self._connector_choices(self._selected) if c != inst["connector"]]
+            self.status_changed.emit(f"{self._selected} est branché par « {inst['connector']} » ; il peut aussi l'être "
+                                     f"par « {' », « '.join(autres)} » : touche R ou « Changer de connecteur ».")
         else:
             self.status_changed.emit("Glissez un module de la liste dans la vue 3D (sur une pastille pour choisir où le "
                                      "brancher). Cliquez un module pour le régler.")

@@ -146,7 +146,8 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
         content.addWidget(side_widget)
 
         # actions
-        self._change_connector_action = self._make_action(StructureEditorVMAction.CHANGE_CONNECTOR, vm.change_connector)
+        self._change_connector_action = self._make_action(StructureEditorVMAction.CHANGE_CONNECTOR, vm.change_connector,
+                                                          shortcut="R")
         self._change_connector.setDefaultAction(self._change_connector_action)
         self._delete_action = self._make_action(StructureEditorVMAction.DELETE, vm.delete_selected, "remove")
         self._delete_button.setDefaultAction(self._delete_action)
