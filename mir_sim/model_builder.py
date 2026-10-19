@@ -53,7 +53,8 @@ DEFAULT_RANGE_DEG = (-90.0, 90.0)   # plage d'une articulation sans calibration 
 VELOCITY_MODE = 1           # OperatingMode.VELOCITY du STS3215
 # rendu : couleurs du catalogue = vraies couleurs ; à l'écran, un noir pur écrase les volumes dans l'ombre
 NOIR_AFFICHE = 0.17         # luminance minimale des couleurs sombres (PLA noir -> gris très foncé)
-MATIERE = {"specular": 0.25, "shininess": 0.35}     # plastique mat : reflets doux
+MATIERE = {"specular": 0.15, "shininess": 0.3}      # plastique mat : reflets doux
+MATIERE_BRILLANTE = {"specular": 1.0, "shininess": 0.8}     # "glossy" : verre, optique (œil du lidar)
 DEFAULT_STALL_TORQUE = 2.9  # N.m, STS3215 alimenté en 12V (≈1.9 N.m en 7.4V)
 # un connecteur branché sur un autre : demi-tour autour de x (z opposés, détrompeurs alignés)
 FLIP_X = np.array([0.0, 1.0, 0.0, 0.0])
@@ -607,7 +608,7 @@ class ModelBuilder:
                 kwargs["name"] = f"{prefix}_{g['name']}"
                 self._geom_body[kwargs["name"]] = body.name
             if "rgba" in g:
-                kwargs["material"] = self._material(spec, g["rgba"])
+                kwargs["material"] = self._material(spec, g["rgba"], g.get("glossy", False))
             if "friction" in g:
                 kwargs["friction"] = g["friction"]
             if g.get("stiff_contact", False):
@@ -629,14 +630,17 @@ class ModelBuilder:
                                                     g.get("select"))
             body.add_geom(**kwargs)
 
-    def _material(self, spec: mujoco.MjSpec, rgba: list[float]) -> str:
-        """Matière d'une couleur du catalogue (une par couleur) : plastique mat, noirs éclaircis pour l'écran."""
-        key = tuple(round(float(v), 4) for v in rgba)
+    def _material(self, spec: mujoco.MjSpec, rgba: list[float], glossy: bool = False) -> str:
+        """Matière d'une couleur du catalogue (une par couleur) : plastique mat, noirs éclaircis pour l'écran ;
+        glossy : surface brillante (optique du lidar...)."""
+        key = (*(round(float(v), 4) for v in rgba), glossy)
         if key not in self._materials:
-            r, g, b, a = key
-            affiche = [NOIR_AFFICHE + (1 - NOIR_AFFICHE) * c for c in (r, g, b)] + [a]
+            r, g, b, a = key[:4]
+            # une surface brillante garde son noir : ce sont ses reflets qui la distinguent du PLA mat
+            plancher = 0.04 if glossy else NOIR_AFFICHE
+            affiche = [plancher + (1 - plancher) * c for c in (r, g, b)] + [a]
             name = f"matiere_{len(self._materials)}"
-            spec.add_material(name=name, rgba=affiche, **MATIERE)
+            spec.add_material(name=name, rgba=affiche, **(MATIERE_BRILLANTE if glossy else MATIERE))
             self._materials[key] = name
         return self._materials[key]
 
@@ -694,10 +698,10 @@ class ModelBuilder:
         spec.add_texture(name="sky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
                          rgb1=[0.95, 0.93, 0.89], rgb2=[0.81, 0.78, 0.73], width=256, height=256)
         spec.worldbody.add_light(name="principale", pos=[0.6, -0.8, 1.6], dir=[-0.35, 0.45, -1.0],
-                                 diffuse=[0.62, 0.62, 0.6], specular=[0.18, 0.18, 0.18], castshadow=True,
+                                 diffuse=[0.62, 0.62, 0.6], specular=[0.6, 0.6, 0.6], castshadow=True,
                                  type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
         spec.worldbody.add_light(name="appoint", pos=[-1.0, 0.8, 1.2], dir=[0.6, -0.5, -0.6],
-                                 diffuse=[0.22, 0.22, 0.24], specular=[0, 0, 0], castshadow=False,
+                                 diffuse=[0.22, 0.22, 0.24], specular=[0.35, 0.35, 0.35], castshadow=False,
                                  type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
         root = next(inst for inst in self._instances.values() if "on" not in inst)
         # bras : petite table de travail ; robot mobile : le sol de son arène (3 x 3 m)

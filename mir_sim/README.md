@@ -108,6 +108,6 @@ Géométries : un STL `"visual_only": true` pour l'affichage, des formes simples
 contacts (l'enveloppe convexe d'un STL concave est trop grossière). `"stiff_contact": true` sur une surface de
 préhension (contact raide, sinon un objet léger s'enfonce dans les mors). Pour colorer une zone d'un STL à part
 (ex. bague de douille beige) : `"select": {"axis": [1, 0, 0], "max": -30.05}` ne garde que la partie dont la
-projection sur `axis` (unités du STL) est entre `min` et `max`, les triangles sont coupés sur le plan.
+projection sur `axis` (unités du STL) est entre `min` et `max`, les triangles sont coupés sur le plan. `"glossy": true` : surface brillante (optique), ex. l'œil du lidar ; les autres pièces sont en plastique mat.
 
 Ajouter un module = ajouter un fichier dans `catalog/` (et ses STL) : les robots existants ne sont pas touchés.

@@ -1,5 +1,5 @@
 {
-    "description": "Module roue MIR : servo STS3215 asservi en vitesse (rotation continue), roue de 90 mm sur le palonnier (pneu foncé, jante grise). Stator : douille baïonnette femelle (axe x CAO), comme le module servo. Roue : tourne autour de l'axe z CAO en (12.5, 0). Repère de la CAO, en mm.",
+    "description": "Module roue MIR : servo STS3215 asservi en vitesse (rotation continue), roue de 90 mm sur le palonnier (couleur sable). Stator : douille baïonnette femelle (axe x CAO), comme le module servo. Roue : tourne autour de l'axe z CAO en (12.5, 0). Repère de la CAO, en mm.",
     "unit_scale": 0.001,
     "parts": {
         "stator": {
@@ -84,48 +84,11 @@
                     "file": "../STL/MIR_SIMU_ROUE.stl",
                     "visual_only": true,
                     "rgba": [
-                        0.2,
-                        0.2,
-                        0.22,
+                        0.87,
+                        0.78,
+                        0.64,
                         1
-                    ],
-                    "select": {
-                        "axis": [
-                            0,
-                            0,
-                            1
-                        ],
-                        "center": [
-                            12.5,
-                            0,
-                            0
-                        ],
-                        "rmin": 44.5
-                    }
-                },
-                {
-                    "type": "mesh",
-                    "file": "../STL/MIR_SIMU_ROUE.stl",
-                    "visual_only": true,
-                    "rgba": [
-                        0.62,
-                        0.63,
-                        0.66,
-                        1
-                    ],
-                    "select": {
-                        "axis": [
-                            0,
-                            0,
-                            1
-                        ],
-                        "center": [
-                            12.5,
-                            0,
-                            0
-                        ],
-                        "rmax": 44.5
-                    }
+                    ]
                 },
                 {
                     "type": "cylinder",
