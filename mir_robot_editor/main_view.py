@@ -237,6 +237,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._pages.addWidget(self._make_pilot_page())
         self.collecte_view = CollecteView(self, self._view_model.get_collecte_view_model())
         self._pages.addWidget(self.collecte_view)
+        self.collecte_view.revue_changed.connect(lambda _: self._update_header())
         self.entrainement_view = EntrainementView(self, self._view_model.get_entrainement_view_model())
         self._pages.addWidget(self.entrainement_view)
         # qui fait bouger le robot : repère « en cours » sur la modalité ou l'étape concernée
@@ -534,9 +535,12 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         robot_kind = "robot simulé" if simulation else "robot réel"
         self._btn_connect.setVisible(not simulation and not configuring)
         self._btn_reset_sim.setVisible(simulation and not configuring)
-        self._btn_reset_sim.setEnabled(self._reset_sim_action.isEnabled())
+        # revoir un épisode dans Collecter : lecture seule, la scène n'a pas à changer
+        en_revue = self._steps.currentRow() == STEP_COLLECT and self.collecte_view._en_revue() \
+            if hasattr(self, "collecte_view") else False
+        self._btn_reset_sim.setEnabled(self._reset_sim_action.isEnabled() and not en_revue)
         self._cb_scene.setVisible(simulation and not configuring and robot_ouvert)
-        self._cb_scene.setEnabled(state != MainViewModelState.RUNNING)
+        self._cb_scene.setEnabled(state != MainViewModelState.RUNNING and not en_revue)
         if connected:
             self._btn_connect.setText("Déconnecter")
             self._btn_connect.setIcon(self._icon("unplug"))

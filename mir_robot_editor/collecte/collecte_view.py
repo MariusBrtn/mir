@@ -5,7 +5,7 @@
 from __future__ import annotations
 import re
 from typing import Any
-from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer
+from PySide6.QtCore import QEvent, QObject, QSize, Qt, QTimer, Signal
 from PySide6.QtWidgets import (QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QFrame, QGroupBox,
                                QHBoxLayout, QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton,
                                QScrollArea, QSpinBox, QSplitter, QStackedWidget, QToolButton, QVBoxLayout, QWidget)
@@ -27,6 +27,7 @@ def nom_valide(nom: str) -> str:
 
 
 class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
+    revue_changed = Signal(bool)        # un épisode est affiché (lecture seule) : l'en-tête grise la scène
     def __init__(self, parent, view_model: CollecteViewModel):
         super().__init__(parent, view_model=view_model)  # type: ignore
         vm = self._view_model
@@ -399,6 +400,7 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         self.btn_fermer_revue.setVisible(not nouvelle)
         self._center.setCurrentIndex(1)
         self._update_buttons()
+        self.revue_changed.emit(True)
 
     def _en_revue(self) -> bool:
         """Un épisode est affiché (démonstration à valider, ou épisode enregistré qu'on revoit)."""
@@ -408,6 +410,7 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         self.episode_view.arreter()
         self._center.setCurrentIndex(0)
         self._update_buttons()
+        self.revue_changed.emit(False)
 
     def _on_valider(self):
         ds = self._dataset()
