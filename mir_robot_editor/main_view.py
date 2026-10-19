@@ -15,6 +15,7 @@ from mir_robot_editor.essais.essais_view import EssaisView
 from mir_robot_editor.scripts.scripts_view import ScriptsView
 from mir_robot_editor.collecte.collecte_view import CollecteView
 from mir_robot_editor.entrainement.entrainement_view import EntrainementView
+from mir_robot_editor.ia.ia_view import IAView
 from mir_robot_editor.assemblage.assemblage_view import AssemblageView
 from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
 from mir_utils.ui.view_base import ViewBase
@@ -34,7 +35,7 @@ MODALITES = [
     ("Essais", "Solliciter un moteur et mesurer sa réponse", "stats", True),
     ("Téléopération", "Piloter à la main : clavier, bras leader…", "actions", True),
     ("Scripts", "Programmer le robot en Python", "edit", True),
-    ("IA", "Un modèle entraîné pilote le robot (à venir)", "robot", False),
+    ("IA", "Un modèle entraîné pilote le robot", "robot", True),
 ]
 STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", True)]
 
@@ -243,6 +244,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._activites = [(vm.get_essais_view_model(), STEP_PILOT, TAB_ESSAIS),
                            (vm.get_robot_monitor_view_model(), STEP_PILOT, TAB_TELEOP),
                            (vm.get_scripts_view_model(), STEP_PILOT, TAB_SCRIPTS),
+                           (vm.get_ia_view_model(), STEP_PILOT, TAB_POLITIQUE),
                            (vm.get_collecte_view_model(), STEP_COLLECT, None),
                            (vm.get_entrainement_view_model(), STEP_TRAIN, None)]
         for activite, _, _ in self._activites:
@@ -463,13 +465,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._pilot_tabs.addTab(self.teleop_view, "Téléopération")
         self.scripts_view = ScriptsView(self, self._view_model.get_scripts_view_model())
         self._pilot_tabs.addTab(self.scripts_view, "Scripts")
-        politique = QLabel("<b>IA</b> : choisir un modèle entraîné (étape « Entraîner un modèle ») et le laisser "
-                           "piloter le robot, réel ou simulé. À venir.")
-        politique.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        politique.setWordWrap(True)
-        politique.setObjectName("Muted")
-        self._pilot_tabs.addTab(politique, "IA")
-        self._pilot_tabs.setTabEnabled(TAB_POLITIQUE, False)
+        self.ia_view = IAView(self, self._view_model.get_ia_view_model())
+        self._pilot_tabs.addTab(self.ia_view, "IA")
         self._pilot_tabs.currentChanged.connect(self._on_pilot_tab_changed)
         self._on_pilot_tab_changed(self._pilot_tabs.currentIndex())
         layout.addWidget(self._pilot_tabs, 1)
@@ -576,8 +573,9 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         for path in [None] + vm.get_scenes():
             self._cb_scene.addItem(f"Scène : {vm.scene_name(path)}", path)
             self._cb_scene.setItemData(self._cb_scene.count() - 1, vm.scene_description(path), Qt.ItemDataRole.ToolTipRole)
-        index = self._cb_scene.findData(vm.get_scene())
-        self._cb_scene.setCurrentIndex(max(0, index))
+        # findData compare mal les objets Python (chemins) : on cherche nous-mêmes
+        index = next((i for i in range(self._cb_scene.count()) if self._cb_scene.itemData(i) == vm.get_scene()), 0)
+        self._cb_scene.setCurrentIndex(index)
         self._cb_scene.setToolTip(vm.scene_description(vm.get_scene()))
         self._cb_scene.blockSignals(False)
 
@@ -631,6 +629,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self.essais_view.set_simulation(simulation)
         self.teleop_view.set_simulation(simulation)
         self.scripts_view.set_simulation(simulation)
+        self.ia_view.set_simulation(simulation)
         self.collecte_view.set_simulation(simulation)
         self._update_header()
 
@@ -674,6 +673,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                 self._view_model.get_robot_monitor_view_model().stop()
                 self._view_model.get_scripts_view_model().arreter()
                 self._view_model.get_collecte_view_model().arreter()
+                self._view_model.get_ia_view_model().arreter()
                 deadline = time.perf_counter() + 3
                 while self._view_model.get_state() == MainViewModelState.RUNNING and time.perf_counter() < deadline:
                     QApplication.processEvents()
@@ -686,6 +686,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self.collecte_view.close_3d()
         self.essais_view.close_3d()     # libère les rendus OpenGL avant la sortie
         self.teleop_view.close_3d()
+        self.ia_view.close_3d()
         self._view_model.quit()
         super().closeEvent(event)
 

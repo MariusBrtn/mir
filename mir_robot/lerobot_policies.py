@@ -146,8 +146,9 @@ def _infos(folder: Path, pretrained: Path) -> dict[str, Any]:
         return json.loads(mir.read_text(encoding="utf-8"))
     train_config = json.loads((pretrained / "train_config.json").read_text(encoding="utf-8"))
     racine = train_config["dataset"]["root"]
-    fmt = DatasetMIR(Path(racine)).format()
-    return {"type": "lerobot", "policy": train_config["policy"]["type"], "dataset": racine,
+    ds = DatasetMIR(Path(racine))
+    fmt = ds.format()
+    return {"type": "lerobot", "policy": train_config["policy"]["type"], "dataset": racine, "fps": ds.fps(),
             "state_names": fmt.etat, "action_names": fmt.actions}
 
 

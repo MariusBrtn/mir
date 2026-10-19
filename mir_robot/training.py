@@ -350,14 +350,18 @@ def model_info(folder: str | Path) -> dict[str, Any]:
             infos = json.loads((folder / PREPARATION_FILE).read_text(encoding="utf-8"))
             prep = infos["preparation"]
             info.update(type="pytorch", kind="PyTorch", dataset=infos.get("dataset"), inputs=prep["inputs"],
-                        actions=prep["action_names"], date=infos.get("date", folder.name))
+                        images=prep["images"], actions=prep["action_names"], fps=infos.get("fps"),
+                        date=infos.get("date", folder.name))
         elif is_lerobot_model(folder):
             infos = _infos(folder, pretrained_dir(folder))     # noté par MIR, sinon lu dans le dataset d'origine
             config = json.loads((pretrained_dir(folder) / "config.json").read_text(encoding="utf-8"))
             entrees = [k.removeprefix("observation.images.").removeprefix("observation.")
                        for k in config.get("input_features", {})]
+            images = [k.removeprefix("observation.images.") for k in config.get("input_features", {})
+                      if k.startswith("observation.images.")]
             info.update(type="lerobot", kind=f"LeRobot {config.get('type', '').upper()}", dataset=infos.get("dataset"),
-                        inputs=entrees, actions=infos.get("action_names", []), date=infos.get("date", folder.name))
+                        inputs=entrees, images=images, actions=infos.get("action_names", []), fps=infos.get("fps"),
+                        date=infos.get("date", folder.name))
     except (OSError, ValueError, KeyError) as e:
         info["error"] = str(e)
     return info
