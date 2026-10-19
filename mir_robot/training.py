@@ -330,11 +330,48 @@ def _versions() -> dict[str, str]:
 # ---------------------------------------------------------------- sur le robot
 
 def trained_models(robot_dir: str | Path) -> list[Path]:
-    """Modèles entraînés d'un robot (dossiers robots/<robot>/modeles/<script>/<date>), du plus récent au plus ancien."""
+    """Modèles entraînés d'un robot (dossiers robots/<robot>/modeles/<script>/<date>), écrits en PyTorch (save_model)
+    ou de LeRobot (train_lerobot), du plus récent au plus ancien."""
+    from mir_robot.lerobot_policies import is_lerobot_model
     root = Path(robot_dir) / MODELS_DIR
     if not root.is_dir():
         return []
-    return sorted((f.parent for f in root.glob(f"*/*/{MODEL_FILE}")), key=lambda f: f.name, reverse=True)
+    dossiers = [d for d in root.glob("*/*") if d.is_dir() and ((d / MODEL_FILE).exists() or is_lerobot_model(d))]
+    return sorted(dossiers, key=lambda d: d.name, reverse=True)
+
+
+def model_info(folder: str | Path) -> dict[str, Any]:
+    """Ce qu'on sait d'un modèle entraîné : type ("pytorch" ou "lerobot"), script, date, dataset, entrées, actions."""
+    from mir_robot.lerobot_policies import _infos, is_lerobot_model, pretrained_dir
+    folder = Path(folder)
+    info: dict[str, Any] = {"name": folder.parent.name, "date": folder.name, "folder": str(folder)}
+    try:
+        if (folder / MODEL_FILE).exists():
+            infos = json.loads((folder / PREPARATION_FILE).read_text(encoding="utf-8"))
+            prep = infos["preparation"]
+            info.update(type="pytorch", kind="PyTorch", dataset=infos.get("dataset"), inputs=prep["inputs"],
+                        actions=prep["action_names"], date=infos.get("date", folder.name))
+        elif is_lerobot_model(folder):
+            infos = _infos(folder, pretrained_dir(folder))     # noté par MIR, sinon lu dans le dataset d'origine
+            config = json.loads((pretrained_dir(folder) / "config.json").read_text(encoding="utf-8"))
+            entrees = [k.removeprefix("observation.images.").removeprefix("observation.")
+                       for k in config.get("input_features", {})]
+            info.update(type="lerobot", kind=f"LeRobot {config.get('type', '').upper()}", dataset=infos.get("dataset"),
+                        inputs=entrees, actions=infos.get("action_names", []), date=infos.get("date", folder.name))
+    except (OSError, ValueError, KeyError) as e:
+        info["error"] = str(e)
+    return info
+
+
+def load_policy(folder: str | Path) -> Commande:
+    """Modèle entraîné prêt à piloter le robot (une Commande), qu'il soit écrit en PyTorch ou de LeRobot."""
+    from mir_robot.lerobot_policies import LeRobotPolicy, is_lerobot_model
+    folder = Path(folder)
+    if (folder / MODEL_FILE).exists():
+        return TrainedPolicy(folder)
+    if is_lerobot_model(folder):
+        return LeRobotPolicy(folder)
+    raise ValueError(f"pas de modèle entraîné dans {folder}")
 
 
 class TrainedPolicy(Commande):
@@ -349,6 +386,10 @@ class TrainedPolicy(Commande):
         self.infos = infos
         self.preparation = Preparation.from_dict(infos["preparation"])
         self.model = torch.export.load(self.folder / MODEL_FILE).module()
+
+    def observations(self) -> list[str]:
+        """Observations du robot nécessaires au modèle."""
+        return self.preparation.observations()
 
     def demarrer(self, robot):
         manquantes = [n for n in self.preparation.observations() if n not in robot.observations]
