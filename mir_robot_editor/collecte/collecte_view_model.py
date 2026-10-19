@@ -57,11 +57,16 @@ class CollecteViewModel(ViewModelBase[CollecteVMAction]):
     sauvegarde_changed = Signal(bool)            # écriture d'un épisode en cours
     _fin_boucle = Signal(str)                    # émis depuis la boucle : message d'erreur ou ""
 
-    def __init__(self, dialog_provider: IDialogProvider, other_busy=None, sim_world=None, conditions=None):
+    def __init__(self, dialog_provider: IDialogProvider, other_busy=None, sim_world=None, conditions=None,
+                 scene=None, choisir_scene=None, nom_scene=None):
         super().__init__(dialog_provider)
         self._other_busy = other_busy or (lambda: False)
         self._sim_world = sim_world or (lambda: None)
         self._conditions = conditions or (lambda: {})
+        self._scene = scene or (lambda: "table vide")               # scène actuelle du robot simulé
+        self._choisir_scene = choisir_scene or (lambda nom: False)
+        self.nom_scene = nom_scene or (lambda nom: nom)             # nom affiché d'une scène notée dans un dataset
+        self._alignement = False                # changer de scène reconstruit le robot : pas de ré-entrée
         self._robot: mirRobot | None = None
         self._dossier_robot: Path | None = None
         self._teleop_dir: Path | None = None
@@ -115,6 +120,35 @@ class CollecteViewModel(ViewModelBase[CollecteVMAction]):
 
     def teleops(self) -> list[str]:
         return list(discover_teleops(self._teleop_dir).commandes)
+
+    # ------------------------------------------------------------------ une scène par dataset (en simulé)
+    @staticmethod
+    def scene_du_dataset(ds: DatasetMIR | None) -> str | None:
+        """Scène des épisodes simulés du dataset (celle du dernier), None s'il n'en a pas."""
+        if ds is None or not ds.existe():
+            return None
+        scenes = [e.conditions.get("scene") for e in ds.episodes() if e.conditions.get("simulation")]
+        return next((s for s in reversed(scenes) if s), None)
+
+    def aligner_scene(self, ds: DatasetMIR | None) -> None:
+        """En simulé : choisit la scène du dataset, pour que ses démonstrations restent dans la même scène."""
+        scene = self.scene_du_dataset(ds)
+        if self._alignement or scene is None or scene == self._scene() or self._en_cours:
+            return
+        self._alignement = True
+        try:
+            self._choisir_scene(scene)
+        finally:
+            self._alignement = False
+
+    def conflit_de_scene(self, ds: DatasetMIR | None) -> str | None:
+        """Message si la scène actuelle n'est pas celle du dataset (en simulé), sinon None."""
+        scene = self.scene_du_dataset(ds)
+        if scene is None or not self._conditions().get("simulation") or scene == self._scene():
+            return None
+        return (f"Les démonstrations de « {ds.nom} » ont été enregistrées dans la scène « {self.nom_scene(scene)} », "
+                f"et la scène actuelle est « {self.nom_scene(self._scene())} ».\r\nUn dataset garde une seule scène : choisissez la sienne dans "
+                "l'en-tête, ou créez un nouveau dataset.")
 
     def datasets(self) -> list[DatasetMIR]:
         return datasets_du_robot(self._dossier_robot) if self._dossier_robot is not None else []

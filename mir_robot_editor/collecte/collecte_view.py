@@ -228,8 +228,15 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
         return panel
 
     # ------------------------------------------------------------------ robot, simulation
+    def aligner_scene(self):
+        """Étape affichée : en simulé, la scène redevient celle du dataset choisi."""
+        if self._simulation and self.isVisible():
+            self._view_model.aligner_scene(self._dataset())
+
     def set_simulation(self, simulation: bool):
         self._simulation = simulation
+        if simulation and hasattr(self, "cb_dataset"):
+            self.aligner_scene()
         self._update_3d()
 
     def _update_3d(self):
@@ -301,6 +308,7 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
     def _on_dataset_choisi(self, index: int):
         if self.cb_dataset.itemText(index) != NOUVEAU:
             self._on_dataset_change()
+            self.aligner_scene()            # une scène par dataset (choix de l'utilisateur seulement)
             return
         nom, ok = QInputDialog.getText(self, "Nouveau dataset", "Nom du dataset (ex. de_dans_la_boite) :")
         nom = nom_valide(nom) if ok else ""
@@ -316,8 +324,10 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
             self.sp_fps.setValue(ds.fps())
             self.sp_fps.setEnabled(False)
             self._remplir_observations(ds.format())
-            self.lbl_dataset.setText(f"{len(episodes)} épisode(s), {ds.fps()} Hz. Les observations et la fréquence "
-                                     f"sont celles du dataset.\n{ds.dossier}")
+            scene = self._view_model.scene_du_dataset(ds)
+            self.lbl_dataset.setText(f"{len(episodes)} épisode(s), {ds.fps()} Hz" +
+                                     (f", scène « {self._view_model.nom_scene(scene)} »" if scene else "") +
+                                     f". Les observations, la fréquence et la scène sont celles du dataset.\n{ds.dossier}")
             if episodes:
                 # les démonstrations suivantes continuent celles du dataset : même tâche, même durée
                 self.ed_tache.setText(episodes[-1].tache)
@@ -344,6 +354,10 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
     def _on_demarrer(self):
         if self._dataset() is None:
             self._view_model._dialogProvider.information("Collecter des données", "Choisissez ou créez d'abord un dataset.")
+            return
+        conflit = self._view_model.conflit_de_scene(self._dataset())
+        if conflit:
+            self._view_model._dialogProvider.information("Collecter des données", conflit)
             return
         self._installer_capteurs()
         self._view_model.demarrer(self.cb_teleop.currentText(), self._format(), self.sp_fps.value(), self.sp_duree.value())

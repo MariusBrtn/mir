@@ -652,6 +652,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             return
         self._pages.setCurrentIndex(row)
         self._robot_pages.setCurrentIndex(0)
+        if row == STEP_COLLECT:
+            self.collecte_view.aligner_scene()        # une scène par dataset
         self._update_header()
 
     def _revert_step(self):

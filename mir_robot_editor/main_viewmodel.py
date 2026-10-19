@@ -101,7 +101,10 @@ class MainViewModel(ViewModelBase[MainVMAction]):
                                                   self._essai_conditions, sim_world=self.get_sim_world)
         self._scripts_view_model = ScriptsViewModel(dialogProvider, sim_world=self.get_sim_world)
         self._collecte_view_model = CollecteViewModel(dialogProvider, sim_world=self.get_sim_world,
-                                                      conditions=self._essai_conditions)
+                                                      conditions=self._essai_conditions,
+                                                      scene=self.get_scene_name_for_data,
+                                                      choisir_scene=self.set_scene_by_name,
+                                                      nom_scene=self.scene_display_name)
         # entraînement : n'utilise pas le robot (ce n'est pas une activité sur le robot)
         self._entrainement_view_model = EntrainementViewModel(dialogProvider)
         # Piloter → IA : un modèle entraîné pilote le robot ; la liste suit les entraînements
@@ -186,6 +189,26 @@ class MainViewModel(ViewModelBase[MainVMAction]):
             return load_scene_file(path).get("description", path.stem)
         except (OSError, ValueError) as e:
             return f"Scène illisible : {e}"
+
+    def get_scene_name_for_data(self) -> str:
+        """Scène actuelle, telle qu'elle est notée dans les conditions d'enregistrement."""
+        return self._scene_path.name if self._scene_path is not None else "table vide"
+
+    def scene_display_name(self, nom: str) -> str:
+        """Nom affiché d'une scène notée dans un enregistrement (« table vide » ou nom de son fichier)."""
+        path = next((p for p in self.get_scenes() if p.name == nom), None)
+        return self.scene_name(path) if path is not None or nom == "table vide" else nom
+
+    def set_scene_by_name(self, nom: str) -> bool:
+        """Choisit la scène notée dans un enregistrement (« table vide » ou nom du fichier de la scène)."""
+        if nom == "table vide":
+            return self.set_scene(None)
+        path = next((p for p in self.get_scenes() if p.name == nom), None)
+        if path is None:
+            self._dialogProvider.information("Scène introuvable", f"La scène « {nom} » n'est plus dans le dossier "
+                                             "scenes du robot.")
+            return False
+        return self.set_scene(path)
 
     def set_scene(self, path: Path | None) -> bool:
         """Choisit la scène du robot simulé (reconstruit avec elle) ; False si une activité utilise le robot."""
