@@ -2,7 +2,16 @@
 [project]
 name = "mir_sim"
 version = "0.1.0"
-dependencies = ["mir_devices", "mir_robot", "mir_utils", "mujoco==3.6.0", "loguru", "numpy"]
+dependencies = [
+    "mir_devices",
+    "mir_robot",
+    "mir_utils",
+    "mujoco==3.6.0",
+    "loguru",
+    "numpy",
+    "stable-baselines3>=2.9.0",
+    "gymnasium>=1.4.0",
+]
 
 [build-system]
 requires = ["setuptools"]

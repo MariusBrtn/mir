@@ -727,8 +727,11 @@ class ModelBuilder:
         spec.worldbody.add_camera(name=cam["name"], pos=cam["pos"], quat=quat, fovy=cam.get("fovy", 60))
 
     def _add_object(self, spec: mujoco.MjSpec, obj: dict[str, Any]) -> None:
-        body = spec.worldbody.add_body(name=obj["name"], pos=obj["pos"], quat=euler_deg_to_quat(obj.get("euler_deg")))
-        if obj.get("free", True):
+        # "mocap": true : objet immobile que le programme peut déplacer entre deux épisodes (obstacles tirés au hasard)
+        mocap = obj.get("mocap", False)
+        body = spec.worldbody.add_body(name=obj["name"], pos=obj["pos"], quat=euler_deg_to_quat(obj.get("euler_deg")),
+                                       mocap=mocap)
+        if obj.get("free", True) and not mocap:
             body.add_freejoint(name=f"{obj['name']}_free")
         # objet fait de plusieurs formes (ex. boîte percée) : "geoms" = [{"type", "size", "pos"}], repère de l'objet ;
         # la masse de l'objet est répartie également entre elles

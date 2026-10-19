@@ -330,19 +330,23 @@ def _versions() -> dict[str, str]:
 # ---------------------------------------------------------------- sur le robot
 
 def trained_models(robot_dir: str | Path) -> list[Path]:
-    """Modèles entraînés d'un robot (dossiers robots/<robot>/modeles/<script>/<date>), écrits en PyTorch (save_model)
-    ou de LeRobot (train_lerobot), du plus récent au plus ancien."""
+    """Modèles entraînés d'un robot (dossiers robots/<robot>/modeles/<script>/<date>), écrits en PyTorch (save_model),
+    de LeRobot (train_lerobot) ou de Stable-Baselines3 (save_rl_model), du plus récent au plus ancien."""
     from mir_robot.lerobot_policies import is_lerobot_model
+    from mir_robot.rl import is_rl_model
     root = Path(robot_dir) / MODELS_DIR
     if not root.is_dir():
         return []
-    dossiers = [d for d in root.glob("*/*") if d.is_dir() and ((d / MODEL_FILE).exists() or is_lerobot_model(d))]
+    dossiers = [d for d in root.glob("*/*")
+                if d.is_dir() and ((d / MODEL_FILE).exists() or is_lerobot_model(d) or is_rl_model(d))]
     return sorted(dossiers, key=lambda d: d.stat().st_mtime, reverse=True)
 
 
 def model_info(folder: str | Path) -> dict[str, Any]:
-    """Ce qu'on sait d'un modèle entraîné : type ("pytorch" ou "lerobot"), script, date, dataset, entrées, actions."""
+    """Ce qu'on sait d'un modèle entraîné : type ("pytorch", "lerobot" ou "rl"), script, date, dataset, entrées,
+    actions."""
     from mir_robot.lerobot_policies import _infos, is_lerobot_model, pretrained_dir
+    from mir_robot.rl import is_rl_model, rl_model_info
     folder = Path(folder)
     info: dict[str, Any] = {"name": folder.parent.name, "date": folder.name, "folder": str(folder)}
     try:
@@ -362,19 +366,25 @@ def model_info(folder: str | Path) -> dict[str, Any]:
             info.update(type="lerobot", kind=f"LeRobot {config.get('type', '').upper()}", dataset=infos.get("dataset"),
                         inputs=entrees, images=images, actions=infos.get("action_names", []), fps=infos.get("fps"),
                         date=infos.get("date", folder.name))
+        elif is_rl_model(folder):
+            info.update(rl_model_info(folder))
     except (OSError, ValueError, KeyError) as e:
         info["error"] = str(e)
     return info
 
 
 def load_policy(folder: str | Path) -> Commande:
-    """Modèle entraîné prêt à piloter le robot (une Commande), qu'il soit écrit en PyTorch ou de LeRobot."""
+    """Modèle entraîné prêt à piloter le robot (une Commande), qu'il soit écrit en PyTorch, de LeRobot ou de
+    Stable-Baselines3."""
     from mir_robot.lerobot_policies import LeRobotPolicy, is_lerobot_model
+    from mir_robot.rl import RLPolicy, is_rl_model
     folder = Path(folder)
     if (folder / MODEL_FILE).exists():
         return TrainedPolicy(folder)
     if is_lerobot_model(folder):
         return LeRobotPolicy(folder)
+    if is_rl_model(folder):
+        return RLPolicy(folder)
     raise ValueError(f"pas de modèle entraîné dans {folder}")
 
 

@@ -2,6 +2,7 @@
 Étape « Entraîner un modèle » : les scripts d'entraînement du robot (robots/<robot>/modeles/*.py), lancés comme ceux de
 Piloter → Scripts (dans leur propre programme Python, ■ pour arrêter), avec le dataset choisi ici. Pas besoin du robot :
 on peut entraîner pendant qu'on pilote. Les modèles entraînés se choisissent ensuite dans Piloter → IA.
+Un script qui n'utilise pas de dataset (apprentissage par renforcement en simulation) se lance sans en choisir.
 """
 from __future__ import annotations
 import shutil
@@ -106,6 +107,15 @@ train_lerobot(policy="act", steps=5000, batch_size=8, chunk_size=20, n_action_st
 '''
 
 
+def besoin_dataset(fichier: Path | None) -> bool:
+    """Le script apprend-il à partir d'un dataset (load_data, train_lerobot) ? Sinon (renforcement), il s'en passe."""
+    try:
+        texte = fichier.read_text(encoding="utf-8") if fichier is not None else ""
+    except OSError:
+        return True
+    return "load_data(" in texte or "train_lerobot(" in texte
+
+
 class EntrainementViewModel(ScriptsViewModel):
     BESOIN_DU_ROBOT = False
     datasets_changed = Signal()
@@ -115,6 +125,7 @@ class EntrainementViewModel(ScriptsViewModel):
         super().__init__(dialog_provider)
         self._dossier_robot: Path | None = None
         self._dataset: DatasetMIR | None = None
+        self._fichier_lance: Path | None = None
 
     # ------------------------------------------------------------------ robot, datasets, modèles
     def set_dossier_robot(self, dossier: Path | None):
@@ -190,7 +201,13 @@ class EntrainementViewModel(ScriptsViewModel):
         return fichier
 
     # ------------------------------------------------------------------ exécution
+    def lancer(self, fichier: Path, taille_figures: tuple[int, int] = (640, 480), dpi_figures: float = 100):
+        self._fichier_lance = fichier
+        super().lancer(fichier, taille_figures, dpi_figures)
+
     def _peut_lancer(self) -> bool:
+        if not besoin_dataset(self._fichier_lance):
+            return True
         if self._dataset is None or not self._dataset.existe():
             self._dialogProvider.information("Entraîner", "Choisissez d'abord un dataset (enregistré dans « Collecter "
                                              "des données »).")
@@ -198,7 +215,8 @@ class EntrainementViewModel(ScriptsViewModel):
         return True
 
     def _environnement(self, env: QProcessEnvironment) -> None:
-        env.insert(DATASET_ENV, str(self._dataset.dossier.resolve()))
+        if self._dataset is not None and besoin_dataset(self._fichier_lance):
+            env.insert(DATASET_ENV, str(self._dataset.dossier.resolve()))
 
     def _fin(self, process, code, statut):
         super()._fin(process, code, statut)

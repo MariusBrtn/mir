@@ -45,6 +45,13 @@ class SimWorld:
             # angle croissant dans le sens horaire vu de dessus (z) : de x vers -y
             directions = np.column_stack([np.cos(angles), -np.sin(angles), np.zeros(n)])
             self._lidars[name] = (site, int(self.model.site_bodyid[site]), directions)
+        # robot mobile : liaison libre de sa base (None si le robot est fixé au sol)
+        self._robot_bodies = set(built.body_module)
+        libres = [j for j in range(self.model.njnt) if self.model.jnt_type[j] == mujoco.mjtJoint.mjJNT_FREE
+                  and self.model.jnt_bodyid[j] in self._robot_bodies]
+        self._base = (int(self.model.jnt_bodyid[libres[0]]), int(self.model.jnt_qposadr[libres[0]]),
+                      int(self.model.jnt_dofadr[libres[0]])) if libres else None
+        self.base_body: int | None = self._base[0] if self._base else None      # corps de la base (caméra qui suit)
         self._thread: Thread | None = None
         self._stop = Event()
         self._renderers: dict[tuple[int, int, int], mujoco.Renderer] = {}
@@ -221,20 +228,80 @@ class SimWorld:
         return any(abs(v) > threshold_deg_s for v in self.get_velocities_deg_s(motors).values())
 
     # ------------------------------------------------------------------ objets de la scène
-    def set_object_pose(self, name: str, pos: list[float] | np.ndarray, yaw_deg: float = 0.0) -> None:
-        """Replace un objet libre de la scène (position en m, rotation autour de la verticale), immobile."""
+    def set_object_pose(self, name: str, pos: list[float] | np.ndarray, yaw_deg: float = 0.0,
+                        forward: bool = True) -> None:
+        """Replace un objet libre (ou "mocap") de la scène (position en m, rotation autour de la verticale), immobile.
+        forward=False : ne recalcule pas la scène (pour en déplacer plusieurs d'affilée, puis appeler mj_forward)."""
+        demi = np.radians(yaw_deg) / 2
+        quat = [np.cos(demi), 0.0, 0.0, np.sin(demi)]
         with self.lock:
-            joint = self.model.joint(f"{name}_free")
-            adr, dof = self.model.jnt_qposadr[joint.id], self.model.jnt_dofadr[joint.id]
-            demi = np.radians(yaw_deg) / 2
-            self.data.qpos[adr:adr + 7] = [*pos, np.cos(demi), 0.0, 0.0, np.sin(demi)]
-            self.data.qvel[dof:dof + 6] = 0.0
-            mujoco.mj_forward(self.model, self.data)
+            mocap = self.model.body_mocapid[self.model.body(name).id]
+            if mocap >= 0:
+                self.data.mocap_pos[mocap] = pos
+                self.data.mocap_quat[mocap] = quat
+            else:
+                joint = self.model.joint(f"{name}_free")
+                adr, dof = self.model.jnt_qposadr[joint.id], self.model.jnt_dofadr[joint.id]
+                self.data.qpos[adr:adr + 7] = [*pos, *quat]
+                self.data.qvel[dof:dof + 6] = 0.0
+            if forward:
+                mujoco.mj_forward(self.model, self.data)
 
     def get_object_position(self, name: str) -> np.ndarray:
         """Position (m) du centre d'un objet de la scène."""
         with self.lock:
             return self.data.xpos[self.model.body(name).id].copy()
+
+    # ------------------------------------------------------------------ base d'un robot mobile
+    def set_robot_pose(self, x: float, y: float, yaw_deg: float = 0.0) -> None:
+        """Pose la base du robot mobile au sol en (x, y) (m), tournée de yaw_deg autour de la verticale, immobile."""
+        body, adr, dof = self._require_base()
+        demi = np.radians(yaw_deg) / 2
+        with self.lock:
+            z = self.model.qpos0[adr + 2]       # hauteur de départ : roues posées au sol
+            self.data.qpos[adr:adr + 7] = [x, y, z, np.cos(demi), 0.0, 0.0, np.sin(demi)]
+            self.data.qvel[dof:dof + 6] = 0.0
+            mujoco.mj_forward(self.model, self.data)
+
+    def get_robot_pose(self) -> tuple[float, float, float]:
+        """(x, y en m, cap en ° : direction de l'avant de la base, son axe x, vue de dessus)."""
+        body, adr, dof = self._require_base()
+        with self.lock:
+            rot = self.data.xmat[body].reshape(3, 3)
+            return (float(self.data.qpos[adr]), float(self.data.qpos[adr + 1]),
+                    float(np.degrees(np.arctan2(rot[1, 0], rot[0, 0]))))
+
+    def get_robot_velocity(self) -> tuple[float, float]:
+        """(vitesse vers l'avant en m/s, vitesse de rotation autour de la verticale en rad/s), base du robot."""
+        body, adr, dof = self._require_base()
+        with self.lock:
+            rot = self.data.xmat[body].reshape(3, 3)
+            avant = float(self.data.qvel[dof:dof + 3] @ rot[:, 0])      # vitesse linéaire : repère du monde
+            rotation = float(rot @ self.data.qvel[dof + 3:dof + 6] @ [0, 0, 1])    # vitesse angulaire : repère local
+            return avant, rotation
+
+    def is_robot_upright(self, max_tilt_deg: float = 45.0) -> bool:
+        body, _, _ = self._require_base()
+        with self.lock:
+            return float(self.data.xmat[body].reshape(3, 3)[2, 2]) > np.cos(np.radians(max_tilt_deg))
+
+    def robot_contacts(self) -> set[str]:
+        """Objets de la scène que le robot touche (le sol n'en fait pas partie)."""
+        with self.lock:
+            touches = set()
+            for contact in self.data.contact[:self.data.ncon]:
+                a, b = self.model.geom_bodyid[contact.geom1], self.model.geom_bodyid[contact.geom2]
+                if (a in self._robot_bodies) == (b in self._robot_bodies):
+                    continue        # contact interne au robot, ou entre deux objets
+                autre = b if a in self._robot_bodies else a
+                if autre != 0:      # corps 0 : le monde, qui porte le sol
+                    touches.add(self.model.body(autre).name)
+            return touches
+
+    def _require_base(self) -> tuple[int, int, int]:
+        if self._base is None:
+            raise ValueError("le robot est fixé au sol : il n'a pas de base mobile")
+        return self._base
 
     # ------------------------------------------------------------------ lidar
     def lidar_scan(self, name: str, range_m: tuple[float, float] = (0.05, 12.0)) -> tuple[np.ndarray, np.ndarray]:

@@ -8,7 +8,8 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QPushButton,
                                QVBoxLayout, QWidget)
-from mir_robot_editor.entrainement.entrainement_view_model import EntrainementViewModel, LEROBOT, PYTORCH, TYPES
+from mir_robot_editor.entrainement.entrainement_view_model import (EntrainementViewModel, LEROBOT, PYTORCH, TYPES,
+                                                                   besoin_dataset)
 from mir_robot_editor.scripts.scripts_view import ScriptsView
 from mir_utils.ui.widgets import ToolButton
 
@@ -148,7 +149,7 @@ class EntrainementView(ScriptsView):
             self.ouvrir(fichier)
 
     def _on_lancer(self):
-        dataset = self._view_model.dataset()
+        dataset = self._view_model.dataset() if besoin_dataset(self._fichier_courant()) else None
         super()._on_lancer()
         if dataset is not None and self._view_model.is_running():
             self._ecrire_info(f"   dataset : {dataset.nom}")
@@ -163,8 +164,11 @@ class EntrainementView(ScriptsView):
         vm: EntrainementViewModel = self._view_model
         busy = vm.is_running()
         a_un_script = self._fichier_courant() is not None
-        self.btn_lancer.setEnabled(not busy and a_un_script and vm.dataset() is not None)
-        self.btn_lancer.setToolTip("Enregistrer puis lancer l'entraînement affiché, sur le dataset choisi"
+        sans_dataset = a_un_script and not besoin_dataset(self._fichier_courant())
+        self.btn_lancer.setEnabled(not busy and a_un_script and (sans_dataset or vm.dataset() is not None))
+        self.btn_lancer.setToolTip("Enregistrer puis lancer l'entraînement affiché (en simulation, sans dataset)"
+                                   if sans_dataset else
+                                   "Enregistrer puis lancer l'entraînement affiché, sur le dataset choisi"
                                    if vm.dataset() is not None else "Choisissez d'abord un dataset")
         self.btn_arreter.setEnabled(busy)
         self.btn_nouveau.setEnabled(vm.dossier() is not None)
