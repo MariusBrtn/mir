@@ -51,3 +51,23 @@ def test_generateur_de_ramassage(tmp_path):
     episode = ds.charger_episode(0)
     assert episode["actions"][-1][4] == pytest.approx(14.0)                     # pince fermée à la fin
     assert episode["etat"][0][:4] == pytest.approx([0, -60, 90, -90], abs=0.5)  # posture de départ
+
+
+def test_objet_fait_de_plusieurs_formes():
+    """La boîte percée de l'insertion : un seul objet (un corps), plusieurs formes."""
+    monde = SimWorld.from_config(config_robot("bras_4ddl_cam_V2"), GENERATEUR.with_name("insertion_boite.json"))
+    corps = monde.model.body("boite").id
+    formes = [i for i in range(monde.model.ngeom) if monde.model.geom_bodyid[i] == corps]
+    assert len(formes) == 9                                  # fond, 4 parois, couvercle en 4 plaques
+    assert monde.model.body_mass[corps] == pytest.approx(0.3)
+
+
+def test_generateur_d_insertion(tmp_path):
+    generateur = runpy.run_path(str(GENERATEUR.with_name("generer_insertion.py")))
+    reussies, essais = generateur["generer"](1, tmp_path / "insertion", graine=2, taille=(320, 240))
+    assert reussies == 1
+    ds = DatasetMIR(tmp_path / "insertion")
+    assert ds.format().images == {"cam_1": (240, 320, 3)}
+    episode = ds.charger_episode(0)
+    assert episode["actions"][0][4] == pytest.approx(14.0)                      # cube tenu au départ
+    assert episode["actions"][-1][4] == pytest.approx(-14.0)                    # pince ouverte à la fin

@@ -81,6 +81,11 @@ symétrique `mir_coude_60_b` (mâle-mâle à 60°, faces `face_a` / `face_b`), `
 Fichier JSON à côté des scripts de la tâche (ex. `scene_de.json`) : position du robot sur la table
 (`robot`: `pos`, `euler_deg`), `table`, caméras fixes (`cameras`) et objets (`objects`).
 
+Un objet est une forme simple (`type` : `box`, `cylinder`, `sphere`... ; `size` en m, demi-dimensions comme MuJoCo),
+ou plusieurs formes réunies (`geoms` : liste de `{"type", "size", "pos"}` dans le repère de l'objet, ex. une boîte
+percée d'un trou). `free` : `false` pour un objet fixe ; `mass`, `rgba`, `friction`. Un objet libre se replace
+avec `SimWorld.set_object_pose(nom, position, yaw_deg)`.
+
 ## Module du catalogue (`catalog/<type>.json`)
 
 Tout est exprimé dans le repère de la CAO du module (en mm avec `"unit_scale": 0.001`), articulations à zéro.

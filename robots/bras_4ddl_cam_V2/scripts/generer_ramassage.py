@@ -8,6 +8,7 @@ Les démonstrations réussies (dé soulevé) sont enregistrées dans un dataset 
 téléopération : image de cam_1, angles des moteurs et consignes envoyées.
 
     uv run python robots/bras_4ddl_cam_V2/scripts/generer_ramassage.py --nombre 50
+    uv run python robots/bras_4ddl_cam_V2/scripts/generer_ramassage.py --nombre 50 --taille 320x240 --dataset ramassage_sim_320
 
 La physique avance pas à pas (pas en temps réel) : une démonstration de 5 s se calcule en 1 à 2 s.
 """
@@ -19,10 +20,9 @@ import time
 from pathlib import Path
 from loguru import logger
 from mir_robot.donnees import DatasetMIR, FormatDataset
-from mir_robot.mir_robot import chemin_robot, mirRobot, mirRobotConfig
-from mir_sim.config_from_structure import complete_config_from_structure
+from mir_robot.mir_robot import chemin_robot
+from mir_sim.demonstrations import interpolate, open_sim_robot, record_episode
 from mir_sim.grasp import GripperIK
-from mir_sim.sim_devices_factory import SimDevicesFactory
 
 ROBOT = "bras_4ddl_cam_V2"
 SCENE = Path(__file__).with_name("ramassage_de.json")
@@ -50,17 +50,7 @@ DUREE_S = sum(duree for _, duree in ETAPES)
 
 def ouvrir_robot():
     """Bras simulé dans la scène du dé, physique arrêtée : c'est le générateur qui la fait avancer."""
-    config = mirRobotConfig.load(str(chemin_robot(ROBOT)))
-    complete_config_from_structure(config)
-    fabrique = SimDevicesFactory(scene=SCENE)
-    robot = mirRobot(config, devices_factory=fabrique)
-    robot.connect()
-    robot.configure()
-    observations = [n for n in robot.get_observables() if n.endswith(".position")] + [CAMERA]
-    robot.enable_observations_by_name(observations)
-    monde = fabrique.world
-    monde.stop_realtime()
-    return robot, monde, observations
+    return open_sim_robot(ROBOT, SCENE, CAMERA)
 
 
 def postures(ik, x, y):
@@ -82,38 +72,27 @@ def postures(ik, x, y):
 
 def consigne(t, cles):
     """Consigne de l'expert à l'instant t : on va en ligne droite de la posture précédente vers celle de l'étape."""
-    precedente = DEPART
-    debut = 0.0
-    for nom, duree in ETAPES:
-        if t < debut + duree:
-            s = (t - debut) / duree
-            return {m: precedente[m] + s * (cles[nom][m] - precedente[m]) for m in DEPART}
-        precedente, debut = cles[nom], debut + duree
-    return dict(precedente)
+    return interpolate(t, ETAPES, DEPART, cles)
 
 
-def demonstration(robot, monde, fmt, cles, x, y, orientation_deg):
+def demonstration(robot, monde, fmt, cles, x, y, orientation_deg, taille=None):
     """Une démonstration : renvoie (trames du dataset, dé soulevé ?)."""
     monde.reset(DEPART)
     monde.set_object_pose(OBJET, [x, y, HAUTEUR_DE_M], orientation_deg)
-    pas = round(1 / FPS / monde.model.opt.timestep)
-    trames = []
-    for k in range(round(DUREE_S * FPS)):
-        observation = robot.get_observation()
-        action = {f"{m}.position": v for m, v in consigne(k / FPS, cles).items()}
-        robot.send_action(action)
-        trames.append(fmt.trame(observation, action))
-        monde.step(pas)
+    trames = record_episode(robot, monde, fmt, FPS, DUREE_S, lambda t: consigne(t, cles), CAMERA, taille)
     return trames, monde.get_object_position(OBJET)[2] > REUSSITE_M
 
 
-def generer(nombre, dataset, graine=0):
-    """Enregistre `nombre` démonstrations réussies dans le dataset (dossier) ; renvoie (réussies, essayées)."""
+def generer(nombre, dataset, graine=0, taille=None):
+    """Enregistre `nombre` démonstrations réussies dans le dataset (dossier) ; renvoie (réussies, essayées).
+    taille : (largeur, hauteur) des images enregistrées ; None : taille de la caméra."""
     hasard = random.Random(graine)
     robot, monde, observations = ouvrir_robot()
     try:
         ik = GripperIK(monde)
         fmt = FormatDataset.depuis_robot(robot.get_observables(), observations, list(robot.action_features))
+        if taille is not None:
+            fmt.images[CAMERA] = (taille[1], taille[0], 3)
         ds = DatasetMIR(Path(dataset))
         reussies = essais = 0
         while reussies < nombre and essais < 2 * nombre + 10:
@@ -128,7 +107,7 @@ def generer(nombre, dataset, graine=0):
             serrage = ik.forward(cles["fermeture"])[2]
             orientation = math.degrees(math.atan2(serrage[1], serrage[0])) + hasard.uniform(-1, 1) * ORIENTATION_DEG
             debut = time.perf_counter()
-            trames, ok = demonstration(robot, monde, fmt, cles, x, y, orientation)
+            trames, ok = demonstration(robot, monde, fmt, cles, x, y, orientation, taille)
             if not ok:
                 print(f"  démonstration {essais} : dé en ({x*100:.1f}, {y*100:.1f}) cm, raté (non enregistrée)")
                 continue
@@ -148,10 +127,12 @@ if __name__ == "__main__":
     parser.add_argument("--nombre", type=int, default=50, help="nombre de démonstrations réussies à enregistrer")
     parser.add_argument("--dataset", default="ramassage_sim", help="nom du dataset (dans le dossier du robot)")
     parser.add_argument("--graine", type=int, default=0, help="graine du hasard (mêmes positions du dé)")
+    parser.add_argument("--taille", help="taille des images enregistrées, ex. 320x240 (par défaut : celle de la caméra)")
     args = parser.parse_args()
     logger.remove()
     logger.add(lambda message: print(message, end=""), level="WARNING")
     dossier = chemin_robot(ROBOT).parent / "datasets" / args.dataset
     print(f"{args.nombre} démonstrations -> {dossier}")
-    reussies, essais = generer(args.nombre, dossier, args.graine)
+    taille = tuple(int(v) for v in args.taille.split("x")) if args.taille else None
+    reussies, essais = generer(args.nombre, dossier, args.graine, taille)
     print(f"Terminé : {reussies} démonstrations enregistrées sur {essais} essayées.")

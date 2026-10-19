@@ -694,10 +694,15 @@ class ModelBuilder:
         body = spec.worldbody.add_body(name=obj["name"], pos=obj["pos"], quat=euler_deg_to_quat(obj.get("euler_deg")))
         if obj.get("free", True):
             body.add_freejoint(name=f"{obj['name']}_free")
-        body.add_geom(type=self.GEOM_TYPES[obj.get("type", "box")], size=obj["size"],
-                      mass=obj.get("mass", 0.01), rgba=obj.get("rgba", [0.8, 0.2, 0.2, 1]),
-                      friction=obj.get("friction", [1.0, 0.02, 0.001]),
-                      solref=STIFF_SOLREF, solimp=STIFF_SOLIMP + [0.5, 2])
+        # objet fait de plusieurs formes (ex. boîte percée) : "geoms" = [{"type", "size", "pos"}], repère de l'objet ;
+        # la masse de l'objet est répartie également entre elles
+        formes = obj.get("geoms") or [{"type": obj.get("type", "box"), "size": obj["size"]}]
+        for forme in formes:
+            body.add_geom(type=self.GEOM_TYPES[forme.get("type", "box")], size=forme["size"],
+                          pos=forme.get("pos", [0, 0, 0]), mass=obj.get("mass", 0.01) / len(formes),
+                          rgba=forme.get("rgba", obj.get("rgba", [0.8, 0.2, 0.2, 1])),
+                          friction=obj.get("friction", [1.0, 0.02, 0.001]),
+                          solref=STIFF_SOLREF, solimp=STIFF_SOLIMP + [0.5, 2])
 
 
 def load_scene(scene: str | Path | dict[str, Any] | None) -> dict[str, Any]:
