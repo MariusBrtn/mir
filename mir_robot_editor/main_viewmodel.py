@@ -13,6 +13,7 @@ from mir_robot_editor.robot_monitor_view_model import RobotMonitorViewModel
 from mir_robot_editor.essais.essais_view_model import EssaisViewModel
 from mir_robot_editor.scripts.scripts_view_model import ScriptsViewModel
 from mir_robot_editor.collecte.collecte_view_model import CollecteViewModel
+from mir_robot_editor.entrainement.entrainement_view_model import EntrainementViewModel
 from mir_robot_editor.assemblage.assemblage_view_model import AssemblageViewModel
 from mir_robot_editor.edit_configuration_view_model import EditConfigurationViewModel
 from mir_robot_editor.robot_model.structure_editor_view_model import StructureEditorViewModel
@@ -100,6 +101,8 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._scripts_view_model = ScriptsViewModel(dialogProvider, sim_world=self.get_sim_world)
         self._collecte_view_model = CollecteViewModel(dialogProvider, sim_world=self.get_sim_world,
                                                       conditions=self._essai_conditions)
+        # entraînement : n'utilise pas le robot (ce n'est pas une activité sur le robot)
+        self._entrainement_view_model = EntrainementViewModel(dialogProvider)
         # une seule activité à la fois sur le robot : téléopération, essai, script ou collecte
         self._activites = [self._robot_monitor_view_model, self._essais_view_model, self._scripts_view_model,
                            self._collecte_view_model]
@@ -206,6 +209,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         cfg = self._current_configuration
         dossier = dossier_du_robot(cfg.path) if cfg is not None and cfg.path is not None and self._state != MainViewModelState.INIT else None
         self._collecte_view_model.set_dossier_robot(dossier, self.get_teleop_dir())
+        self._entrainement_view_model.set_dossier_robot(dossier)
 
     @property
     def _configuration_dirty(self) -> bool:
@@ -348,6 +352,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
 
     def quit(self):
         self._scripts_view_model.quit()
+        self._entrainement_view_model.quit()
         self._collecte_view_model.quit()
         if self._robot is not None:
             self._robot.disconnect()
@@ -712,6 +717,9 @@ class MainViewModel(ViewModelBase[MainVMAction]):
 
     def get_collecte_view_model(self) -> CollecteViewModel:
         return self._collecte_view_model
+
+    def get_entrainement_view_model(self) -> EntrainementViewModel:
+        return self._entrainement_view_model
 
     def get_scripts_view_model(self) -> ScriptsViewModel:
         return self._scripts_view_model

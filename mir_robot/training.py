@@ -337,7 +337,7 @@ def trained_models(robot_dir: str | Path) -> list[Path]:
     if not root.is_dir():
         return []
     dossiers = [d for d in root.glob("*/*") if d.is_dir() and ((d / MODEL_FILE).exists() or is_lerobot_model(d))]
-    return sorted(dossiers, key=lambda d: d.name, reverse=True)
+    return sorted(dossiers, key=lambda d: d.stat().st_mtime, reverse=True)
 
 
 def model_info(folder: str | Path) -> dict[str, Any]:

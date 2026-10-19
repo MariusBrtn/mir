@@ -14,6 +14,7 @@ from mir_robot_editor.teleop.teleop_view import TeleopView
 from mir_robot_editor.essais.essais_view import EssaisView
 from mir_robot_editor.scripts.scripts_view import ScriptsView
 from mir_robot_editor.collecte.collecte_view import CollecteView
+from mir_robot_editor.entrainement.entrainement_view import EntrainementView
 from mir_robot_editor.assemblage.assemblage_view import AssemblageView
 from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
 from mir_utils.ui.view_base import ViewBase
@@ -26,7 +27,7 @@ COLOR_IDLE = theme.IDLE
 COLOR_RUNNING = theme.RUNNING
 
 # étapes du parcours (colonne de gauche)
-STEP_ROBOT, STEP_PILOT, STEP_COLLECT = 0, 1, 2
+STEP_ROBOT, STEP_PILOT, STEP_COLLECT, STEP_TRAIN = 0, 1, 2, 3
 TAB_ESSAIS, TAB_TELEOP, TAB_SCRIPTS, TAB_POLITIQUE = 0, 1, 2, 3
 # les façons de commander le robot dans Piloter : (titre, explication, icône, disponible)
 MODALITES = [
@@ -35,7 +36,7 @@ MODALITES = [
     ("Scripts", "Programmer le robot en Python", "edit", True),
     ("IA", "Un modèle entraîné pilote le robot (à venir)", "robot", False),
 ]
-STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", False)]
+STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", True)]
 
 
 class EtapesBar(QWidget):
@@ -235,12 +236,15 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._pages.addWidget(self._make_pilot_page())
         self.collecte_view = CollecteView(self, self._view_model.get_collecte_view_model())
         self._pages.addWidget(self.collecte_view)
+        self.entrainement_view = EntrainementView(self, self._view_model.get_entrainement_view_model())
+        self._pages.addWidget(self.entrainement_view)
         # qui fait bouger le robot : repère « en cours » sur la modalité ou l'étape concernée
         vm = self._view_model
         self._activites = [(vm.get_essais_view_model(), STEP_PILOT, TAB_ESSAIS),
                            (vm.get_robot_monitor_view_model(), STEP_PILOT, TAB_TELEOP),
                            (vm.get_scripts_view_model(), STEP_PILOT, TAB_SCRIPTS),
-                           (vm.get_collecte_view_model(), STEP_COLLECT, None)]
+                           (vm.get_collecte_view_model(), STEP_COLLECT, None),
+                           (vm.get_entrainement_view_model(), STEP_TRAIN, None)]
         for activite, _, _ in self._activites:
             activite.busy_state_changed.connect(lambda _: self._update_activites())
         body.addWidget(self._pages, 1)
@@ -609,10 +613,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         # sans robot ouvert, il n'y a rien à piloter ni à collecter : ces étapes sont grisées
         if hasattr(self, "_steps"):
             avec_robot = state != MainViewModelState.INIT
-            for step in (STEP_PILOT, STEP_COLLECT):
+            for step in (STEP_PILOT, STEP_COLLECT, STEP_TRAIN):
                 self._steps.set_enabled(step, avec_robot, "" if avec_robot else
                                         "Ouvrez ou créez d'abord un robot (étape Configurer)")
-            if not avec_robot and self._steps.currentRow() in (STEP_PILOT, STEP_COLLECT):
+            if not avec_robot and self._steps.currentRow() in (STEP_PILOT, STEP_COLLECT, STEP_TRAIN):
                 self._steps.setCurrentRow(STEP_ROBOT)
         if state == MainViewModelState.CONNECTED and previous == MainViewModelState.LOADED:
             if not self._view_model.is_simulation() and self._steps.currentRow() == STEP_ROBOT:
@@ -677,6 +681,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             self._view_model.disconnect_robot()
         self.teleop_view.save_state()
         self.scripts_view.enregistrer_tout()
+        self.entrainement_view.enregistrer_tout()
         self.scripts_view.close_3d()
         self.collecte_view.close_3d()
         self.essais_view.close_3d()     # libère les rendus OpenGL avant la sortie

@@ -37,6 +37,10 @@ for t in boucle(frequence=20, duree=3):
 '''
 
 
+# avertissement de macOS sans conséquence (OpenCV et PyAV embarquent chacun ffmpeg) : il n'a rien à faire dans la console
+AVERTISSEMENT_MACOS = re.compile(r"^objc\[\d+\]: Class \S+ is implemented in both .*(\n|$)", re.MULTILINE)
+
+
 class ScriptsVMAction(Enum):
     pass
 
@@ -47,6 +51,8 @@ def nom_de_fichier(nom: str) -> str:
 
 
 class ScriptsViewModel(ViewModelBase[ScriptsVMAction]):
+    # les scripts commandent le robot ; une sous-classe (entraînement) peut s'en passer
+    BESOIN_DU_ROBOT = True
     busy_state_changed = Signal(bool)
     robot_changed = Signal()
     dossier_changed = Signal()
@@ -130,16 +136,27 @@ class ScriptsViewModel(ViewModelBase[ScriptsVMAction]):
         return self._process is not None
 
     def lancer(self, fichier: Path, taille_figures: tuple[int, int] = (640, 480), dpi_figures: float = 100):
-        if self.is_running():
+        if self.is_running() or not self._peut_lancer():
             return
+        self._demarrer_processus(fichier, taille_figures, dpi_figures)
+
+    def _peut_lancer(self) -> bool:
+        """Le robot est-il disponible pour le script ? (sinon, un message explique pourquoi)"""
         if self._robot is None:
             self._dialogProvider.information("Lancer le script", "Pas de robot : connectez le robot réel, ou ouvrez un "
                                              "robot qui a une structure pour utiliser le robot simulé.")
-            return
+            return False
         if self._other_busy():
             self._dialogProvider.information("Lancer le script", "Arrêtez d'abord le mouvement en cours "
                                              "(Essais, Téléopération ou Collecter des données).")
-            return
+            return False
+        return True
+
+    def _environnement(self, env: QProcessEnvironment) -> None:
+        """Variables d'environnement propres au script (une sous-classe peut en ajouter)."""
+        pass
+
+    def _demarrer_processus(self, fichier: Path, taille_figures: tuple[int, int], dpi_figures: float):
         adresse, cle = self._serveur.demarrer()
         env = QProcessEnvironment.systemEnvironment()
         env.insert(ADRESSE_ENV, adresse)
@@ -149,6 +166,7 @@ class ScriptsViewModel(ViewModelBase[ScriptsVMAction]):
         env.insert("MPLBACKEND", "module://mir_robot.mpl_backend")     # figures affichées dans MIR
         env.insert(TAILLE_ENV, f"{taille_figures[0]},{taille_figures[1]}")
         env.insert(DPI_ENV, f"{dpi_figures:g}")
+        self._environnement(env)
         process = QProcess(self)
         process.setProcessEnvironment(env)
         process.setWorkingDirectory(str(fichier.parent))       # le script peut importer ses fichiers voisins
@@ -184,6 +202,8 @@ class ScriptsViewModel(ViewModelBase[ScriptsVMAction]):
     def _lire(self, process: QProcess, erreur: bool):
         data = process.readAllStandardError() if erreur else process.readAllStandardOutput()
         texte = bytes(data.data()).decode("utf-8", errors="replace")
+        if erreur:
+            texte = AVERTISSEMENT_MACOS.sub("", texte)
         if texte:
             self.sortie.emit(texte, erreur)
 
@@ -210,7 +230,7 @@ class ScriptsViewModel(ViewModelBase[ScriptsVMAction]):
             message = f"Le script s'est arrêté sur une erreur (au bout de {duree:.1f} s)"
         # le script ne commande plus le robot : les moteurs s'arrêtent là où ils sont
         # (pas après un arrêt d'urgence : renvoyer une consigne réactiverait le couple)
-        if not self._urgence and self._robot is not None:
+        if self.BESOIN_DU_ROBOT and not self._urgence and self._robot is not None:
             try:
                 self._robot.motors_stop()
             except Exception as e:
