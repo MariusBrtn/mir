@@ -106,3 +106,14 @@ def test_modele_rl_pilote_le_robot(app, robot_simule, tmp_path):
         time.sleep(0.01)
     app.processEvents()
     assert etats[-1].startswith("Terminé au bout de"), etats
+
+
+def test_scene_de_mir_depart_libre():
+    # dans MIR, le robot part du centre de la rue : la disposition fixe des décombres doit le laisser libre
+    import json
+    scene = json.loads((MODELES.parent / "scenes" / "rue_decombres.json").read_text(encoding="utf-8"))
+    monde = SimWorld.from_config(str(ROBOT), scene)
+    monde.step(10)
+    assert monde.robot_contacts() == set()
+    distances = monde.lidar_scan("lidar_1")[1]
+    assert distances[distances > 0].min() > 0.5

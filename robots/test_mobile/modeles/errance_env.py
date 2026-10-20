@@ -144,14 +144,23 @@ def placer_decombres(monde, scene: dict, rng: np.random.Generator, nombre: tuple
     mujoco.mj_forward(monde.model, monde.data)
 
 
+PLACE_LIBRE = 0.6                       # m autour du centre de la rue, où MIR pose le robot : aucun décombre
+
+
 def ecrire_scene() -> Path:
-    """Écrit la rue dans les scènes du robot, avec une disposition fixe des décombres, pour la voir dans MIR."""
+    """Écrit la rue dans les scènes du robot, avec une disposition fixe des décombres, pour la voir dans MIR.
+    Le robot y part du centre de la rue : les décombres laissent une place libre autour."""
     scene = scene_rue()
     rng = np.random.default_rng(1)
     for i, obj in enumerate(o for o in scene["objects"] if o.get("mocap")):
         if i < 24:
-            obj["pos"] = [round(rng.uniform(-LONGUEUR / 2 + 0.3, LONGUEUR / 2 - 0.3), 2),
-                          round(rng.uniform(-LARGEUR / 2 + 0.2, LARGEUR / 2 - 0.2), 2), obj["pos"][2]]
+            taille = float(np.hypot(*obj["size"][:2])) if obj["type"] == "box" else obj["size"][0]  # rayon
+            while True:
+                x = rng.uniform(-LONGUEUR / 2 + 0.3, LONGUEUR / 2 - 0.3)
+                y = rng.uniform(-LARGEUR / 2 + 0.2, LARGEUR / 2 - 0.2)
+                if np.hypot(x, y) > PLACE_LIBRE + taille:
+                    break
+            obj["pos"] = [round(x, 2), round(y, 2), obj["pos"][2]]
             obj["euler_deg"] = [0, 0, round(rng.uniform(0, 360))]
     chemin = ROBOT.parent / "scenes" / "rue_decombres.json"
     chemin.parent.mkdir(exist_ok=True)
