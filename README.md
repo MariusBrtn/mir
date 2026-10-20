@@ -59,19 +59,84 @@ on the real robot or in simulation.
 | `doc/` | documentation (architecture, installation, hardware) |
 | `cad/`, `assets/` | 3D models (STL) and pictures of the modules |
 
-### Installation
+## Installation
 
-MIR uses [uv](https://docs.astral.sh/uv/) (Python 3.12 and exact package versions are installed automatically):
+MIR runs on **Windows**, **macOS** and **Linux**. No administrator rights are needed, and you don't have to install
+Python yourself: the [uv](https://docs.astral.sh/uv/) tool downloads Python 3.12 and the exact versions of every
+package MIR needs (LeRobot, MuJoCo, PyTorch...).
+
+You need an internet connection and about **5 GB** of free disk space. The first installation takes around 10 minutes.
+
+### 1. Install uv (once)
+
+- **Windows**: open **PowerShell** (Start menu → type "PowerShell") and paste:
+  ```powershell
+  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+  ```
+- **macOS / Linux**: open a **Terminal** and paste:
+  ```bash
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+
+Then **close and reopen** the PowerShell / Terminal window, so that the `uv` command is found.
+
+### 2. Download MIR
+
+Either:
+- **without git**: on this page, click the green **Code** button → **Download ZIP**, and unzip it where you like;
+- **with git**:
+  ```bash
+  git clone https://github.com/MariusBrtn/mir.git
+  ```
+
+### 3. Install MIR
+
+Open PowerShell / Terminal **in the MIR folder** (`mir`, or `mir-main` if you downloaded the ZIP: the folder containing
+`pyproject.toml`) and run:
 
 ```bash
-git clone https://github.com/MariusBrtn/mir.git
-cd mir
-uv sync          # creates the .venv environment
-uv run mir       # starts MIR
-uv run pytest    # runs the tests (simulation only, no hardware needed)
+uv sync
 ```
 
-More details in [`doc/`](doc/) (in French).
+You can also double-click **`install.bat`** (Windows) or run **`./install.sh`** (macOS / Linux).
+This creates a `.venv` folder containing everything MIR needs; nothing is installed elsewhere on your computer.
+
+### 4. Start MIR
+
+From the same folder:
+
+```bash
+uv run mir
+```
+
+No robot at hand? Everything works in simulation:
+1. in the **Robot** menu, choose **Ouvrir un robot…** (open a robot) and pick an example, such as `bras_4ddl_cam_V2`
+   (robot arm with a camera) or `test_mobile` (mobile robot with a lidar);
+2. click **Simulé** (simulated) at the top of the window, then explore the steps: drive the robot, record
+   demonstrations, train a model, and let it drive the robot (**Piloter → IA**).
+
+### Other commands
+
+```bash
+uv run mir-esp32           # setup tool for the ESP32 sensor boards
+uv run pytest              # automatic tests (simulation only, no hardware needed)
+uv run python my_script.py # run your own Python script with MIR's packages
+```
+
+In VS Code, select the Python interpreter of `mir/.venv`.
+
+### Update MIR
+
+```bash
+git pull     # or download the ZIP again
+uv sync
+```
+
+### Real hardware
+
+With a real robot, connect the servo bus adapter (USB) and power the robot, then click **Réel** (real) and connect.
+Hardware guides are in [`doc/`](doc/) (in French), for example the
+[serial ports guide](doc/serial_ports/Guide_Ports_Serie_Persistants.md) on Linux.
 
 ## Authors
 

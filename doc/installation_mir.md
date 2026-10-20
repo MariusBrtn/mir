@@ -19,7 +19,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ### 2. récupérer MIR
 
 ```bash
-git clone https://github.com/MichelBtn/mir
+git clone https://github.com/MariusBrtn/mir
 ```
 
 ---
