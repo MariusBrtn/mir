@@ -15,6 +15,8 @@ name = "mir"
 version = "0.1.0"
 description = "MIR (Modular Intelligent Robot) : plateforme pédagogique de robotique et d'IA"
 readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Marius Bertin" }, { name = "Michel Bertin" }]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "mir_utils",
