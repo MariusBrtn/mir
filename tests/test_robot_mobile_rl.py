@@ -49,7 +49,7 @@ def test_obstacle_mocap_et_contact(monde):
     monde.set_robot_pose(0, 0, 0)
     assert monde.robot_contacts() == set()
     bloc = next(o for o in scene_rue()["objects"] if o.get("mocap"))
-    monde.set_object_pose(bloc["name"], [0.1, 0, bloc["pos"][2]])      # posé sur le robot
+    monde.set_object_pose(bloc["name"], [0.1, 0, bloc["size"][2]])      # posé sur la chaussée, contre le robot
     monde.step(1)
     assert bloc["name"] in monde.robot_contacts()
 
@@ -113,6 +113,8 @@ def test_scene_de_mir_depart_libre():
     import json
     scene = json.loads((MODELES.parent / "scenes" / "rue_decombres.json").read_text(encoding="utf-8"))
     monde = SimWorld.from_config(str(ROBOT), scene)
+    assert monde.data.qpos[2] < 0.05        # posé sur la chaussée (pas sur la réserve de décombres, sous le sol)
+    assert monde.model.stat.extent < 20     # réserve rangée sous la rue : scène à sa taille, ombres nettes
     monde.step(10)
     assert monde.robot_contacts() == set()
     distances = monde.lidar_scan("lidar_1")[1]

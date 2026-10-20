@@ -413,7 +413,7 @@ class ModelBuilder:
         model = spec.compile()
         if mobile and "robot" not in self._scene:
             # robot mobile sans position imposée : posé sur le sol par son point le plus bas (ses roues)
-            body.pos = robot_pos + [0, 0, 0.0005 - self._lowest_point(model)]
+            body.pos = robot_pos + [0, 0, 0.0005 - self._lowest_point(model, body.name)]
             model = spec.compile()
         body_module = {model.body(body.name).id: name
                        for name, bodies in self._part_bodies.items() for body in bodies.values()}
@@ -422,14 +422,16 @@ class ModelBuilder:
                           body_module=body_module, connector_markers=markers, lidars=self._lidars)
 
     @staticmethod
-    def _lowest_point(model: mujoco.MjModel) -> float:
-        """Altitude du point le plus bas des formes de contact du robot (modèle à sa position de départ)."""
+    def _lowest_point(model: mujoco.MjModel, root_body: str) -> float:
+        """Altitude du point le plus bas des formes de contact du robot (modèle à sa position de départ) ; root_body :
+        corps racine du robot (les objets de la scène ne comptent pas)."""
         data = mujoco.MjData(model)
         mujoco.mj_forward(model, data)
+        root = model.body(root_body).id
         lowest = np.inf
         for g in range(model.ngeom):
-            if model.geom_bodyid[g] == 0 or model.geom_contype[g] == 0:
-                continue        # sol, objets fixes, géométries visuelles
+            if model.body_rootid[model.geom_bodyid[g]] != root or model.geom_contype[g] == 0:
+                continue        # sol, objets de la scène, géométries visuelles
             axe = data.geom_xmat[g].reshape(3, 3)[2]      # composantes z des axes de la géométrie
             size = model.geom_size[g]
             kind = model.geom_type[g]

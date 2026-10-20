@@ -72,7 +72,9 @@ class ErranceRobot(RobotInterface):
 
 LONGUEUR, LARGEUR = 10.0, 4.0           # m, chaussée entre les façades
 HAUTEUR_LIDAR = 0.165                   # m, plan de mesure du lidar
-CACHE = 50.0                            # m : les décombres inutilisés sont rangés loin de la rue
+# décombres inutilisés : rangés sous la chaussée, invisibles et hors de portée du lidar (rangés loin de la rue, ils
+# agrandissaient la scène à près de 90 m et rendaient les ombres grossières, au point que le robot n'en avait plus)
+SOUS_SOL = 1.0                          # m sous la chaussée
 BETON = [0.55, 0.53, 0.5, 1]
 FACADE = [0.66, 0.6, 0.52, 1]
 ROUILLE = [0.5, 0.3, 0.2, 1]
@@ -105,7 +107,7 @@ def scene_rue(graine: int = 0) -> dict:
         hauteur = taille[2] if type_ == "box" else taille[1]       # demi-hauteur
         assert 2 * hauteur > HAUTEUR_LIDAR, f"{nom} est sous le plan du lidar"
         decombres.append({"name": f"{nom}_{len(decombres)}", "type": type_, "mocap": True, "rgba": rgba,
-                          "size": [round(float(t), 3) for t in taille], "pos": [CACHE + len(decombres), 0, hauteur]})
+                          "size": [round(float(t), 3) for t in taille], "pos": _reserve(len(decombres))})
 
     for _ in range(12):
         ajouter("bloc", "box", [rng.uniform(0.1, 0.3), rng.uniform(0.1, 0.3), rng.uniform(0.1, 0.25)], BETON)
@@ -127,6 +129,15 @@ def scene_rue(graine: int = 0) -> dict:
     }
 
 
+def _reserve(i: int) -> list[float]:
+    """Place du i-ème décombre de la réserve, sous la chaussée."""
+    return [round(-LONGUEUR / 2 + 0.5 + 0.3 * i, 2), 0.0, -SOUS_SOL]
+
+
+def _demi_hauteur(obj: dict) -> float:
+    return obj["size"][2] if obj["type"] == "box" else obj["size"][1]
+
+
 def placer_decombres(monde, scene: dict, rng: np.random.Generator, nombre: tuple[int, int] = (15, 30)) -> None:
     """Répartit au hasard dans la rue entre nombre[0] et nombre[1] décombres de la réserve ; les autres restent
     rangés hors de la rue."""
@@ -134,13 +145,13 @@ def placer_decombres(monde, scene: dict, rng: np.random.Generator, nombre: tuple
     n = int(rng.integers(nombre[0], min(nombre[1], len(objets)) + 1))
     choisis = set(rng.choice(len(objets), n, replace=False).tolist())
     for i, obj in enumerate(objets):
-        z = obj["pos"][2]
+        z = _demi_hauteur(obj)          # posé sur la chaussée
         if i in choisis:
             x = rng.uniform(-LONGUEUR / 2 + 0.3, LONGUEUR / 2 - 0.3)
             y = rng.uniform(-LARGEUR / 2 + 0.2, LARGEUR / 2 - 0.2)
             monde.set_object_pose(obj["name"], [x, y, z], rng.uniform(0, 360), forward=False)
         else:
-            monde.set_object_pose(obj["name"], [CACHE + i, 0, z], forward=False)
+            monde.set_object_pose(obj["name"], _reserve(i), forward=False)
     mujoco.mj_forward(monde.model, monde.data)
 
 
@@ -160,7 +171,7 @@ def ecrire_scene() -> Path:
                 y = rng.uniform(-LARGEUR / 2 + 0.2, LARGEUR / 2 - 0.2)
                 if np.hypot(x, y) > PLACE_LIBRE + taille:
                     break
-            obj["pos"] = [round(x, 2), round(y, 2), obj["pos"][2]]
+            obj["pos"] = [round(x, 2), round(y, 2), _demi_hauteur(obj)]
             obj["euler_deg"] = [0, 0, round(rng.uniform(0, 360))]
     chemin = ROBOT.parent / "scenes" / "rue_decombres.json"
     chemin.parent.mkdir(exist_ok=True)
