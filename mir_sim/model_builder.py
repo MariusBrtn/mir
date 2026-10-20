@@ -34,7 +34,12 @@ Un module peut être branché par n'importe lequel de ses connecteurs : un servo
 stator mobile (le sens du moteur est conservé).
 
 Scène (fichier JSON propre à une tâche, facultatif) : {"robot": {"pos", "euler_deg"}, "table": {...},
-"cameras": [...], "objects": [...]}
+"cameras": [...], "objects": [...], "lights": [...]}
+  - "lights" (facultatif) : remplace l'éclairage par défaut (LUMIERES_DEFAUT) ; chaque lumière :
+    {"name", "type": "directional" (soleil) ou "spot" (projecteur), "pos", "dir" ou "target" (point visé),
+     "diffuse", "specular", "castshadow", "cutoff" (demi-angle du cône d'un projecteur, °), "exponent"}.
+    Les ombres d'un soleil couvrent toute la scène : dans une grande scène, elles sont grossières. Celles d'un
+    projecteur ne couvrent que son cône : pour une grande scène, un projecteur au-dessus de la zone utile.
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
@@ -73,6 +78,15 @@ ARENE = [
     {"type": "cylinder", "free": False, "name": "obstacle_2", "size": [0.12, 0.1], "pos": [-0.6, -0.5, 0.1],
      "rgba": [0.35, 0.42, 0.52, 1]},
 ]
+# éclairage de studio : une lumière principale qui porte des ombres douces, une lumière d'appoint (la lumière ambiante
+# vient de la lampe frontale de MuJoCo, réglée dans _add_scene)
+LUMIERES_DEFAUT = [
+    {"name": "principale", "type": "directional", "pos": [0.6, -0.8, 1.6], "dir": [-0.35, 0.45, -1.0],
+     "diffuse": [0.62, 0.62, 0.6], "specular": [0.6, 0.6, 0.6], "castshadow": True},
+    {"name": "appoint", "type": "directional", "pos": [-1.0, 0.8, 1.2], "dir": [0.6, -0.5, -0.6],
+     "diffuse": [0.22, 0.22, 0.24], "specular": [0.35, 0.35, 0.35], "castshadow": False},
+]
+TYPES_LUMIERE = {"directional": mujoco.mjtLightType.mjLIGHT_DIRECTIONAL, "spot": mujoco.mjtLightType.mjLIGHT_SPOT}
 # pastilles des connecteurs libres (éditeur de structure) : groupe de géométries masqué par défaut au rendu
 CONNECTOR_MARKER_GROUP = 4
 CONNECTOR_MARKER_PREFIX = "connecteur:"
@@ -687,8 +701,8 @@ class ModelBuilder:
 
     # ------------------------------------------------------------------ scène
     def _add_scene(self, spec: mujoco.MjSpec) -> None:
-        # éclairage de studio : une lumière principale qui porte des ombres douces, une lumière d'appoint, un peu de
-        # lumière ambiante (la lampe frontale de MuJoCo, forte par défaut, aplatissait tout)
+        # un peu de lumière ambiante (la lampe frontale de MuJoCo, forte par défaut, aplatissait tout) ; les lumières de
+        # la scène (LUMIERES_DEFAUT, ou "lights" de la scène) portent les ombres
         spec.visual.headlight.ambient = [0.36, 0.36, 0.36]
         spec.visual.headlight.diffuse = [0.28, 0.28, 0.28]
         spec.visual.headlight.specular = [0.05, 0.05, 0.05]
@@ -699,12 +713,8 @@ class ModelBuilder:
         # ciel gris chaud, accordé au thème « Atelier » de l'éditeur (mir_utils/ui/theme.py)
         spec.add_texture(name="sky", type=mujoco.mjtTexture.mjTEXTURE_SKYBOX, builtin=mujoco.mjtBuiltin.mjBUILTIN_GRADIENT,
                          rgb1=[0.95, 0.93, 0.89], rgb2=[0.81, 0.78, 0.73], width=256, height=256)
-        spec.worldbody.add_light(name="principale", pos=[0.6, -0.8, 1.6], dir=[-0.35, 0.45, -1.0],
-                                 diffuse=[0.62, 0.62, 0.6], specular=[0.6, 0.6, 0.6], castshadow=True,
-                                 type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
-        spec.worldbody.add_light(name="appoint", pos=[-1.0, 0.8, 1.2], dir=[0.6, -0.5, -0.6],
-                                 diffuse=[0.22, 0.22, 0.24], specular=[0.35, 0.35, 0.35], castshadow=False,
-                                 type=mujoco.mjtLightType.mjLIGHT_DIRECTIONAL)
+        for lumiere in self._scene.get("lights", LUMIERES_DEFAUT):
+            self._add_light(spec, lumiere)
         root = next(inst for inst in self._instances.values() if "on" not in inst)
         # bras : petite table de travail ; robot mobile : le sol de son arène (3 x 3 m)
         defaut = ({"size": [0.4, 0.3], "pos": [0.1, 0, 0], "rgba": [0.75, 0.68, 0.58, 1]} if root.get("fixed", False)
@@ -720,6 +730,18 @@ class ModelBuilder:
         spec.worldbody.add_geom(name="table", type=mujoco.mjtGeom.mjGEOM_PLANE,
                                 size=[table["size"][0], table["size"][1], 0.01],
                                 pos=table.get("pos", [0, 0, 0]), material="table")
+
+    @staticmethod
+    def _add_light(spec: mujoco.MjSpec, lumiere: dict[str, Any]) -> None:
+        pos = np.array(lumiere["pos"], dtype=float)
+        direction = np.array(lumiere["target"], dtype=float) - pos if "target" in lumiere else lumiere["dir"]
+        options = {"cutoff": lumiere["cutoff"], "exponent": lumiere.get("exponent", 1.0),
+                   "attenuation": [1, 0, 0]} if lumiere.get("type") == "spot" else {}
+        spec.worldbody.add_light(name=lumiere["name"], pos=pos, dir=direction,
+                                 diffuse=lumiere.get("diffuse", [0.6, 0.6, 0.6]),
+                                 specular=lumiere.get("specular", [0.3, 0.3, 0.3]),
+                                 castshadow=lumiere.get("castshadow", False),
+                                 type=TYPES_LUMIERE[lumiere.get("type", "directional")], **options)
 
     def _add_scene_camera(self, spec: mujoco.MjSpec, cam: dict[str, Any]) -> None:
         if "lookat" in cam:

@@ -34,6 +34,60 @@
             "fovy": 60
         }
     ],
+    "lights": [
+        {
+            "name": "projecteur",
+            "type": "spot",
+            "pos": [
+                4.26,
+                -5.47,
+                12.16
+            ],
+            "target": [
+                0,
+                0,
+                0
+            ],
+            "cutoff": 30,
+            "exponent": 1,
+            "diffuse": [
+                0.7,
+                0.7,
+                0.68
+            ],
+            "specular": [
+                0.5,
+                0.5,
+                0.5
+            ],
+            "castshadow": true
+        },
+        {
+            "name": "appoint",
+            "type": "directional",
+            "pos": [
+                -3,
+                3,
+                4
+            ],
+            "dir": [
+                0.6,
+                -0.5,
+                -0.6
+            ],
+            "diffuse": [
+                0.22,
+                0.22,
+                0.24
+            ],
+            "specular": [
+                0.3,
+                0.3,
+                0.3
+            ],
+            "castshadow": false
+        }
+    ],
     "objects": [
         {
             "name": "facade_nord_0",

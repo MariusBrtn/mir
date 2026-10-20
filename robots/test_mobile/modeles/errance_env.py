@@ -125,6 +125,14 @@ def scene_rue(graine: int = 0) -> dict:
                        "(errer sans rien percuter, au lidar). Écrite par modeles/errance_env.py.",
         "table": {"size": [LONGUEUR / 2 + 0.3, LARGEUR / 2 + 0.6], "pos": [0, 0, 0], "rgba": [0.42, 0.42, 0.44, 1]},
         "cameras": [{"name": "vue_rue", "pos": [0, -6.5, 5.5], "lookat": [0, 0, 0], "fovy": 60}],
+        # un projecteur loin au-dessus de la rue, dans la direction de la lumière par défaut : ses ombres ne couvrent
+        # que son cône (la rue), elles sont donc nettes ; avec le « soleil » par défaut, elles couvrent toute la scène
+        "lights": [
+            {"name": "projecteur", "type": "spot", "pos": [4.26, -5.47, 12.16], "target": [0, 0, 0], "cutoff": 30,
+             "exponent": 1, "diffuse": [0.7, 0.7, 0.68], "specular": [0.5, 0.5, 0.5], "castshadow": True},
+            {"name": "appoint", "type": "directional", "pos": [-3, 3, 4], "dir": [0.6, -0.5, -0.6],
+             "diffuse": [0.22, 0.22, 0.24], "specular": [0.3, 0.3, 0.3], "castshadow": False},
+        ],
         "objects": objets + decombres,
     }
 
