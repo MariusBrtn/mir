@@ -16,6 +16,7 @@ from mir_flow.graph import (EDGE_TOOL, KINDS, KIND_SETPOINT, NAME, NODE_ACTION, 
 from mir_flow.runner import load_process
 from mir_flow.tools import load_script
 from mir_utils.ui import theme
+from mir_utils.ui.widgets import overline
 from mir_utils.ui.code_editor import PythonCodeEditor
 
 
@@ -58,9 +59,9 @@ class NodeInspector(QWidget):
         self._ctx = InspectorContext()
         self._loading = False
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        self._title = QLabel()
-        self._title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        layout.setContentsMargins(22, 16, 22, 16)
+        layout.setSpacing(10)
+        self._title = overline("")        # « Réglages » : l'en-tête de la fenêtre dit de quel nœud il s'agit
         layout.addWidget(self._title)
         self._pages = QStackedWidget()
         self._empty = _muted("Choisissez un nœud du graphe pour le régler.\n\n"
@@ -219,15 +220,15 @@ class NodeInspector(QWidget):
                 self._title.setText("")
                 self._pages.setCurrentWidget(self._empty)
             elif node.type == NODE_LLM:
-                self._title.setText("LLM")
+                self._title.setText("RÉGLAGES")
                 self._load_llm(node.config)
                 self._pages.setCurrentIndex(1)
             elif node.type == NODE_ACTION:
-                self._title.setText("Action")
+                self._title.setText("RÉGLAGES")
                 self._load_action(node.config)
                 self._pages.setCurrentIndex(2)
             else:
-                self._title.setText(node.spec.label)
+                self._title.setText("RÉGLAGES")
                 self._build_generic(node)
                 self._pages.setCurrentWidget(self._generic)
         finally:

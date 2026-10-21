@@ -11,6 +11,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QImage, QPixmap
 from PySide6.QtWidgets import QFrame, QLabel, QScrollArea, QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 from mir_utils.ui import theme
+from mir_utils.ui.widgets import overline
 
 THUMB_WIDTH = 220
 TEXT_MAX = 1500
@@ -67,16 +68,16 @@ class NodeDataView(QScrollArea):
         self.title = title
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setObjectName("SidePanel")
         self.setMinimumWidth(240)
         self.show_data(None, None)
 
     def show_data(self, data: dict[str, Any] | None, info: dict[str, Any] | None, empty: str = ""):
         page = QWidget()
+        page.setObjectName("SidePage")
         layout = QVBoxLayout(page)
-        layout.setContentsMargins(6, 6, 6, 6)
-        titre = QLabel(self.title)
-        titre.setStyleSheet("font-weight: bold; font-size: 13px;")
-        layout.addWidget(titre)
+        layout.setContentsMargins(16, 14, 16, 14)
+        layout.addWidget(overline(self.title))
         if data is None:
             layout.addWidget(_muted(empty or "Lancez le programme : les données du dernier passage dans ce nœud "
                                              "s'afficheront ici."))
@@ -125,11 +126,11 @@ class DataCatalog(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("SidePanel")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(6, 6, 6, 0)
-        titre = QLabel("Données disponibles")
-        titre.setStyleSheet("font-weight: bold; font-size: 13px;")
-        layout.addWidget(titre)
+        layout.setContentsMargins(16, 14, 16, 8)
+        layout.addWidget(overline("Données disponibles"))
         layout.addWidget(_muted("Double-clic : insère le nom là où se trouve le curseur (carte.image dans une "
                                 "expression, donnees[\"carte\"][\"image\"] dans un script)."))
         self.tree = QTreeWidget()

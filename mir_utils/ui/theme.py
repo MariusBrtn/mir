@@ -86,8 +86,118 @@ QToolButton { border: 1px solid transparent; border-radius: 6px; padding: 3px; }
 QToolButton:hover { background: $PANEL; border-color: $BORDER; }
 QToolButton:checked { background: $SAND; border-color: $SAND; }
 
-QGroupBox { border: 1px solid $BORDER; border-radius: 9px; margin-top: 14px; padding-top: 8px; }
-QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; color: $TEXT; font-weight: 600; }
+QGroupBox { background: $SURFACE; border: 1px solid $BORDER; border-radius: 10px; margin-top: 16px; padding-top: 10px; }
+QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 5px; color: $TEXT; font-weight: 600; }
+
+/* champs : 34 px de haut, coins arrondis ; en saisie, contour noir */
+QLineEdit, QAbstractSpinBox, QComboBox {
+    background: $SURFACE; color: $TEXT; border: 1px solid $BORDER_STRONG; border-radius: 7px;
+    padding: 5px 9px; min-height: 22px; selection-background-color: $SAND; selection-color: $INK;
+}
+QLineEdit:hover, QAbstractSpinBox:hover, QComboBox:hover { border-color: $TEXT_DISABLED; }
+QLineEdit:focus, QAbstractSpinBox:focus, QComboBox:focus, QComboBox:on { border-color: $INK; }
+QLineEdit:disabled, QAbstractSpinBox:disabled, QComboBox:disabled {
+    background: $PANEL; color: $TEXT_DISABLED; border-color: $BORDER;
+}
+QLineEdit:read-only { background: $PANEL; }
+QComboBox { padding-right: 28px; }
+QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 26px; border: none; }
+QComboBox::down-arrow { image: url("$ICONS/qss_chevron_down.svg"); width: 12px; height: 12px; }
+QComboBox::down-arrow:on { image: url("$ICONS/qss_chevron_up.svg"); }
+QComboBox::down-arrow:disabled { image: url("$ICONS/qss_chevron_disabled.svg"); }
+QComboBox QAbstractItemView {
+    background: $SURFACE; border: 1px solid $BORDER; border-radius: 8px; padding: 4px; outline: 0;
+    selection-background-color: $INK; selection-color: $WINDOW;
+}
+QComboBox QAbstractItemView::item { min-height: 26px; padding: 0 8px; border-radius: 5px; }
+QAbstractSpinBox { padding-right: 24px; }
+QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {
+    subcontrol-origin: border; width: 22px; border: none; border-left: 1px solid $BORDER; background: transparent;
+}
+QAbstractSpinBox::up-button { subcontrol-position: top right; border-top-right-radius: 7px; }
+QAbstractSpinBox::down-button { subcontrol-position: bottom right; border-bottom-right-radius: 7px; }
+QAbstractSpinBox::up-button:hover, QAbstractSpinBox::down-button:hover { background: $PANEL; }
+QAbstractSpinBox::up-arrow { image: url("$ICONS/qss_chevron_up.svg"); width: 10px; height: 10px; }
+QAbstractSpinBox::down-arrow { image: url("$ICONS/qss_chevron_down.svg"); width: 10px; height: 10px; }
+QAbstractSpinBox::up-arrow:disabled, QAbstractSpinBox::down-arrow:disabled { image: none; }
+
+/* zones de texte, listes, tableaux */
+QPlainTextEdit, QTextEdit {
+    background: $SURFACE; color: $TEXT; border: 1px solid $BORDER_STRONG; border-radius: 7px; padding: 4px 5px;
+    selection-background-color: $SAND; selection-color: $INK;
+}
+QPlainTextEdit:focus, QTextEdit:focus { border-color: $INK; }
+QPlainTextEdit:read-only, QTextEdit:read-only { background: $PANEL; border-color: $BORDER; }
+QPlainTextEdit:disabled, QTextEdit:disabled { background: $PANEL; color: $TEXT_DISABLED; border-color: $BORDER; }
+QListView, QTreeView, QTableView {
+    background: $SURFACE; border: 1px solid $BORDER; border-radius: 8px; outline: 0;
+    alternate-background-color: $PANEL; selection-background-color: $INK; selection-color: $WINDOW;
+}
+QListView::item, QTreeView::item { min-height: 24px; }
+QListView::item:hover, QTreeView::item:hover { background: $PANEL; }
+QListView::item:selected, QTreeView::item:selected, QTableView::item:selected { background: $INK; color: $WINDOW; }
+QTableView { gridline-color: $BORDER; }
+QHeaderView::section {
+    background: $PANEL; color: $TEXT_MUTED; border: none; border-bottom: 1px solid $BORDER; border-right: 1px solid $BORDER;
+    padding: 5px 8px; font-weight: 600;
+}
+QTableCornerButton::section { background: $PANEL; border: none; border-bottom: 1px solid $BORDER; }
+
+/* cases et choix : noirs une fois cochés */
+QCheckBox, QRadioButton { spacing: 9px; }
+QCheckBox::indicator, QRadioButton::indicator {
+    width: 16px; height: 16px; border: 1.5px solid $BORDER_STRONG; background: $SURFACE;
+}
+QCheckBox::indicator { border-radius: 4px; }
+QRadioButton::indicator { border-radius: 9px; }
+QCheckBox::indicator:hover, QRadioButton::indicator:hover { border-color: $TEXT_MUTED; }
+QCheckBox::indicator:checked { background: $INK; border-color: $INK; image: url("$ICONS/qss_check.svg"); }
+QRadioButton::indicator:checked { background: $SURFACE; border: 5px solid $INK; width: 9px; height: 9px; }
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled { background: $PANEL; border-color: $BORDER; }
+QCheckBox::indicator:checked:disabled { background: $TEXT_DISABLED; border-color: $TEXT_DISABLED; }
+
+QProgressBar { background: $PANEL; border: 1px solid $BORDER; border-radius: 5px; text-align: center; color: $TEXT; min-height: 10px; }
+QProgressBar::chunk { background: $INK; border-radius: 4px; }
+QSlider::groove:horizontal { height: 4px; background: $BORDER; border-radius: 2px; }
+QSlider::sub-page:horizontal { background: $INK; border-radius: 2px; }
+QSlider::handle:horizontal { background: $INK; border: 3px solid $SURFACE; width: 12px; height: 12px; margin: -7px 0; border-radius: 9px; }
+QSlider::groove:vertical { width: 4px; background: $BORDER; border-radius: 2px; }
+QSlider::add-page:vertical { background: $INK; border-radius: 2px; }
+QSlider::handle:vertical { background: $INK; border: 3px solid $SURFACE; width: 12px; height: 12px; margin: 0 -7px; border-radius: 9px; }
+QSplitter::handle { background: $BORDER; }
+QSplitter::handle:horizontal { width: 1px; }
+QSplitter::handle:vertical { height: 1px; }
+
+/* fenêtres : en-tête, sections, pied (mir_utils.ui.widgets) */
+#DialogHeader { background: $WINDOW; border-bottom: 1px solid $BORDER; }
+#DialogTitle { font-size: 18px; font-weight: 600; color: $TEXT; }
+#DialogSubtitle { color: $TEXT_MUTED; }
+#DialogKind { font-size: 11px; font-weight: 600; }
+#DialogFooter { background: $PANEL; border-top: 1px solid $BORDER; }
+QScrollArea#DialogBody, QScrollArea#DialogBody > QWidget > QWidget#DialogBody { background: $WINDOW; }
+#Section { background: $SURFACE; border: 1px solid $BORDER; border-radius: 10px; }
+#SectionHeading { font-size: 14px; font-weight: 600; color: $TEXT; }
+#Overline { font-size: 11px; font-weight: 600; color: $TEXT_MUTED; }
+#Message { background: $PANEL; border-radius: 9px; padding: 8px 12px; font-weight: 600; }
+#Message[etat="ok"] { color: $OK; }
+#Message[etat="erreur"] { color: $ERROR; }
+#Message[etat="attention"] { color: $WARNING; }
+#SidePanel, QScrollArea#SidePanel > QWidget > QWidget#SidePage { background: $PANEL; }
+#ChoiceCard { background: $SURFACE; border: 1px solid $BORDER_STRONG; border-radius: 9px; }
+#ChoiceCard:hover { border-color: $TEXT_DISABLED; }
+#ChoiceCard:focus { border-color: $TEXT_MUTED; }
+#ChoiceCard[selected="true"] { background: $PANEL; border: 1.5px solid $INK; }
+#ChoiceCard:disabled { background: transparent; border-style: dashed; }
+#ChoiceTitle { font-weight: 600; }
+#ChoiceDescription { color: $TEXT_MUTED; font-size: 12px; }
+#ChoiceTitle:disabled, #ChoiceDescription:disabled { color: $TEXT_DISABLED; }
+#ChoiceIndicator { border: 1.5px solid $BORDER_STRONG; border-radius: 8px; background: $SURFACE; }
+#ChoiceCard[selected="true"] #ChoiceIndicator { border: 5px solid $INK; }
+#Journal { background: $PANEL; border: 1px solid $BORDER; color: #4F4A43; }
+QPushButton#Primary { background: $INK; color: $WINDOW; border-color: $INK; font-weight: 500; }
+QPushButton#Primary:hover { background: #2A2A2F; }
+QPushButton#Primary:disabled { background: $WINDOW; color: $TEXT_DISABLED; border-color: $BORDER; font-weight: 400; }
+QPushButton { min-height: 22px; }
 
 QTabWidget::pane { border: none; }
 QTabBar::tab { background: transparent; color: $TEXT_MUTED; padding: 8px 16px; border: none;
@@ -159,8 +269,13 @@ QScrollBar::add-page, QScrollBar::sub-page { background: none; }
 """)
 
 
+ICONS_DIR = Path(__file__).parent / "icons"
+
+
 def stylesheet() -> str:
-    return _QSS.substitute({k: v for k, v in globals().items() if isinstance(v, str) and v.startswith("#")})
+    couleurs = {k: v for k, v in globals().items() if isinstance(v, str) and v.startswith("#")}
+    # images de la feuille de style (coche, flèches) : chemin absolu, entre guillemets (espaces possibles)
+    return _QSS.substitute(couleurs, ICONS=ICONS_DIR.as_posix())
 
 
 def _palette() -> QPalette:

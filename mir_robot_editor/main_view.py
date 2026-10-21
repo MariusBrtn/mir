@@ -383,6 +383,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._cards: list[ActionCard] = []
 
         def section(title: str, subtitle: str):
+            numero, _, reste = title.partition("  ")
+            if reste and numero.isdigit():      # numéro de l'étape en sable foncé, comme dans les fenêtres
+                title = (f"<span style='font-family: \"IBM Plex Mono\"; color: {theme.SAND_DARK};'>{numero}</span>"
+                         f"&nbsp;&nbsp;{reste}")
             label = QLabel(title)
             label.setObjectName("SectionTitle")
             layout.addWidget(label)

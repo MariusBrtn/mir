@@ -1,15 +1,18 @@
 from PySide6.QtWidgets import QComboBox, QFormLayout, QHBoxLayout, QLabel, QPushButton, QSpinBox, QVBoxLayout
-from mir_utils.ui.widgets import DialogBase
-from mir_utils.ui import theme
+from mir_utils.ui.widgets import DialogBase, DialogFooter, DialogHeader, MessageLabel, Section, dialog_frame
 from mir_robot_editor.motor_configuration.servo_id_view_model import ServoIdViewModel, ID_MIN, ID_MAX
 
 
 class ServoIdView(DialogBase):
     def __init__(self, parent, view_model: ServoIdViewModel):
-        super().__init__(parent, default_width=520, default_height=320)
+        super().__init__(parent, default_width=560, default_height=420)
         self._vm = view_model
         self.setWindowTitle("Changer l'ID d'un servo")
-        layout = QVBoxLayout(self)
+        footer = DialogFooter()
+        footer.add_button("Fermer", self.close)
+        layout = dialog_frame(self, DialogHeader("Changer l'ID d'un servo",
+                                                 "Lire l'ID d'un servo branché seul et lui en donner un nouveau.",
+                                                 icon="servo_id"), footer)
 
         intro = QLabel("Branchez <b>un seul servo</b> sur le câble USB des servos : s'il y en a plusieurs, l'outil "
                        "refuse d'écrire. Changer l'ID d'un servo déjà monté sur un robot oblige à refaire "
@@ -17,7 +20,10 @@ class ServoIdView(DialogBase):
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
+        section = Section("Servo branché")
         form = QFormLayout()
+        form.setVerticalSpacing(10)
+        form.setHorizontalSpacing(12)
         port_line = QHBoxLayout()
         self._ports = QComboBox()
         self._ports.addItems(self._vm.ports())
@@ -32,11 +38,13 @@ class ServoIdView(DialogBase):
         self._nouvel_id.setRange(ID_MIN, ID_MAX)
         id_line.addWidget(self._nouvel_id)
         self._btn_ecrire = QPushButton("Écrire")
+        self._btn_ecrire.setObjectName("Primary")
         self._btn_ecrire.clicked.connect(lambda: self._vm.ecrire(self._nouvel_id.value()))
         id_line.addWidget(self._btn_ecrire)
         id_line.addStretch(1)
         form.addRow("Nouvel ID", id_line)
-        layout.addLayout(form)
+        section.body.addLayout(form)
+        layout.addWidget(section)
 
         if self._vm.ids_du_robot:
             ids = ", ".join(f"{moteur} = {i}" for moteur, i in self._vm.ids_du_robot.items())
@@ -45,13 +53,9 @@ class ServoIdView(DialogBase):
             rappel.setObjectName("Muted")
             layout.addWidget(rappel)
 
-        self._message = QLabel()
-        self._message.setWordWrap(True)
+        self._message = MessageLabel()
         layout.addWidget(self._message)
         layout.addStretch(1)
-        btn_fermer = QPushButton("Fermer")
-        btn_fermer.clicked.connect(self.close)
-        layout.addWidget(btn_fermer)
 
         self._vm.changed.connect(self._update)
         self._update()
@@ -64,9 +68,7 @@ class ServoIdView(DialogBase):
         self._nouvel_id.setEnabled(not occupe and trouve is not None)
         self._btn_ecrire.setEnabled(not occupe and trouve is not None)
         message = self._vm.message if self._ports.count() else "✗ Aucun port série trouvé : branchez le câble USB des servos."
-        color = theme.OK if message.startswith("✓") else theme.ERROR if message.startswith("✗") else theme.TEXT
-        self._message.setStyleSheet(f"color: {color}; font-weight: bold;")
-        self._message.setText(message)
+        self._message.set_message(message)
 
     def closeEvent(self, event):
         if self._vm.occupe:

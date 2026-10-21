@@ -22,6 +22,8 @@ from mir_robot_editor.flow.graph_editor import GraphEditor
 from mir_robot_editor.flow.node_inspector import InspectorContext, NodeInspector
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_utils.ui import theme
+from mir_utils.ui.widgets import DialogFooter, DialogHeader, dialog_frame, mono_font
+from mir_robot_editor.flow.node_icons import CATEGORY_COLORS, icon_color, icon_pixmap
 from mir_utils.ui.view_base import ViewBase
 
 RESULTAT_MAX = 300          # caractères d'un résultat affichés dans la discussion (le modèle reçoit tout)
@@ -103,8 +105,12 @@ class FlowView(QWidget, ViewBase[FlowViewModel, FlowVMAction]):
         self.inspector.changed.connect(self._on_node_changed)
         self._settings = QDialog(self)
         self._settings.setModal(False)
-        self._settings.resize(1080, 560)
-        boite = QVBoxLayout(self._settings)
+        self._settings.resize(1100, 640)
+        self._settings_header = DialogHeader("")
+        self._settings_footer = DialogFooter()
+        self._settings_footer.add_button("Fermer", lambda: self._settings.close())
+        boite = dialog_frame(self._settings, self._settings_header, self._settings_footer, margins=(0, 0, 0, 0),
+                             scroll=False)
         colonnes = QSplitter(Qt.Orientation.Horizontal)
         # comme dans n8n : ce que le nœud a reçu | ses réglages | ce qu'il a produit, au dernier passage
         gauche = QSplitter(Qt.Orientation.Vertical)
@@ -137,10 +143,6 @@ class FlowView(QWidget, ViewBase[FlowViewModel, FlowVMAction]):
         self._edit_timer.setSingleShot(True)
         self._edit_timer.setInterval(300)       # après la dernière frappe
         self._edit_timer.timeout.connect(self._flush_edit)
-        fermer = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
-        fermer.button(QDialogButtonBox.StandardButton.Close).setText("Fermer")
-        fermer.rejected.connect(self._settings.close)
-        boite.addWidget(fermer)
         horizontal.setStretchFactor(1, 1)
         horizontal.setSizes([210, 600])
         layout.addWidget(horizontal, 1)
@@ -235,6 +237,11 @@ class FlowView(QWidget, ViewBase[FlowViewModel, FlowVMAction]):
 
     def _open_settings(self, node):
         self._settings.setWindowTitle(f"Réglages · {node.spec.label} « {node.name} »")
+        couleur = CATEGORY_COLORS.get(node.spec.category, theme.INK)
+        self._settings_header.set_content(node.name, node.spec.summary, kind=f"{node.spec.category} · {node.spec.label}",
+                                          tile_color=couleur)
+        self._settings_header.title_label().setFont(mono_font(18))
+        self._settings_header.set_tile_pixmap(icon_pixmap(node.type, 22, icon_color(node.spec.category)), couleur)
         self.inspector.set_node(node, self._view_model.graph)
         self._show_io()
         self._settings.show()
