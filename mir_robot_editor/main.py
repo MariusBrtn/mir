@@ -10,6 +10,7 @@ from mir_robot_editor.main_view import MainView #noqa E402
 from mir_robot_editor.main_viewmodel import MainViewModel #noqa E402
 from mir_utils.ui.dialogs import QtDialogProvider #noqa E402
 from mir_utils.ui.theme import apply_theme #noqa E402
+from mir_robot_editor import habillage #noqa E402
 
 dialogProvider = QtDialogProvider()
 
@@ -77,6 +78,7 @@ def main():
     if app is None:
         app = QtWidgets.QApplication(sys.argv)
     apply_theme(app)
+    habillage.installer()
     mainViewModel = MainViewModel(dialogProvider)
     window = MainView(mainViewModel)
     dialogProvider.setParent(window)

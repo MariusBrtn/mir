@@ -6,7 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QDesktopServices
-from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QPushButton,
+from PySide6.QtWidgets import (QComboBox, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QPushButton,
                                QVBoxLayout, QWidget)
 from mir_robot_editor.entrainement.entrainement_view_model import (EntrainementViewModel, LEROBOT, PYTORCH, TYPES,
                                                                    besoin_dataset)
@@ -26,44 +26,41 @@ class EntrainementView(ScriptsView):
         self._remplir_modeles()
 
     # ------------------------------------------------------------------ construction
-    def _titre(self, texte: str, bouton: QWidget | None = None) -> QHBoxLayout:
-        ligne = QHBoxLayout()
-        label = QLabel(texte)
-        label.setStyleSheet("font-weight: bold;")
-        ligne.addWidget(label, 1)
-        if bouton is not None:
-            ligne.addWidget(bouton)
-        return ligne
-
     def _make_left(self) -> QWidget:
         panel = QWidget()
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(4, 4, 4, 4)
+        colonne = QVBoxLayout(panel)
+        colonne.setContentsMargins(10, 4, 6, 8)
 
-        layout.addLayout(self._titre("Dataset"))
+        box = QGroupBox("Dataset")
+        layout = QVBoxLayout(box)
         self.cb_dataset = QComboBox()
         self.cb_dataset.activated.connect(self._on_dataset_choisi)
         layout.addWidget(self.cb_dataset)
         self.lbl_dataset = QLabel()
         self.lbl_dataset.setWordWrap(True)
-        self.lbl_dataset.setStyleSheet("color: palette(placeholder-text);")
+        self.lbl_dataset.setObjectName("Muted")
         layout.addWidget(self.lbl_dataset)
+        colonne.addWidget(box)
 
-        layout.addSpacing(6)
-        layout.addLayout(self._titre("Scripts d'entraînement", ToolButton(
-            "folder-open", self._ouvrir_dossier, True, "Ouvrir le dossier des modèles (scripts et modèles entraînés)")))
+        box = QGroupBox("Scripts d'entraînement")
+        layout = QVBoxLayout(box)
         self.list_fichiers = QListWidget()
         self.list_fichiers.itemActivated.connect(lambda item: self.ouvrir(Path(item.data(Qt.ItemDataRole.UserRole))))
         self.list_fichiers.itemClicked.connect(lambda item: self.ouvrir(Path(item.data(Qt.ItemDataRole.UserRole))))
         layout.addWidget(self.list_fichiers, 1)
+        ligne = QHBoxLayout()
         self.btn_nouveau = QPushButton(self._icon("new"), "Nouveau…")
         self.btn_nouveau.clicked.connect(self._on_nouveau)
-        layout.addWidget(self.btn_nouveau)
+        ligne.addWidget(self.btn_nouveau, 1)
+        ligne.addWidget(ToolButton("folder-open", self._ouvrir_dossier, True,
+                                   "Ouvrir le dossier des modèles (scripts et modèles entraînés)"))
+        layout.addLayout(ligne)
+        colonne.addWidget(box, 1)
 
-        layout.addSpacing(6)
-        layout.addLayout(self._titre("Modèles entraînés"))
+        box = QGroupBox("Modèles entraînés")
+        layout = QVBoxLayout(box)
         aide = QLabel("Ils se choisissent dans Piloter → IA.")
-        aide.setStyleSheet("color: palette(placeholder-text);")
+        aide.setObjectName("Muted")
         layout.addWidget(aide)
         self.list_modeles = QListWidget()
         self.list_modeles.currentItemChanged.connect(lambda *_: self._update_buttons())
@@ -77,6 +74,7 @@ class EntrainementView(ScriptsView):
         self.btn_supprimer_modele.clicked.connect(self._supprimer_modele)
         boutons.addWidget(self.btn_supprimer_modele)
         layout.addLayout(boutons)
+        colonne.addWidget(box, 1)
         return panel
 
     # ------------------------------------------------------------------ pas de robot ici

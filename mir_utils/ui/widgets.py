@@ -94,7 +94,20 @@ class DialogBase(StateSavedView, QDialog):
             name = self.__class__.__name__
         self._init_state(name, default_width, default_height)
 
+    # habillage des fenêtres qui ne construisent pas elles-mêmes leur en-tête :
+    # {nom de la classe: (phrase, icône, titre ou "" pour le titre de la fenêtre)}
+    _frames: dict[str, tuple[str, str, str]] = {}
+
+    @classmethod
+    def register_frame(cls, class_name: str, subtitle: str, icon: str, title: str = ""):
+        """À la première ouverture, une fenêtre de cette classe reçoit un en-tête (titre, phrase, icône) ; son
+        contenu passe dessous, sans changement."""
+        cls._frames[class_name] = (subtitle, icon, title)
+
     def showEvent(self, event):
+        if getattr(self, "_mir_frame", None) is None and type(self).__name__ in DialogBase._frames:
+            subtitle, icon, title = DialogBase._frames[type(self).__name__]
+            frame_existing(self, DialogHeader(title or self.windowTitle(), subtitle, icon=icon))
         super().showEvent(event)
         self._fit_to_content()
 
@@ -452,3 +465,31 @@ class ChoiceCard(QFrame):
             self.setChecked(True)
         else:
             super().keyPressEvent(event)
+
+
+def frame_existing(dialog: QDialog, header: DialogHeader, footer: DialogFooter | None = None, scroll: bool = True):
+    """Ajoute un en-tête (et un pied) à une fenêtre déjà construite : son layout et ses widgets passent, tels quels,
+    dans le contenu (Qt reprend un layout installé sur un autre widget, avec ses widgets)."""
+    ancien = dialog.layout()
+    if ancien is None:
+        return
+    contenu = QWidget()
+    contenu.setObjectName("DialogBody")
+    contenu.setLayout(ancien)
+    root = QVBoxLayout(dialog)
+    root.setContentsMargins(0, 0, 0, 0)
+    root.setSpacing(0)
+    root.addWidget(header)
+    if scroll:
+        zone = QScrollArea()
+        zone.setObjectName("DialogBody")
+        zone.setWidgetResizable(True)
+        zone.setFrameShape(QFrame.Shape.NoFrame)
+        zone.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        zone.setWidget(contenu)
+        root.addWidget(zone, 1)
+    else:
+        root.addWidget(contenu, 1)
+    if footer is not None:
+        root.addWidget(footer)
+    dialog._mir_frame = (header, contenu, footer)

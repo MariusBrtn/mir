@@ -8,14 +8,14 @@ from pathlib import Path
 from PySide6.QtCore import QFileSystemWatcher, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import (QColor, QDesktopServices, QFont, QImage, QKeySequence, QPixmap, QShortcut, QTextCharFormat,
                            QTextCursor)
-from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QPlainTextEdit,
+from PySide6.QtWidgets import (QFileDialog, QGroupBox, QHBoxLayout, QInputDialog, QLabel, QListWidget, QListWidgetItem, QPlainTextEdit,
                                QPushButton, QSplitter, QTabBar, QTabWidget, QToolButton, QTreeWidget, QTreeWidgetItem,
                                QVBoxLayout, QWidget)
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_robot_editor.scripts.scripts_view_model import ScriptsViewModel, ScriptsVMAction
 from mir_utils.ui.code_editor import PythonCodeEditor
 from mir_utils.ui.view_base import ViewBase
-from mir_utils.ui.widgets import ToolButton
+from mir_utils.ui.widgets import ToolButton, overline
 from mir_utils.ui import theme
 
 LIGNE_TRACEBACK = re.compile(r'File "([^"]+)", line (\d+)')
@@ -161,34 +161,34 @@ class ScriptsView(QWidget, ViewBase[ScriptsViewModel, ScriptsVMAction]):
     # ------------------------------------------------------------------ construction
     def _make_left(self) -> QWidget:
         panel = QWidget()
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(4, 4, 4, 4)
-        titre = QHBoxLayout()
-        label = QLabel("Scripts du robot")
-        label.setStyleSheet("font-weight: bold;")
-        titre.addWidget(label, 1)
-        titre.addWidget(ToolButton("folder-open", self._ouvrir_dossier, True,
-                                   "Ouvrir le dossier des scripts (pour les modifier aussi avec un autre éditeur)"))
-        layout.addLayout(titre)
+        colonne = QVBoxLayout(panel)
+        colonne.setContentsMargins(10, 4, 6, 8)
+        box = QGroupBox("Scripts du robot")
+        layout = QVBoxLayout(box)
         self.list_fichiers = QListWidget()
         self.list_fichiers.itemActivated.connect(lambda item: self.ouvrir(Path(item.data(Qt.ItemDataRole.UserRole))))
         self.list_fichiers.itemClicked.connect(lambda item: self.ouvrir(Path(item.data(Qt.ItemDataRole.UserRole))))
         layout.addWidget(self.list_fichiers, 1)
+        ligne = QHBoxLayout()
         self.btn_nouveau = QPushButton(self._icon("new"), "Nouveau script…")
         self.btn_nouveau.clicked.connect(self._on_nouveau)
-        layout.addWidget(self.btn_nouveau)
+        ligne.addWidget(self.btn_nouveau, 1)
+        ligne.addWidget(ToolButton("folder-open", self._ouvrir_dossier, True,
+                                   "Ouvrir le dossier des scripts (pour les modifier aussi avec un autre éditeur)"))
+        layout.addLayout(ligne)
+        colonne.addWidget(box, 1)
 
-        label = QLabel("Nom des variables")
-        label.setStyleSheet("font-weight: bold; margin-top: 8px;")
-        layout.addWidget(label)
+        box = QGroupBox("Nom des variables")
+        layout = QVBoxLayout(box)
         aide = QLabel("Double-clic : insérer le nom dans le script.")
         aide.setWordWrap(True)
-        aide.setStyleSheet("color: palette(placeholder-text);")
+        aide.setObjectName("Muted")
         layout.addWidget(aide)
         self.tree_noms = QTreeWidget()
         self.tree_noms.setHeaderHidden(True)
         self.tree_noms.itemDoubleClicked.connect(self._inserer_nom)
         layout.addWidget(self.tree_noms, 1)
+        colonne.addWidget(box, 1)
         return panel
 
     def _make_center(self) -> QWidget:
@@ -230,9 +230,7 @@ class ScriptsView(QWidget, ViewBase[ScriptsViewModel, ScriptsVMAction]):
         console_layout = QVBoxLayout(console)
         console_layout.setContentsMargins(0, 0, 0, 0)
         entete = QHBoxLayout()
-        label = QLabel("Console")
-        label.setStyleSheet("font-weight: bold;")
-        entete.addWidget(label, 1)
+        entete.addWidget(overline("Console"), 1)
         entete.addWidget(ToolButton("remove", lambda: self.console.clear(), True, "Effacer la console", size=18))
         console_layout.addLayout(entete)
         self.console = QPlainTextEdit()

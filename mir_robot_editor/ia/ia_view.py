@@ -4,7 +4,7 @@ modèle (ses caméras), en direct.
 """
 from __future__ import annotations
 from PySide6.QtCore import Qt, QSize, QTimer
-from PySide6.QtWidgets import (QCheckBox, QDoubleSpinBox, QFormLayout, QFrame, QHBoxLayout, QLabel, QListWidget,
+from PySide6.QtWidgets import (QGroupBox, QCheckBox, QDoubleSpinBox, QFormLayout, QFrame, QHBoxLayout, QLabel, QListWidget,
                                QListWidgetItem, QPushButton, QScrollArea, QSpinBox, QSplitter, QVBoxLayout, QWidget)
 from mir_robot_editor.ia.ia_view_model import IAViewModel, IAVMAction
 from mir_robot_editor.observations_widget import VideoWidget
@@ -55,11 +55,10 @@ class IAView(QWidget, ViewBase[IAViewModel, IAVMAction]):
     def _make_left(self) -> QWidget:
         panel = QWidget()
         panel.setFixedWidth(330)
-        layout = QVBoxLayout(panel)
-        layout.setContentsMargins(4, 4, 4, 4)
-        titre = QLabel("Modèle entraîné")
-        titre.setStyleSheet("font-weight: bold;")
-        layout.addWidget(titre)
+        colonne = QVBoxLayout(panel)
+        colonne.setContentsMargins(10, 4, 6, 8)
+        box = QGroupBox("Modèle entraîné")
+        layout = QVBoxLayout(box)
         aide = QLabel("Entraînés dans l'étape « Entraîner un modèle ».")
         aide.setObjectName("Muted")
         aide.setWordWrap(True)
@@ -71,7 +70,10 @@ class IAView(QWidget, ViewBase[IAViewModel, IAVMAction]):
         self.lbl_modele.setWordWrap(True)
         self.lbl_modele.setObjectName("Muted")
         layout.addWidget(self.lbl_modele)
+        colonne.addWidget(box, 1)
 
+        box = QGroupBox("Essai")
+        layout = QVBoxLayout(box)
         form = QFormLayout()
         self.sp_fps = QSpinBox()
         self.sp_fps.setRange(1, 100)
@@ -92,6 +94,8 @@ class IAView(QWidget, ViewBase[IAViewModel, IAVMAction]):
         self.cb_replacer.setToolTip("En simulé : robot en posture de départ, objets de la scène replacés "
                                     "(au hasard s'ils ont des règles de placement)")
         layout.addWidget(self.cb_replacer)
+        colonne.addWidget(box)
+        layout = colonne
 
         boutons = QHBoxLayout()
         self.btn_demarrer = QPushButton(self._icon("play"), "Démarrer")

@@ -7,7 +7,8 @@ sable, mats) et le bleu ardoise de la marque.
 from pathlib import Path
 from string import Template
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
-from PySide6.QtWidgets import QApplication, QStyleFactory
+from PySide6.QtCore import QEvent, QObject
+from PySide6.QtWidgets import QAbstractSpinBox, QApplication, QLineEdit, QStyleFactory
 
 # matières du robot
 INK = "#141417"            # PLA noir
@@ -87,6 +88,10 @@ QToolButton:hover { background: $PANEL; border-color: $BORDER; }
 QToolButton:checked { background: $SAND; border-color: $SAND; }
 
 QGroupBox { background: $SURFACE; border: 1px solid $BORDER; border-radius: 10px; margin-top: 16px; padding-top: 10px; }
+/* pas de cadre autour d'une zone qui défile : les cartes et les panneaux délimitent déjà */
+QScrollArea { border: none; }
+/* une zone qui défile dans une carte prend le fond de la carte */
+QGroupBox QScrollArea, QGroupBox QScrollArea > QWidget > QWidget { background: transparent; }
 QGroupBox::title { subcontrol-origin: margin; left: 12px; padding: 0 5px; color: $TEXT; font-weight: 600; }
 
 /* champs : 34 px de haut, coins arrondis ; en saisie, contour noir */
@@ -100,7 +105,11 @@ QLineEdit:disabled, QAbstractSpinBox:disabled, QComboBox:disabled {
     background: $PANEL; color: $TEXT_DISABLED; border-color: $BORDER;
 }
 QLineEdit:read-only { background: $PANEL; }
-QComboBox { padding-right: 28px; }
+/* le champ de texte interne d'un champ numérique ou d'une liste modifiable : pas de second cadre */
+QAbstractSpinBox QLineEdit, QComboBox QLineEdit {
+    border: none; padding: 0; margin: 0; min-height: 0; background: transparent;
+}
+QComboBox { padding: 5px 28px 5px 9px; }
 QComboBox::drop-down { subcontrol-origin: padding; subcontrol-position: center right; width: 26px; border: none; }
 QComboBox::down-arrow { image: url("$ICONS/qss_chevron_down.svg"); width: 12px; height: 12px; }
 QComboBox::down-arrow:on { image: url("$ICONS/qss_chevron_up.svg"); }
@@ -110,7 +119,7 @@ QComboBox QAbstractItemView {
     selection-background-color: $INK; selection-color: $WINDOW;
 }
 QComboBox QAbstractItemView::item { min-height: 26px; padding: 0 8px; border-radius: 5px; }
-QAbstractSpinBox { padding-right: 24px; }
+QAbstractSpinBox { padding: 5px 24px 5px 0; }   /* marge gauche : _SpinBoxMargins */
 QAbstractSpinBox::up-button, QAbstractSpinBox::down-button {
     subcontrol-origin: border; width: 22px; border: none; border-left: 1px solid $BORDER; background: transparent;
 }
@@ -308,6 +317,20 @@ def first_family(candidates: list[str]) -> str | None:
     return next((f for f in candidates if f in available), None)
 
 
+class _SpinBoxMargins(QObject):
+    """Marge à gauche du texte des champs numériques : la feuille de style ne l'applique pas à leur champ interne."""
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.Type.Polish and isinstance(obj, QAbstractSpinBox):
+            edit = obj.findChild(QLineEdit)
+            if edit is not None:
+                edit.setTextMargins(8, 0, 0, 0)
+        return False
+
+
+_spinbox_margins = _SpinBoxMargins()
+
+
 def apply_theme(app: QApplication) -> None:
     """À appeler une fois, juste après la création de la QApplication."""
     app.setStyle(QStyleFactory.create("Fusion"))   # même rendu sur macOS, Windows et Linux
@@ -323,3 +346,4 @@ def apply_theme(app: QApplication) -> None:
             class_font.setFamily(family)
             app.setFont(class_font, cls)
     app.setStyleSheet(stylesheet())
+    app.installEventFilter(_spinbox_margins)
