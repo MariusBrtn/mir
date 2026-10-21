@@ -23,9 +23,8 @@ class AssemblageView(DialogBase):
         view_model.model_changed.connect(lambda model, data: self._viewport.set_model(model, data, keep_camera=True))
         view_model.redraw_required.connect(lambda: self._viewport.update())
 
-        corps = dialog_frame(self, DialogHeader(view_model.titre(), "Module après module : poser, brancher, "
-                                                "vérifier, calibrer.", icon="construire"), margins=(0, 0, 0, 0),
-                             scroll=False)
+        corps = dialog_frame(self, DialogHeader(view_model.titre(), view_model.sous_titre(), icon=view_model.icone()),
+                             margins=(0, 0, 0, 0), scroll=False)
         root = QHBoxLayout()
         root.setContentsMargins(0, 0, 0, 0)
         corps.addLayout(root, 1)
@@ -42,17 +41,14 @@ class AssemblageView(DialogBase):
         panel.setLayout(right)
         panel.setFixedWidth(420)
         root.addWidget(panel)
-        self._viewport.show_message("Le robot apparaîtra ici, module par module.")
+        self._viewport.show_message(view_model.message_vue())
 
     # ------------------------------------------------------------------ page de départ
     def _make_start_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
-        texte = QLabel("Le guide montre, module après module, où poser chaque module. Les servos sont détectés et "
-                       "reçoivent leur ID dès qu'on les branche, puis on les calibre à la main.\n\n"
-                       "Branchez le câble USB du bus des servos, choisissez son port, puis cliquez sur Commencer. "
-                       "Partez d'un robot démonté : on branche les modules un par un.")
+        texte = QLabel(self._vm.texte_depart())
         texte.setWordWrap(True)
         layout.addWidget(texte)
         row = QHBoxLayout()

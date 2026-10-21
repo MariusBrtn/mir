@@ -238,6 +238,27 @@ class AssemblageViewModel(ViewModelBase[AssemblageVMAction]):
             return self._titre
         return "Recalibrer un servo" if self._partiel else "Construire le robot"
 
+    def sous_titre(self) -> str:
+        if self._partiel:
+            return "Refaire le milieu et les butées du servo, à la main, sur le robot construit."
+        return "Module après module : poser, brancher, vérifier, calibrer."
+
+    def texte_depart(self) -> str:
+        if self._partiel:
+            return ("Le robot reste monté : seul le servo à recalibrer est concerné. Le guide le montre en 3D, puis "
+                    "on refait son milieu et ses butées à la main.\n\n"
+                    "Branchez le câble USB du bus des servos, choisissez son port, puis cliquez sur Commencer.")
+        return ("Le guide montre, module après module, où poser chaque module. Les servos sont détectés et "
+                "reçoivent leur ID dès qu'on les branche, puis on les calibre à la main.\n\n"
+                "Branchez le câble USB du bus des servos, choisissez son port, puis cliquez sur Commencer. "
+                "Partez d'un robot démonté : on branche les modules un par un.")
+
+    def message_vue(self) -> str:
+        return "Le robot apparaîtra ici." if self._partiel else "Le robot apparaîtra ici, module par module."
+
+    def icone(self) -> str:
+        return "calibration" if self._partiel else "construire"
+
     def configuration(self) -> mirRobotConfig:
         """Configuration complétée par le montage (port, ID, calibrations, adresses, sens)."""
         return self._config
