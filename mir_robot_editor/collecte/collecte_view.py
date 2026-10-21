@@ -18,6 +18,7 @@ from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_robot_editor.teleop.teleop_view import key_from_qt
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui import theme
+from mir_utils.ui.widgets import ask_item, ask_text
 
 NOUVEAU = "Nouveau dataset…"
 
@@ -311,8 +312,9 @@ class CollecteView(QWidget, ViewBase[CollecteViewModel, CollecteVMAction]):
             self._on_dataset_change()
             self.aligner_scene()            # une scène par dataset (choix de l'utilisateur seulement)
             return
-        nom, ok = QInputDialog.getText(self, "Nouveau dataset", "Nom du dataset (ex. de_dans_la_boite) :")
-        nom = nom_valide(nom) if ok else ""
+        nom = ask_text(self, "Nouveau dataset", "Nom du dataset (ex. de_dans_la_boite) :",
+                       subtitle="Les démonstrations enregistrées, au format LeRobot.", icon="record", accept_text="Créer")
+        nom = nom_valide(nom) if nom else ""
         ds = self._view_model.nouveau_dataset(nom) if nom else None
         if ds is not None:
             self._nouveau = ds

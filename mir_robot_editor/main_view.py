@@ -22,6 +22,7 @@ from mir_robot_editor.assemblage.assemblage_view import AssemblageView
 from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui import theme
+from mir_utils.ui.widgets import ask_item, ask_text
 
 # couleurs du mode : on ne doit jamais confondre robot réel et robot simulé
 COLOR_REAL = theme.REAL
@@ -731,8 +732,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
 
     def on_action_recalibrate(self):
         motors = list(self._view_model.motor_modules())
-        motor, ok = QInputDialog.getItem(self, "Recalibrer un servo", "Servo à recalibrer :", motors, 0, False)
-        if ok and motor:
+        motor = ask_item(self, "Recalibrer un servo", "Servo à recalibrer :", motors,
+                         subtitle="Refaire le milieu et les butées d'un servo du robot construit.", icon="calibration",
+                         accept_text="Recalibrer")
+        if motor:
             self._view_model.execute_recalibration(motor, lambda vm: AssemblageView(self, vm).exec())
             self._update_summary()
 

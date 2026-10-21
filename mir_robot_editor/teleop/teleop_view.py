@@ -21,6 +21,7 @@ from mir_utils.keyboard_listener import Key, key_from_char
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui.widgets import StateSavedView, ToolButton
 from mir_utils.ui import theme
+from mir_utils.ui.widgets import ask_item, ask_text
 
 PAR_DEFAUT = "Clavier"
 
@@ -385,13 +386,15 @@ class TeleopView(QWidget, ViewBase[RobotMonitorViewModel, RobotMonitorVMAction])
             self._view_model._dialogProvider.information("Nouvelle téléopération", "Enregistrez d'abord le robot : ses "
                                                          "téléopérations sont rangées dans son dossier.")
             return
-        nom, ok = QInputDialog.getText(self, "Nouvelle téléopération", "Nom de la téléopération (ex. « Ma téléop ») :")
-        if not ok or not nom.strip():
+        nom = ask_text(self, "Nouvelle téléopération", "Nom de la téléopération (ex. « Ma téléop ») :",
+                       subtitle="Piloter le robot à la main, avec un périphérique.", icon="actions", accept_text="Suivant")
+        if not nom or not nom.strip():
             return
         nom = nom.strip()
         choix = ["Clavier", "Bras leader"]
-        peripherique, ok = QInputDialog.getItem(self, "Nouvelle téléopération", "Périphérique :", choix, 0, False)
-        if not ok:
+        peripherique = ask_item(self, "Nouvelle téléopération", "Périphérique :", choix,
+                                subtitle="Ce qui donne les consignes au robot.", icon="actions", accept_text="Créer")
+        if not peripherique:
             return
         fichier = dossier / nom_de_fichier(nom)
         if fichier.exists():

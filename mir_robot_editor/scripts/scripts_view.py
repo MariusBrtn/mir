@@ -17,6 +17,7 @@ from mir_utils.ui.code_editor import PythonCodeEditor
 from mir_utils.ui.view_base import ViewBase
 from mir_utils.ui.widgets import ToolButton, overline
 from mir_utils.ui import theme
+from mir_utils.ui.widgets import ask_item, ask_text
 
 LIGNE_TRACEBACK = re.compile(r'File "([^"]+)", line (\d+)')
 
@@ -326,8 +327,9 @@ class ScriptsView(QWidget, ViewBase[ScriptsViewModel, ScriptsVMAction]):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(dossier)))
 
     def _on_nouveau(self):
-        nom, ok = QInputDialog.getText(self, "Nouveau script", "Nom du script (ex. « Asservissement en position ») :")
-        if not ok or not nom.strip():
+        nom = ask_text(self, "Nouveau script", "Nom du script (ex. « Asservissement en position ») :",
+                       subtitle="Un script Python qui pilote le robot.", icon="new", accept_text="Créer")
+        if not nom or not nom.strip():
             return
         fichier = self._view_model.nouveau(nom.strip())
         if fichier is not None:

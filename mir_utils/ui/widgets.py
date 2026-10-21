@@ -493,3 +493,54 @@ def frame_existing(dialog: QDialog, header: DialogHeader, footer: DialogFooter |
     if footer is not None:
         root.addWidget(footer)
     dialog._mir_frame = (header, contenu, footer)
+
+
+class AskDialog(QDialog):
+    """Petite fenêtre au style Atelier : choisir dans une liste, ou saisir un texte (remplace QInputDialog)."""
+
+    def __init__(self, parent: QWidget | None, title: str, label: str, subtitle: str = "", icon: str = "",
+                 items: list[str] | None = None, current: str | None = None, default: str = "",
+                 accept_text: str = "Valider"):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setMinimumWidth(440)
+        footer = DialogFooter()
+        footer.add_button("Annuler", self.reject)
+        self._ok = footer.add_button(accept_text, self.accept, primary=True)
+        self._ok.setDefault(True)
+        body = dialog_frame(self, DialogHeader(title, subtitle, icon=icon), footer, scroll=False)
+        texte = QLabel(label)
+        texte.setWordWrap(True)
+        body.addWidget(texte)
+        if items is not None:
+            from PySide6.QtWidgets import QComboBox
+            self._field = QComboBox()
+            self._field.addItems(items)
+            if current in items:
+                self._field.setCurrentText(current)
+            self._ok.setEnabled(bool(items))
+        else:
+            self._field = QLineEdit(default)
+            self._field.selectAll()
+            self._field.textChanged.connect(lambda t: self._ok.setEnabled(bool(t.strip())))
+            self._ok.setEnabled(bool(default.strip()))
+        body.addWidget(self._field)
+        body.addStretch(1)
+        self._field.setFocus()
+
+    def value(self) -> str:
+        return self._field.currentText() if not isinstance(self._field, QLineEdit) else self._field.text()
+
+
+def ask_item(parent: QWidget | None, title: str, label: str, items: list[str], current: str | None = None,
+             subtitle: str = "", icon: str = "", accept_text: str = "Valider") -> str | None:
+    """Choisir un élément dans une liste ; None si l'utilisateur annule."""
+    dialog = AskDialog(parent, title, label, subtitle, icon, items=items, current=current, accept_text=accept_text)
+    return dialog.value() if dialog.exec() and dialog.value() else None
+
+
+def ask_text(parent: QWidget | None, title: str, label: str, default: str = "", subtitle: str = "", icon: str = "",
+             accept_text: str = "Valider") -> str | None:
+    """Saisir un texte ; None si l'utilisateur annule."""
+    dialog = AskDialog(parent, title, label, subtitle, icon, default=default, accept_text=accept_text)
+    return dialog.value() if dialog.exec() else None

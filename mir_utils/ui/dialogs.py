@@ -143,13 +143,12 @@ class QtDialogProvider(IDialogProvider):
 
     def choose_item(self, title: str, label: str, items: list[str], current: str | None = None,
                     parent: QWidget | None = None) -> str | None:
-        index = items.index(current) if current in items else 0
-        item, ok = QInputDialog.getItem(parent or self._parent, title, label, items, index, False)
-        return item if ok and item else None
+        from mir_utils.ui.widgets import ask_item
+        return ask_item(parent or self._parent, title, label, items, current)
 
     def ask_text(self, title: str, label: str, default: str = "", parent: QWidget | None = None) -> str | None:
-        text, ok = QInputDialog.getText(parent or self._parent, title, label, text=default)
-        return text if ok else None
+        from mir_utils.ui.widgets import ask_text
+        return ask_text(parent or self._parent, title, label, default)
 
     def open_file(self, title: str, init_directory: str,
                   filters: str = "All files (*.*)",

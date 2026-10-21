@@ -12,6 +12,7 @@ from mir_robot_editor.entrainement.entrainement_view_model import (EntrainementV
                                                                    besoin_dataset)
 from mir_robot_editor.scripts.scripts_view import ScriptsView
 from mir_utils.ui.widgets import ToolButton
+from mir_utils.ui.widgets import ask_item, ask_text
 
 
 class EntrainementView(ScriptsView):
@@ -134,12 +135,13 @@ class EntrainementView(ScriptsView):
     # ------------------------------------------------------------------ scripts
     def _on_nouveau(self):
         types = list(TYPES.values())
-        genre, ok = QInputDialog.getItem(self, "Nouveau script d'entraînement", "Modèle :", types, 0, False)
-        if not ok:
+        genre = ask_item(self, "Nouveau script d'entraînement", "Modèle :", types,
+                         subtitle="Un script qui entraîne un modèle sur un dataset.", icon="new", accept_text="Suivant")
+        if not genre:
             return
-        nom, ok = QInputDialog.getText(self, "Nouveau script d'entraînement",
-                                       "Nom du script (ex. « CNN ramassage », « ACT insertion ») :")
-        if not ok or not nom.strip():
+        nom = ask_text(self, "Nouveau script d'entraînement", "Nom du script (ex. « CNN ramassage », « ACT insertion ») :",
+                       subtitle=f"Modèle : {genre}.", icon="new", accept_text="Créer")
+        if not nom or not nom.strip():
             return
         fichier = self._view_model.nouveau(nom.strip(), LEROBOT if genre == TYPES[LEROBOT] else PYTORCH)
         if fichier is not None:

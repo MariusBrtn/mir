@@ -6,6 +6,7 @@ import logging #noqa E402
 from logging.handlers import RotatingFileHandler #noqa E402
 from pathlib import Path #noqa E402
 from PySide6 import QtWidgets #noqa E402
+from PySide6.QtCore import QLibraryInfo, QTranslator #noqa E402
 from mir_robot_editor.main_view import MainView #noqa E402
 from mir_robot_editor.main_viewmodel import MainViewModel #noqa E402
 from mir_utils.ui.dialogs import QtDialogProvider #noqa E402
@@ -79,6 +80,10 @@ def main():
         app = QtWidgets.QApplication(sys.argv)
     apply_theme(app)
     habillage.installer()
+    # boutons standard de Qt (Annuler, Oui, Non...) en français, comme le reste de MIR
+    traduction = QTranslator(app)
+    if traduction.load("qtbase_fr", QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
+        app.installTranslator(traduction)
     mainViewModel = MainViewModel(dialogProvider)
     window = MainView(mainViewModel)
     dialogProvider.setParent(window)
