@@ -8,6 +8,7 @@ from mir_utils.ui.widgets import MainWindowBase
 from mir_robot_editor.motor_configuration.motor_configuration_view import MotorConfigurationView
 from mir_robot_editor.edit_configuration_view import EditConfigurationView
 from mir_robot_editor.motor_configuration.servo_id_view import ServoIdView
+from mir_robot_editor.capteurs.esp32_view import Esp32View
 from mir_robot_editor.motor_configuration.motor_configuration_view_model import MotorConfigurationViewModel
 from mir_robot_editor.main_viewmodel import MainViewModel, MainVMAction, MainViewModelState
 from mir_robot_editor.teleop.teleop_view import TeleopView
@@ -219,6 +220,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._close_action = self._make_action(MainVMAction.CLOSE, self.on_action_close, "close")
         self._advanced_action = self._make_action(MainVMAction.ADVANCED, self.on_action_advanced, "gear")
         self._servo_id_action = self._make_action(MainVMAction.SERVO_ID, self.on_action_servo_id, "servo_id")
+        self._esp32_action = self._make_action(MainVMAction.ESP32, self.on_action_esp32, "esp_sensors")
         self._reset_sim_action = self._make_action(MainVMAction.RESET_SIMULATION, self._view_model.reset_simulation, "")
         self._quit_action = self._make_action(MainVMAction.QUIT, self.close, "", "Ctrl+Q")
         self._simulation_vm_action = self._view_model.get_action(MainVMAction.SIMULATION)
@@ -405,7 +407,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self._card_construire = card(self._assemble_action, "Construction guidée du robot réel.")
         section("Avancé", "")
         card(self._advanced_action, "Changer l'ID d'un servo, recalibrer un servo, régler les servos, "
-                                    "éditer la configuration.")
+                                    "éditer la configuration, capteurs ESP32.")
         layout.addStretch(1)
         return scroll
 
@@ -429,6 +431,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                                         "Possible à tout moment, même si le robot n'est pas construit."),
                 (self._recalibrate_action, "Refaire le milieu et les butées d'un servo du robot construit."),
                 (self._motor_cfg_action, "Mode, PID, vitesse et couple max des servos du robot construit et branché."),
+                (self._esp32_action, "Capteur ESP32 (lidar…) : installer son firmware, ou le faire passer sur le "
+                                     "réseau Wi-Fi de ce PC, par câble USB ou en Bluetooth."),
                 (self._edit_configuration_action, "Modifier directement le fichier de configuration du robot.")):
             c = ActionCard(action, description)
             self._cards.append(c)
@@ -750,6 +754,9 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
     def on_action_advanced(self):
         self._steps.setCurrentRow(STEP_ROBOT)
         self._robot_pages.setCurrentIndex(1)
+
+    def on_action_esp32(self):
+        self._view_model.execute_esp32(lambda vm: Esp32View(self, vm).exec())
 
     def on_action_servo_id(self):
         self._view_model.execute_servo_id(lambda vm: ServoIdView(self, vm).exec())

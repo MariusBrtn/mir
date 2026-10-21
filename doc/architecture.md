@@ -105,7 +105,19 @@ Cas particuliers :
 
 À la fin, la description et le matériel sont **associés et vérifiés**. La simulation reprend automatiquement les plages calibrées (déjà en place dans `model_builder.py`).
 
-### 3.3 Contenu du fichier de configuration
+### 3.3 Mettre en service un module capteur (ESP32)
+
+*Ajout du 21/10/2026.* Les capteurs autres que la caméra (lidar, météo, plus tard IMU) sont des modules ESP32 qui parlent à MIR en Wi-Fi ; la caméra est sur un Raspberry Pi. Avant d'être détecté à l'assemblage, un module ESP32 doit avoir le firmware MIR et connaître le réseau Wi-Fi du PC. L'outil **Paramètres avancés → Module capteur ESP32** (`mir_robot_editor/capteurs/`) s'en charge. Il s'appuie sur `mir_esp_deploy` et `esp32_sensor` sans les modifier : mêmes binaires, même protocole série (`EspSensor`), même provisioning Bluetooth (`BleProvisioner`).
+
+- **Le réseau Wi-Fi est saisi une fois** et mémorisé sur le PC. macOS masque le nom du réseau courant sans autorisation de localisation, MIR ne le pré-remplit donc pas.
+- **Par câble USB** : MIR lit les réseaux du module, met le nouveau en principal et l'ancien en secours, remet l'IP du réseau principal en automatique (une IP fixe de l'ancien réseau empêcherait de rejoindre le nouveau), puis redémarre le module.
+- **En Bluetooth**, dans les 60 s après l'allumage : seul le réseau principal est remplacé ; l'ancien est perdu et une IP fixe ne peut pas être corrigée (limite du firmware). Seuls les firmwares postérieurs au 22/09/2026 émettent en Bluetooth.
+- **Installer le firmware** (câble) : flash par `esptool`, puis type de capteur, nom du module et réseau Wi-Fi en une seule opération.
+- Dans tous les cas, MIR **vérifie que le module répond** sur le réseau (découverte UDP, par son nom) avant d'annoncer la réussite.
+
+Tests : `tests/test_esp32.py` (module factice). Pas encore essayé sur le vrai lidar : le sien a un firmware sans Bluetooth et doit être mis à jour une fois par câble.
+
+### 3.4 Contenu du fichier de configuration
 
 | Section | Remplie par |
 |---|---|
@@ -173,6 +185,8 @@ Dans la couche **compétence**, tout a la même forme, du PID au VLA : c'est ce 
 | `mir_robot` | `mirRobot` et `mirRobotConfig` : le point d'entrée unique |
 | `mir_flow` | MIR Flow : graphe, boucle robot, exécution des nœuds, perception (MediaPipe), nœud LLM (OpenAI), contexte du robot, clé API |
 | `mir_robot_editor` | L'interface graphique |
+| `mir_esp_deploy`, `esp32_sensor` | Outil d'origine de déploiement des ESP32 et leur firmware (PlatformIO) ; repris par l'outil Module capteur ESP32 (partie 3.3), sans modification |
+| `mir_pi_sensors` | Serveurs caméra et lidar du Raspberry Pi, et leur script de déploiement |
 | `mir_utils` | Outils transverses (UI de base, enregistrement, métriques, concurrence) |
 | `mir_user_scripts` | Exemples et scripts d'élèves |
 
@@ -487,6 +501,7 @@ Premiers chantiers proposés le 15/10 pour le parcours 1 (en grande partie faits
   4. **Délai maximal et nouvelle tentative** sur une action ou un sous-flux (« essayer 3 fois », « abandonner au bout de 2 min »).
 - **Coude 90°** : orientation de la douille déduite du STL pour qu'une caméra regarde vers l'extérieur ; à vérifier sur la pièce réelle.
 - **Humains en simulation** : le détecteur ne reconnaît pas des formes simples ; il faudrait des maillages texturés réalistes dans les scènes (pas encore pris en charge).
+- **Modules capteurs** : déploiement de la caméra sur Raspberry Pi à simplifier comme celui des ESP32 (carte SD à préparer, nom `pi2` écrit en dur dans `deploy.py`, `rsync` absent sous Windows) ; Wi-Fi des établissements (découverte UDP souvent bloquée : un routeur dédié à MIR ?) ; garder l'ancien réseau en secours aussi en Bluetooth (modification du firmware, à voir avec son auteur) ; capteur IMU à ajouter au firmware.
 - **Inférence distante** : politique lourde sur une autre machine, avec quelle latence acceptable.
 - **Données** : où stocker les datasets (dossier du robot, d'une expérience, Hub Hugging Face).
 - **RL** : forme de l'environnement gymnasium construit à partir de la description.

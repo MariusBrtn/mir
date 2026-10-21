@@ -8,6 +8,7 @@ from mir_sim.config_from_structure import complete_config_from_structure
 from mir_sim.scenes import load_scene_file, place_scene, scene_files
 from mir_robot_editor.motor_configuration.motor_configuration_view_model import MotorConfigurationViewModel
 from mir_robot_editor.motor_configuration.servo_id_view_model import ServoIdViewModel
+from mir_robot_editor.capteurs.esp32_view_model import Esp32ViewModel
 from mir_robot_editor.scan_devices_view_model import ScanDevicesViewModel
 from mir_robot_editor.robot_monitor_view_model import RobotMonitorViewModel
 from mir_robot_editor.essais.essais_view_model import EssaisViewModel
@@ -48,6 +49,7 @@ class MainVMAction(Enum):
     RECALIBRATE = auto()
     ADVANCED = auto()
     SERVO_ID = auto()
+    ESP32 = auto()
     CLOSE = auto()
     QUIT = auto()
 
@@ -83,6 +85,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._actions[MainVMAction.RECALIBRATE] = VMAction("Recalibrer un servo...", "Refaire le milieu et les butées d'un servo du robot construit")
         self._actions[MainVMAction.ADVANCED] = VMAction("Paramètres avancés...", "Outils techniques pour régler ou dépanner le robot à la main")
         self._actions[MainVMAction.SERVO_ID] = VMAction("Changer l'ID d'un servo...", "Donner un nouvel ID à un servo branché seul, même sans robot construit")
+        self._actions[MainVMAction.ESP32] = VMAction("Module capteur ESP32...", "Installer le firmware d'un capteur ESP32 (lidar...) ou lui donner un autre réseau Wi-Fi")
         self._actions[MainVMAction.CLOSE] = VMAction("Fermer ce robot", "Fermer le robot ouvert pour en créer ou en ouvrir un autre (rien n'est supprimé)")
         self._actions[MainVMAction.RESET_SIMULATION] = VMAction("Replacer la scène", "Replacer le robot simulé et les objets de la scène dans leur position de départ")
         self._actions[MainVMAction.QUIT] = VMAction("Quitter", "Quitter l'application")
@@ -581,6 +584,13 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         except BaseException as e:
             self._dialogProvider.exception(e)
 
+    def execute_esp32(self, open_view):
+        try:
+            with Esp32ViewModel(self._dialogProvider) as vm:
+                open_view(vm)
+        except BaseException as e:
+            self._dialogProvider.exception(e)
+
     def execute_edit_configuration(self, open_view):
         try:
             if self._current_configuration is None:
@@ -902,6 +912,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         a[MainVMAction.ADVANCED].set_enabled(True)
         # le port des servos doit être libre : pas avec le robot réel connecté
         a[MainVMAction.SERVO_ID].set_enabled(not (connected and not sim))
+        a[MainVMAction.ESP32].set_enabled(True)
         a[MainVMAction.CONNECT].set_enabled(state == MainViewModelState.LOADED and not sim and not self._configuring)
         a[MainVMAction.DISCONNECT].set_enabled(state == MainViewModelState.CONNECTED and not sim)
         a[MainVMAction.SIMULATION].set_enabled(state != MainViewModelState.RUNNING and not (connected and not sim))

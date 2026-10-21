@@ -2,7 +2,7 @@
 [project]
 name = "mir_robot_editor"
 version = "0.1.0"
-dependencies = ["mir_robot", "mir_flow", "mir_devices", "mir_utils", "mir_sim", "PySide6", "pyqtgraph", "loguru", "numpy"]
+dependencies = ["mir_robot", "mir_flow", "mir_devices", "mir_utils", "mir_sim", "mir_esp_deploy", "PySide6", "pyqtgraph", "loguru", "numpy"]
 
 [build-system]
 requires = ["setuptools"]
