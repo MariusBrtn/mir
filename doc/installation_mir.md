@@ -15,7 +15,8 @@ Le script ([installer/macos/install_mir.sh](../installer/macos/install_mir.sh)) 
 1. il installe uv s'il manque ;
 2. il télécharge MIR dans le dossier personnel, `~/MIR` ;
 3. il installe les paquets (Python, PyTorch, MuJoCo, LeRobot…) dans `~/MIR/.venv` ;
-4. il crée l'application **MIR** dans `~/Applications`, puis la lance.
+4. il crée l'application **MIR** dans le dossier **Applications**, puis la lance. Si le compte n'a pas le droit
+   d'écrire dans Applications (compte standard), elle va dans `~/Applications`, le dossier Applications personnel.
 
 Ensuite, MIR se lance comme une autre application : Launchpad, Spotlight, ou le Dock (y glisser l'application pour
 l'y garder).
@@ -24,7 +25,10 @@ l'y garder).
   ne sont pas remplacés ; un exemple déjà présent ne reçoit donc pas ses mises à jour.
 - **En cas de problème** : le journal de l'application est dans `~/MIR/logs/application.log`.
 - **Mac Intel** : non pris en charge, PyTorch n'existe plus pour ces Mac.
-- **Désinstaller** : supprimer `~/Applications/MIR.app` et le dossier `~/MIR` (et, si on n'en veut plus, uv :
+- **Python déjà installé sur le Mac** (par exemple depuis python.org) : l'installateur ne s'en sert pas. Il utilise
+  toujours le Python téléchargé par uv, pour Apple Silicon seulement ; un Python « universel » démarrerait sinon en
+  mode Intel et ne trouverait pas les paquets.
+- **Désinstaller** : supprimer l'application MIR (dans Applications) et le dossier `~/MIR` (et, si on n'en veut plus, uv :
   `~/.local/bin/uv` et son cache `~/.cache/uv`).
 
 Pourquoi une ligne dans le Terminal plutôt qu'un fichier à double-cliquer : macOS bloque les applications non signées

@@ -4,7 +4,7 @@
 #
 # - installe uv s'il manque (sans droits administrateur) ;
 # - télécharge MIR dans ~/MIR et installe ses paquets (dossier ~/MIR/.venv, quelques Go) ;
-# - crée l'application MIR dans ~/Applications (Launchpad, Spotlight, Dock) et la lance.
+# - crée l'application MIR dans le dossier Applications (Launchpad, Spotlight, Dock) et la lance.
 # Relancer la même commande met MIR à jour : les fichiers déjà présents dans robots/ (le travail de l'élève) sont gardés.
 #
 # Pour essayer l'installateur avant publication (variables facultatives) :
@@ -15,7 +15,10 @@ set -euo pipefail
 MIR_BRANCH="${MIR_BRANCH:-main}"
 MIR_SOURCE="${MIR_SOURCE:-https://github.com/MariusBrtn/mir/archive/refs/heads/$MIR_BRANCH.zip}"
 MIR_DIR="${MIR_DIR:-$HOME/MIR}"
-MIR_APP_DIR="${MIR_APP_DIR:-$HOME/Applications}"
+# /Applications (dossier Applications du Finder) si le compte peut y écrire, sinon ~/Applications
+if [ -z "${MIR_APP_DIR:-}" ]; then
+    if [ -w /Applications ]; then MIR_APP_DIR=/Applications; else MIR_APP_DIR="$HOME/Applications"; fi
+fi
 APP="$MIR_APP_DIR/MIR.app"
 
 etape() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
@@ -70,11 +73,19 @@ echo "MIR est dans $MIR_DIR"
 
 # ------------------------------------------------------------------ paquets
 etape "3/4  Installation des paquets (Python, PyTorch, MuJoCo, LeRobot…) : 5 à 15 minutes la première fois"
+# Python téléchargé par uv (Apple Silicon seul) plutôt qu'un Python déjà installé : celui de python.org contient
+# aussi une version Intel, qui démarrerait en Rosetta et ne trouverait pas les paquets Apple Silicon
+export UV_PYTHON_PREFERENCE=only-managed
+if [ -f "$MIR_DIR/.venv/pyvenv.cfg" ] && ! grep -q "$(uv python dir)" "$MIR_DIR/.venv/pyvenv.cfg"; then
+    echo "Environnement créé avec un autre Python : il est refait."
+    rm -rf "$MIR_DIR/.venv"
+fi
 (cd "$MIR_DIR" && uv sync) || echec "L'installation des paquets a échoué (voir les messages ci-dessus)."
 
 # ------------------------------------------------------------------ application
 etape "4/4  Application MIR"
 rm -rf "$APP"
+[ "$MIR_APP_DIR" = "$HOME/Applications" ] || rm -rf "$HOME/Applications/MIR.app"     # ancienne version de l'installateur
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$MIR_DIR/installer/macos/MIR.icns" "$APP/Contents/Resources/MIR.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -90,6 +101,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.0</string>
     <key>LSMinimumSystemVersion</key><string>12.0</string>
+    <key>LSArchitecturePriority</key><array><string>arm64</string></array>
+    <key>LSRequiresNativeExecution</key><true/>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSBluetoothAlwaysUsageDescription</key><string>MIR envoie le réseau Wi-Fi aux modules capteurs en Bluetooth.</string>
     <key>NSLocalNetworkUsageDescription</key><string>MIR cherche les modules capteurs (caméra, lidar) sur le réseau local.</string>
@@ -107,13 +120,15 @@ if [ ! -x "\$MIR_DIR/.venv/bin/python" ]; then
 fi
 mkdir -p "\$MIR_DIR/logs"
 cd "\$MIR_DIR"
-exec "\$MIR_DIR/.venv/bin/python" -m mir_robot_editor.main >> "\$MIR_DIR/logs/application.log" 2>&1
+# arch -arm64 : jamais en Rosetta, même si le Finder lance le script en mode Intel
+exec /usr/bin/arch -arm64 "\$MIR_DIR/.venv/bin/python" -m mir_robot_editor.main >> "\$MIR_DIR/logs/application.log" 2>&1
 LANCEUR
 chmod +x "$APP/Contents/MacOS/MIR"
 touch "$APP"                     # le Finder relit l'icône
 
 printf '\n\033[1;32m✓ MIR est installé.\033[0m\n'
-echo "  Application : $APP (Launchpad, Spotlight ; glissez-la dans le Dock pour la garder)"
+echo "  Application : $APP"
+echo "                (dossier Applications du Finder, Launchpad, Spotlight ; glissez-la dans le Dock pour la garder)"
 echo "  Dossier     : $MIR_DIR (robots, scripts, datasets)"
 echo "  Mise à jour : relancez la même commande d'installation."
 if [ -z "${MIR_NO_OPEN:-}" ]; then

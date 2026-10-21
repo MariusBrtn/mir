@@ -76,7 +76,8 @@ curl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos
 ```
 
 It installs uv, downloads MIR into your home folder (`~/MIR`), installs its packages and creates the **MIR** app in
-`~/Applications` (find it with Launchpad or Spotlight, and drag it to the Dock to keep it). Run the same line again to
+the **Applications** folder (or in `~/Applications` if your account may not write there). Find it with Launchpad or
+Spotlight, and drag it to the Dock to keep it. Run the same line again to
 update MIR: files you already have in `robots/` are kept. Intel Macs are not supported (PyTorch no longer exists for them).
 
 The steps below do the same by hand, on Windows, macOS and Linux.
