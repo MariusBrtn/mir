@@ -402,6 +402,52 @@ Une colonne à gauche suit le parcours, plutôt qu'une icône par fonction. Une 
 
 Le monitor est à revoir en s'inspirant des logiciels des systèmes didactiques de TP (type Maxpid, Control'X), de Dynamixel Wizard et de PlotJuggler, autour de la notion d'essai.
 
+### Charte graphique « Atelier »
+
+*Choisie le 16/10/2026, renforcée le 21/10/2026.* Les maquettes sont dans le canevas « Thèmes MIR Editor » (claude.ai) : trois pistes de style comparées le 16/10 (Atelier, clair, a été retenu), puis la rangée « Fenêtres contextuelles : Atelier, un cran plus marqué » validée le 21/10. Tout le style passe par `mir_utils/ui/theme.py` (couleurs, palette Qt, feuille de style) et les éléments de `mir_utils/ui/widgets.py` : **aucune couleur en dur dans les vues**.
+
+**Principe.** Sobre, mat, peu coloré, accordé au robot (PLA noir et sable) et à la marque Atelier Vectoriel (bleu ardoise). Les couleurs vives sont réservées aux états.
+
+| Rôle | Couleur | Constante |
+|---|---|---|
+| PLA noir mat : texte, structure, action principale, élément choisi | `#141417` | `INK` |
+| PLA sable mat : accent unique (coche, repères, texte sur fond noir) | `#DEC7A3` | `SAND` |
+| Sable foncé : numéros sur fond clair, liens | `#8A7350` | `SAND_DARK` |
+| Ardoise de la marque : mode Simulé | `#5A6B85` | `SLATE` |
+| Fond de la fenêtre / cartes et champs / panneaux | `#FAF8F4` / `#FFFDF9` / `#F2EDE4` | `WINDOW`, `SURFACE`, `PANEL` |
+| Bordures | `#E2DACD`, `#CFC4B2` | `BORDER`, `BORDER_STRONG` |
+| Texte / texte secondaire / désactivé | `#1C1C1F` / `#6B655C` / `#A39B8F` | `TEXT`, `TEXT_MUTED`, `TEXT_DISABLED` |
+| États : prêt / attention / erreur, arrêt | `#3F7A4A` / `#B5651D` / `#A63D32` | `OK`, `WARNING`, `ERROR` |
+| Robot réel (liseré, arrêt d'urgence) | `#B4472F` | `REAL` |
+| Familles de nœuds MIR Flow (teintes assourdies) | ardoise, pétrole, prune, bronze, sable rosé | `FLOW_*` |
+
+**Typographie.** IBM Plex Sans (fournie avec le code, licence OFL) pour les titres et les textes ; **IBM Plex Mono** pour les mesures, angles, ID, noms de modules, de nœuds et de fichiers, et les journaux (`mono_font()`).
+
+**Vue 3D.** Ciel gris chaud (`#F1ECE4` → `#CFC7BA`), table `#BFAD94` : la seule teinte froide de l'ancienne scène (bleu acier) a été retirée.
+
+**Les fenêtres** (`dialog_frame`, ou `frame_existing` pour habiller une fenêtre déjà construite) :
+- un **en-tête** : tuile d'icône (sable sur noir, ou à la couleur de la famille d'un nœud), titre en 18 px, une phrase d'explication ; au-dessus du titre, la famille si utile (« Décider · LLM ») ;
+- le contenu en **sections numérotées** (`Section`, numéro en sable foncé, comme les étapes de l'accueil) ou en cartes (`QGroupBox`) ;
+- un **pied** sur fond panneau, boutons à droite (`DialogFooter`) ;
+- le contenu **défile** quand la fenêtre est trop petite (sinon Qt l'écrase), et une fenêtre plus petite que son contenu s'agrandit à l'ouverture ;
+- les petites fenêtres de choix et de saisie passent par `ask_item` / `ask_text`, jamais par `QInputDialog`.
+
+Les fenêtres qui ne construisent pas elles-mêmes leur en-tête (réglages des servos, calibration, registres, configuration, découverte des appareils...) en reçoivent un à l'ouverture, déclaré dans `mir_robot_editor/habillage.py`, sans modification de leur code.
+
+**Les pages.** Colonne de gauche en cartes (`QGroupBox`), marges de 10 px ; pas de cadre vide : une phrase dit ce qui s'affichera et comment (« Cochez des grandeurs à gauche... ») ; une colonne sans contenu (capteurs d'un robot qui n'en a pas) est masquée.
+
+**Les éléments.**
+- Champs, listes déroulantes, champs numériques : 34 px de haut, coins arrondis, contour noir pendant la saisie.
+- Cases et boutons radio noirs une fois cochés (coche sable) ; un choix exclusif important se présente en cartes (`ChoiceCard`).
+- **Un seul bouton noir par zone** : l'action principale (`setObjectName("Primary")`) ; les autres boutons sont en contour.
+- Messages d'état sur un bandeau (`MessageLabel`) : « ✓ » en vert, « ✗ » en rouge.
+- Petits titres en capitales espacées pour les zones secondaires : Entrée, Sortie, Journal, Console (`overline`).
+- Icônes d'une seule couleur, **noires** (jamais bleues) ; le rouge et le vert restent aux actions d'état (arrêter, valider).
+
+**Le vocabulaire.** « Servo » plutôt que « moteur » ; verbes à l'infinitif dans les intitulés (« Concevoir la structure », « Régler les servos ») ; tout en français, boutons standard de Qt compris (traduction `qtbase_fr` chargée au démarrage).
+
+**Limites de Qt rencontrées.** La feuille de style ne règle pas la marge du texte des champs numériques (filtre d'événements `_SpinBoxMargins` dans `theme.py`) ; Qt calcule mal la hauteur d'un texte sur plusieurs lignes dans une carte (descriptions des `ChoiceCard` sur une ligne) ; le bouton « par défaut » d'une fenêtre suit le focus (il n'est donc jamais peint en noir plein). Les fenêtres de message standard (`QMessageBox`) gardent les icônes de Qt.
+
 ## 9. Ce que MIR ne construit pas
 
 - **Pas de middleware à la ROS.** ROS est avant tout une infrastructure (des processus qui s'échangent des messages, du réseau, des outils de lancement et de configuration) : puissante mais lourde, et c'est ce que LeRobot a choisi d'éviter. MIR **emprunte les idées, pas l'infrastructure** : pas de bus de messages général ni de « nœuds » à configurer ; une application qui possède le robot et une interface Python minimale. Si un jour il faut parler à ROS, ce sera par un pont vers ROS 2.
