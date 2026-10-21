@@ -21,8 +21,11 @@ Le script ([installer/macos/install_mir.sh](../installer/macos/install_mir.sh)) 
 Ensuite, MIR se lance comme une autre application : Launchpad, Spotlight, ou le Dock (y glisser l'application pour
 l'y garder).
 
-- **Mettre à jour** : relancer la même ligne. Les fichiers déjà présents dans `~/MIR/robots/` (le travail de l'élève)
-  ne sont pas remplacés ; un exemple déjà présent ne reçoit donc pas ses mises à jour.
+- **Au départ**, `~/MIR/robots/` ne contient que deux robots, en simulation, avec leur seule configuration (pas de
+  graphe MIR Flow, de script, de dataset ni de modèle) : `bras_4ddl_cam_V2` (bras 4 ddl avec caméra) et `test_mobile`
+  (robot mobile avec lidar). Les autres exemples restent dans le dépôt GitHub (installation pas à pas).
+- **Mettre à jour** : relancer la même ligne. Le code est remplacé ; le dossier `~/MIR/robots/` (le travail de l'élève)
+  n'est pas touché.
 - **En cas de problème** : le journal de l'application est dans `~/MIR/logs/application.log`.
 - **Mac Intel** : non pris en charge, PyTorch n'existe plus pour ces Mac.
 - **Python déjà installé sur le Mac** (par exemple depuis python.org) : l'installateur ne s'en sert pas. Il utilise

@@ -5,7 +5,7 @@
 # - installe uv s'il manque (sans droits administrateur) ;
 # - télécharge MIR dans ~/MIR et installe ses paquets (dossier ~/MIR/.venv, quelques Go) ;
 # - crée l'application MIR dans le dossier Applications (Launchpad, Spotlight, Dock) et la lance.
-# Relancer la même commande met MIR à jour : les fichiers déjà présents dans robots/ (le travail de l'élève) sont gardés.
+# Relancer la même commande met MIR à jour : le dossier robots/ (le travail de l'élève) n'est pas touché.
 #
 # Pour essayer l'installateur avant publication (variables facultatives) :
 #     MIR_SOURCE=/chemin/vers/mir  (dossier ou .zip local)   MIR_DIR=...   MIR_APP_DIR=...
@@ -20,6 +20,9 @@ if [ -z "${MIR_APP_DIR:-}" ]; then
     if [ -w /Applications ]; then MIR_APP_DIR=/Applications; else MIR_APP_DIR="$HOME/Applications"; fi
 fi
 APP="$MIR_APP_DIR/MIR.app"
+# robots créés à la première installation (simulés tant qu'on ne les construit pas) : bras 4 ddl avec caméra,
+# robot mobile avec lidar
+ROBOTS_DE_DEPART="bras_4ddl_cam_V2 test_mobile"
 
 etape() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
 echec() { printf '\n\033[1;31m✗ %s\033[0m\n' "$1" >&2; exit 1; }
@@ -64,11 +67,15 @@ fi
 
 mkdir -p "$MIR_DIR"
 exclus=(--exclude .git --exclude .venv --exclude logs --exclude '__pycache__' --exclude '*.egg-info' --exclude .pytest_cache)
-# le code est remplacé ; dans robots/, seuls les fichiers absents sont ajoutés (on ne touche pas au travail de l'élève)
+# le code est remplacé ; robots/ est le dossier de l'élève : au départ, seulement deux robots, avec leur seule
+# configuration (pas de graphe MIR Flow, de script ni de modèle). Un robot déjà présent n'est jamais touché.
 rsync -a "${exclus[@]}" --exclude /robots "$source_dir/" "$MIR_DIR/"
-if [ -d "$source_dir/robots" ]; then
-    rsync -a --ignore-existing "${exclus[@]}" "$source_dir/robots/" "$MIR_DIR/robots/"
-fi
+for robot in $ROBOTS_DE_DEPART; do
+    if [ ! -e "$MIR_DIR/robots/$robot" ] && [ -f "$source_dir/robots/$robot/robot.json" ]; then
+        mkdir -p "$MIR_DIR/robots/$robot"
+        cp "$source_dir/robots/$robot/robot.json" "$MIR_DIR/robots/$robot/"
+    fi
+done
 echo "MIR est dans $MIR_DIR"
 
 # ------------------------------------------------------------------ paquets
