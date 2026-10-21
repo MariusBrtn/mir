@@ -67,6 +67,20 @@ package MIR needs (LeRobot, MuJoCo, PyTorch...).
 
 You need an internet connection and about **5 GB** of free disk space. The first installation takes around 10 minutes.
 
+### Quick install on macOS (Apple Silicon)
+
+Open the **Terminal** app (Spotlight → type "Terminal"), paste this line and press Enter:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos/install_mir.sh | bash
+```
+
+It installs uv, downloads MIR into your home folder (`~/MIR`), installs its packages and creates the **MIR** app in
+`~/Applications` (find it with Launchpad or Spotlight, and drag it to the Dock to keep it). Run the same line again to
+update MIR: files you already have in `robots/` are kept. Intel Macs are not supported (PyTorch no longer exists for them).
+
+The steps below do the same by hand, on Windows, macOS and Linux.
+
 ### 1. Install uv (once)
 
 - **Windows**: open **PowerShell** (Start menu → type "PowerShell") and paste:
