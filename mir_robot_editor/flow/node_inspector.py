@@ -131,7 +131,7 @@ class NodeInspector(QWidget):
         for kind, label in KINDS.items():
             self.action_kind.addItem(label, kind)
         self.action_kind.currentIndexChanged.connect(self._on_kind)
-        form.addRow("Sorte", self.action_kind)
+        form.addRow("Type", self.action_kind)
         self.action_duration = QDoubleSpinBox()
         self.action_duration.setRange(0.1, 600)
         self.action_duration.setSuffix(" s")
@@ -543,7 +543,7 @@ class NodeInspector(QWidget):
                 w.setCurrentText(str(value or ""))
                 w.currentTextChanged.connect(lambda t, k=f.key: self._set(k, t))
             return w
-        raise ValueError(f"réglage de sorte inconnue : {f.kind}")
+        raise ValueError(f"type de réglage inconnu : {f.kind}")
 
     def _classes_widget(self, f, value: str) -> QWidget:
         """Objets cherchés par la vision : texte libre (séparé par des virgules) et liste des objets reconnus."""

@@ -77,7 +77,7 @@ class ActionTool:
             policy = load_policy(folder)
             fps = float(model_info(folder).get("fps") or c.get("fps") or 20)
             return policy, fps, list(policy.observations()) if hasattr(policy, "observations") else []
-        raise ValueError(f"sorte d'action inconnue : {self.kind}")
+        raise ValueError(f"type d'action inconnu : {self.kind}")
 
     def execute(self, loop, should_stop: Callable[[], bool], until: Callable[[], bool] | None = None) -> dict[str, Any]:
         """Fait tourner l'action dans la boucle robot pendant sa durée, jusqu'à ce qu'elle s'arrête d'elle-même, ou
