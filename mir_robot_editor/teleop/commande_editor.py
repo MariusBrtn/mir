@@ -7,7 +7,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 from mir_robot.teleop.loading import check_teleop_file
 from mir_utils.ui.code_editor import PythonCodeEditor
-from mir_utils.ui import theme
+from mir_utils.ui.widgets import DialogFooter, DialogHeader, MessageLabel, dialog_frame, mono_font
 
 MODELE_CLAVIER = '''"""
 {nom} : téléopération au clavier.
@@ -90,37 +90,32 @@ class CommandeEditorDialog(QDialog):
         self._fichier = fichier
         self.setWindowTitle(f"Téléopération : {fichier.name}")
         self.resize(900, 700)
-        layout = QVBoxLayout(self)
-        chemin = QLabel(str(fichier))
-        chemin.setStyleSheet("color: palette(placeholder-text);")
-        chemin.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        layout.addWidget(chemin)
+        footer = DialogFooter()
+        btn_verifier = QPushButton("Vérifier")
+        btn_verifier.setAutoDefault(False)
+        btn_verifier.clicked.connect(self.verifier)
+        footer.add_left(btn_verifier)
+        footer.add_button("Fermer", self.close)
+        self.btn_enregistrer = footer.add_button("Enregistrer", self.enregistrer, primary=True)
+        self.btn_enregistrer.setEnabled(modifiable)
+        layout = dialog_frame(self, DialogHeader(fichier.stem, str(fichier), icon="actions", kind="Téléopération"),
+                              footer, scroll=False)
+        self.findChild(DialogHeader).title_label().setFont(mono_font(18))
+        self.findChild(DialogHeader).findChild(QLabel, "DialogSubtitle").setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse)
         if not modifiable:
-            info = QLabel("Téléopération fournie avec MIR : lecture seule. Pour la modifier, créez une nouvelle "
-                          "téléopération et copiez-y ce code.")
-            info.setWordWrap(True)
+            info = MessageLabel()
+            info.set_message("Téléopération fournie avec MIR : lecture seule. Pour la modifier, créez une nouvelle "
+                             "téléopération et copiez-y ce code.")
             layout.addWidget(info)
         self.editor = PythonCodeEditor()
         self.editor.setPlainText(contenu_initial if contenu_initial is not None else fichier.read_text(encoding="utf-8"))
         self.editor.setReadOnly(not modifiable)
         self.editor.textChanged.connect(self.editor.clearErrorLine)
         layout.addWidget(self.editor, 1)
-        self.status = QLabel()
-        self.status.setWordWrap(True)
+        self.status = MessageLabel()
+        self.status.hide()
         layout.addWidget(self.status)
-        buttons = QHBoxLayout()
-        btn_verifier = QPushButton("Vérifier")
-        btn_verifier.clicked.connect(self.verifier)
-        buttons.addWidget(btn_verifier)
-        buttons.addStretch(1)
-        self.btn_enregistrer = QPushButton("Enregistrer")
-        self.btn_enregistrer.setEnabled(modifiable)
-        self.btn_enregistrer.clicked.connect(self.enregistrer)
-        buttons.addWidget(self.btn_enregistrer)
-        btn_fermer = QPushButton("Fermer")
-        btn_fermer.clicked.connect(self.close)
-        buttons.addWidget(btn_fermer)
-        layout.addLayout(buttons)
 
     def enregistrer(self) -> bool:
         self._fichier.parent.mkdir(parents=True, exist_ok=True)
@@ -144,11 +139,9 @@ class CommandeEditorDialog(QDialog):
         noms, erreur, ligne = check_teleop_file(fichier or self._fichier)
         if erreur is None:
             self.editor.clearErrorLine()
-            self.status.setStyleSheet(f"color: {theme.OK};")
-            self.status.setText(f"OK : {', '.join(noms)}")
+            self.status.set_message(f"✓ OK : {', '.join(noms)}")
             return True
         if ligne is not None:
             self.editor.setErrorLine(ligne)
-        self.status.setStyleSheet(f"color: {theme.ERROR};")
-        self.status.setText(erreur)
+        self.status.set_message(f"✗ {erreur}")
         return False

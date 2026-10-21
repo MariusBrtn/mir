@@ -2,7 +2,7 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QComboBox, QHBoxLayout, QLabel, QListWidget, QListWidgetItem, QPushButton, QStackedWidget,
                                QVBoxLayout, QWidget)
-from mir_utils.ui.widgets import DialogBase
+from mir_utils.ui.widgets import DialogBase, DialogHeader, dialog_frame
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_robot_editor.assemblage.assemblage_view_model import AssemblageViewModel, AssemblageVMAction, Phase
 from mir_robot_editor.assemblage.bus import BusFeetech, BusSimule, ports_disponibles
@@ -23,11 +23,17 @@ class AssemblageView(DialogBase):
         view_model.model_changed.connect(lambda model, data: self._viewport.set_model(model, data, keep_camera=True))
         view_model.redraw_required.connect(lambda: self._viewport.update())
 
-        root = QHBoxLayout(self)
+        corps = dialog_frame(self, DialogHeader(view_model.titre(), "Module après module : poser, brancher, "
+                                                "vérifier, calibrer.", icon="construire"), margins=(0, 0, 0, 0),
+                             scroll=False)
+        root = QHBoxLayout()
+        root.setContentsMargins(0, 0, 0, 0)
+        corps.addLayout(root, 1)
         self._viewport = MujocoWidget()
         root.addWidget(self._viewport, 1)
 
         right = QVBoxLayout()
+        right.setContentsMargins(16, 14, 16, 14)
         self._pages = QStackedWidget()
         self._pages.addWidget(self._make_start_page())
         self._pages.addWidget(self._make_step_page())
@@ -42,9 +48,7 @@ class AssemblageView(DialogBase):
     def _make_start_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
-        title = QLabel(self._vm.titre())
-        title.setStyleSheet("font-size: 18px; font-weight: bold;")
-        layout.addWidget(title)
+        layout.setContentsMargins(0, 0, 0, 0)
         texte = QLabel("Le guide montre, module après module, où poser chaque module. Les servos sont détectés et "
                        "reçoivent leur ID dès qu'on les branche, puis on les calibre à la main.\n\n"
                        "Branchez le câble USB du bus des servos, choisissez son port, puis cliquez sur Commencer. "
@@ -64,7 +68,7 @@ class AssemblageView(DialogBase):
         self.lbl_ports_exclus.setStyleSheet(f"color: {theme.TEXT_MUTED};")
         layout.addWidget(self.lbl_ports_exclus)
         self.btn_start = QPushButton("Commencer")
-        self.btn_start.setStyleSheet("font-weight: bold; padding: 6px;")
+        self.btn_start.setObjectName("Primary")
         self.btn_start.clicked.connect(self._on_start)
         layout.addWidget(self.btn_start)
         self.lbl_start_error = QLabel()
@@ -116,7 +120,7 @@ class AssemblageView(DialogBase):
         layout.addWidget(self.lbl_step)
         self.lbl_consigne = QLabel()
         self.lbl_consigne.setWordWrap(True)
-        self.lbl_consigne.setStyleSheet("font-size: 14px; padding: 8px; background: palette(alternate-base);")
+        self.lbl_consigne.setStyleSheet(f"font-size: 14px; padding: 10px 12px; background: {theme.PANEL}; border-radius: 9px;")
         self.lbl_consigne.setMinimumHeight(110)
         self.lbl_consigne.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(self.lbl_consigne)
@@ -144,7 +148,7 @@ class AssemblageView(DialogBase):
         self.btn_recommencer.clicked.connect(self._vm.recommencer)
         buttons.addWidget(self.btn_recommencer)
         self.btn_suivant = QPushButton("Suivant")
-        self.btn_suivant.setStyleSheet("font-weight: bold;")
+        self.btn_suivant.setObjectName("Primary")
         self.btn_suivant.clicked.connect(self._on_suivant)
         buttons.addWidget(self.btn_suivant)
         layout.addLayout(buttons)

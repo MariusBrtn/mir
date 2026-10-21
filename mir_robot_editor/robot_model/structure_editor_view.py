@@ -9,7 +9,7 @@ from mir_robot_editor.robot_model.structure_editor_view_model import (ModuleInfo
                                                                       StructureEditorVMAction)
 from mir_robot_editor.robot_model.thumbnails import render_module_thumbnail
 from mir_utils.ui.view_base import ViewBase
-from mir_utils.ui.widgets import DialogBase
+from mir_utils.ui.widgets import DialogBase, DialogFooter, DialogHeader, dialog_frame
 from mir_utils.ui import theme
 
 THUMBNAIL_SIZE = 56
@@ -166,9 +166,13 @@ class StructureEditorView(DialogBase, ViewBase[StructureEditorViewModel, Structu
         for action in (self._undo_action, self._redo_action):
             self.addAction(action)   # raccourcis actifs dans toute la fenêtre
 
-        main_layout = QVBoxLayout(self)
+        footer = DialogFooter()
+        footer.add_left(toolbar)
+        main_layout = dialog_frame(self, DialogHeader("Concevoir la structure",
+                                                      "Choisir les modules du catalogue et leurs branchements : la "
+                                                      "structure décrit à la fois le robot réel et sa simulation.",
+                                                      icon="structure"), footer, margins=(12, 10, 12, 10), scroll=False)
         main_layout.addLayout(content, stretch=1)
-        main_layout.addWidget(toolbar)
 
         self._on_selection_changed(None)
         vm.start()

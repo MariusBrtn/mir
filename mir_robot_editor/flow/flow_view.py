@@ -22,7 +22,7 @@ from mir_robot_editor.flow.graph_editor import GraphEditor
 from mir_robot_editor.flow.node_inspector import InspectorContext, NodeInspector
 from mir_robot_editor.robot_model.mujoco_widget import MujocoWidget
 from mir_utils.ui import theme
-from mir_utils.ui.widgets import DialogFooter, DialogHeader, dialog_frame, mono_font
+from mir_utils.ui.widgets import DialogFooter, DialogHeader, Section, dialog_frame, mono_font
 from mir_robot_editor.flow.node_icons import CATEGORY_COLORS, icon_color, icon_pixmap
 from mir_utils.ui.view_base import ViewBase
 
@@ -590,37 +590,46 @@ class CompteDialog(QDialog):
         super().__init__(parent)
         self._vm = view_model
         self.setWindowTitle("Compte OpenAI")
-        self.setMinimumWidth(520)
-        layout = QVBoxLayout(self)
-        aide = QLabel("MIR Flow utilise votre propre compte OpenAI. Créez une clé API sur "
+        self.setMinimumWidth(560)
+        footer = DialogFooter()
+        self.btn_oublier = QPushButton("Oublier la clé")
+        self.btn_oublier.setAutoDefault(False)
+        self.btn_oublier.setToolTip("Retire la clé du trousseau de cet ordinateur")
+        self.btn_oublier.clicked.connect(self._on_oublier)
+        footer.add_left(self.btn_oublier)
+        footer.add_button("Fermer", self.accept)
+        layout = dialog_frame(self, DialogHeader("Compte OpenAI", "Le nœud LLM de MIR Flow utilise votre propre "
+                                                 "compte OpenAI.", icon="enter"), footer, scroll=False)
+        aide = QLabel("Créez une clé API sur "
                       "<a href='https://platform.openai.com/api-keys'>platform.openai.com/api-keys</a>, puis "
-                      "collez-la ici.<br><br>La clé est rangée dans le trousseau sécurisé de votre ordinateur "
-                      "(Trousseau d'accès sur macOS, Gestionnaire d'identification sur Windows) : elle n'est "
-                      "jamais écrite dans les fichiers de MIR ni dans les robots que vous partagez. "
-                      "Les demandes au modèle sont facturées sur votre compte.")
+                      "collez-la ici. Les demandes au modèle sont facturées sur votre compte.")
         aide.setWordWrap(True)
         aide.setOpenExternalLinks(True)
         layout.addWidget(aide)
-        self.lbl_etat = QLabel()
-        layout.addWidget(self.lbl_etat)
+        section = Section("Clé API")
+        ligne = QHBoxLayout()
         self.champ = QLineEdit()
         self.champ.setEchoMode(QLineEdit.EchoMode.Password)
         self.champ.setPlaceholderText("sk-…")
-        layout.addWidget(self.champ)
-        boutons = QHBoxLayout()
+        self.champ.setFont(mono_font())
+        ligne.addWidget(self.champ, 1)
         self.btn_enregistrer = QPushButton("Vérifier et enregistrer")
+        self.btn_enregistrer.setObjectName("Primary")
         self.btn_enregistrer.setDefault(True)
         self.btn_enregistrer.clicked.connect(self._on_enregistrer)
-        boutons.addWidget(self.btn_enregistrer)
-        self.btn_oublier = QPushButton("Oublier la clé")
-        self.btn_oublier.setToolTip("Retire la clé du trousseau de cet ordinateur")
-        self.btn_oublier.clicked.connect(self._on_oublier)
-        boutons.addWidget(self.btn_oublier)
-        boutons.addStretch(1)
-        fermer = QPushButton("Fermer")
-        fermer.clicked.connect(self.accept)
-        boutons.addWidget(fermer)
-        layout.addLayout(boutons)
+        ligne.addWidget(self.btn_enregistrer)
+        section.body.addLayout(ligne)
+        self.lbl_etat = QLabel()
+        self.lbl_etat.setWordWrap(True)
+        section.body.addWidget(self.lbl_etat)
+        layout.addWidget(section)
+        securite = QLabel("La clé est rangée dans le trousseau sécurisé de votre ordinateur (Trousseau d'accès sur "
+                          "macOS, Gestionnaire d'identification sur Windows) : elle n'est jamais écrite dans les "
+                          "fichiers de MIR ni dans les robots que vous partagez.")
+        securite.setObjectName("Muted")
+        securite.setWordWrap(True)
+        layout.addWidget(securite)
+        layout.addStretch(1)
         self._update()
 
     def _update(self, message: str = "", erreur: bool = False):

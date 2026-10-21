@@ -79,7 +79,7 @@ QPushButton {
 QPushButton:hover { background: $PANEL; }
 QPushButton:pressed { background: $BORDER; }
 QPushButton:checked { background: $INK; color: $SAND; border-color: $INK; }
-QPushButton:default { background: $INK; color: $WINDOW; border-color: $INK; }
+QPushButton:default { border-color: $INK; }   /* bouton par défaut (Entrée) : le noir plein est réservé à #Primary */
 QPushButton:disabled { color: $TEXT_DISABLED; border-color: $BORDER; background: $WINDOW; }
 
 QToolButton { border: 1px solid transparent; border-radius: 6px; padding: 3px; }
