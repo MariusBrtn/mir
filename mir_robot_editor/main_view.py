@@ -16,6 +16,7 @@ from mir_robot_editor.scripts.scripts_view import ScriptsView
 from mir_robot_editor.collecte.collecte_view import CollecteView
 from mir_robot_editor.entrainement.entrainement_view import EntrainementView
 from mir_robot_editor.ia.ia_view import IAView
+from mir_robot_editor.flow.flow_view import FlowView
 from mir_robot_editor.assemblage.assemblage_view import AssemblageView
 from mir_robot_editor.robot_model.structure_editor_view import StructureEditorView
 from mir_utils.ui.view_base import ViewBase
@@ -28,7 +29,7 @@ COLOR_IDLE = theme.IDLE
 COLOR_RUNNING = theme.RUNNING
 
 # étapes du parcours (colonne de gauche)
-STEP_ROBOT, STEP_PILOT, STEP_COLLECT, STEP_TRAIN = 0, 1, 2, 3
+STEP_ROBOT, STEP_PILOT, STEP_COLLECT, STEP_TRAIN, STEP_FLOW = 0, 1, 2, 3, 4
 TAB_ESSAIS, TAB_TELEOP, TAB_SCRIPTS, TAB_POLITIQUE = 0, 1, 2, 3
 # les façons de commander le robot dans Piloter : (titre, explication, icône, disponible)
 MODALITES = [
@@ -37,7 +38,8 @@ MODALITES = [
     ("Scripts", "Programmer le robot en Python", "edit", True),
     ("IA", "Un modèle entraîné pilote le robot", "robot", True),
 ]
-STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", True)]
+STEPS = [("Configurer le robot", True), ("Piloter", True), ("Collecter des données", True), ("Entraîner un modèle", True),
+         ("MIR Flow", True)]
 
 
 class EtapesBar(QWidget):
@@ -240,6 +242,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self.collecte_view.revue_changed.connect(lambda _: self._update_header())
         self.entrainement_view = EntrainementView(self, self._view_model.get_entrainement_view_model())
         self._pages.addWidget(self.entrainement_view)
+        self.flow_view = FlowView(self, self._view_model.get_flow_view_model())
+        self._pages.addWidget(self.flow_view)
         # qui fait bouger le robot : repère « en cours » sur la modalité ou l'étape concernée
         vm = self._view_model
         self._activites = [(vm.get_essais_view_model(), STEP_PILOT, TAB_ESSAIS),
@@ -247,7 +251,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                            (vm.get_scripts_view_model(), STEP_PILOT, TAB_SCRIPTS),
                            (vm.get_ia_view_model(), STEP_PILOT, TAB_POLITIQUE),
                            (vm.get_collecte_view_model(), STEP_COLLECT, None),
-                           (vm.get_entrainement_view_model(), STEP_TRAIN, None)]
+                           (vm.get_entrainement_view_model(), STEP_TRAIN, None),
+                           (vm.get_flow_view_model(), STEP_FLOW, None)]
         for activite, _, _ in self._activites:
             activite.busy_state_changed.connect(lambda _: self._update_activites())
         body.addWidget(self._pages, 1)
@@ -615,10 +620,10 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         # sans robot ouvert, il n'y a rien à piloter ni à collecter : ces étapes sont grisées
         if hasattr(self, "_steps"):
             avec_robot = state != MainViewModelState.INIT
-            for step in (STEP_PILOT, STEP_COLLECT, STEP_TRAIN):
+            for step in (STEP_PILOT, STEP_COLLECT, STEP_TRAIN, STEP_FLOW):
                 self._steps.set_enabled(step, avec_robot, "" if avec_robot else
                                         "Ouvrez ou créez d'abord un robot (étape Configurer)")
-            if not avec_robot and self._steps.currentRow() in (STEP_PILOT, STEP_COLLECT, STEP_TRAIN):
+            if not avec_robot and self._steps.currentRow() in (STEP_PILOT, STEP_COLLECT, STEP_TRAIN, STEP_FLOW):
                 self._steps.setCurrentRow(STEP_ROBOT)
         if state == MainViewModelState.CONNECTED and previous == MainViewModelState.LOADED:
             if not self._view_model.is_simulation() and self._steps.currentRow() == STEP_ROBOT:
@@ -635,6 +640,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self.scripts_view.set_simulation(simulation)
         self.ia_view.set_simulation(simulation)
         self.collecte_view.set_simulation(simulation)
+        self.flow_view.set_simulation(simulation)
         self._update_header()
 
     def _on_step_changed(self, row: int):
@@ -680,6 +686,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
                 self._view_model.get_scripts_view_model().arreter()
                 self._view_model.get_collecte_view_model().arreter()
                 self._view_model.get_ia_view_model().arreter()
+                self._view_model.get_flow_view_model().arreter()
                 deadline = time.perf_counter() + 3
                 while self._view_model.get_state() == MainViewModelState.RUNNING and time.perf_counter() < deadline:
                     QApplication.processEvents()
@@ -693,6 +700,7 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
         self.essais_view.close_3d()     # libère les rendus OpenGL avant la sortie
         self.teleop_view.close_3d()
         self.ia_view.close_3d()
+        self.flow_view.close_3d()
         self._view_model.quit()
         super().closeEvent(event)
 

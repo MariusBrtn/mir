@@ -1,0 +1,24 @@
+# mir/mir_flow/pyproject.toml
+[project]
+name = "mir_flow"
+version = "0.1.0"
+dependencies = [
+    "mir_robot",
+    "mir_sim",
+    "openai",
+    "keyring",
+    "pillow",
+    "loguru",
+    "numpy",
+    "mediapipe>=1.1.1",
+]
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["mir_flow"]
+
+[tool.setuptools.package-dir]
+"mir_flow" = "."

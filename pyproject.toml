@@ -25,6 +25,7 @@ dependencies = [
     "mir_sim",
     "mir_robot_editor",
     "mir_esp_deploy",
+    "mir_flow",
     "fabric",           # mir_pi_sensors/deploy.py : déploiement des serveurs sur le Raspberry Pi
 ]
 
@@ -43,7 +44,12 @@ build-backend = "setuptools.build_meta"
 packages = []          # le code est dans les paquets mir_* ; ce projet fournit les commandes mir et mir-esp32
 
 [tool.uv.workspace]
-members = ["mir_utils", "mir_devices", "mir_robot", "mir_sim", "mir_robot_editor", "mir_esp_deploy"]
+members = ["mir_utils", "mir_devices", "mir_robot", "mir_sim", "mir_robot_editor", "mir_esp_deploy", "mir_flow"]
+
+[tool.uv]
+# MediaPipe (nœud Vision de MIR Flow) demande opencv-contrib-python, qui remplacerait l'OpenCV de LeRobot par une
+# autre version (même module cv2). On l'écarte : MediaPipe utilise l'OpenCV déjà installé.
+override-dependencies = ["opencv-contrib-python; sys_platform == 'never'"]
 
 [tool.uv.sources]
 mir_utils = { workspace = true }
@@ -52,6 +58,7 @@ mir_robot = { workspace = true }
 mir_sim = { workspace = true }
 mir_robot_editor = { workspace = true }
 mir_esp_deploy = { workspace = true }
+mir_flow = { workspace = true }
 
 [tool.pytest.ini_options]
 # tests en simulation, aucun matériel nécessaire

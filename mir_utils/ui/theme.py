@@ -32,6 +32,14 @@ OK = "#3F7A4A"
 WARNING = "#B5651D"
 ERROR = "#A63D32"
 
+# catégories des nœuds de MIR Flow : tons assourdis, accordés au sable et à l'ardoise, à l'écart des couleurs
+# d'état (vert, orange, rouge) pour ne jamais être pris pour un état
+FLOW_STEPS = "#3E4A5C"       # déroulement : ardoise profonde
+FLOW_PERCEIVE = "#4F7F86"    # percevoir : bleu pétrole
+FLOW_DECIDE = "#7D5E7A"      # décider : prune
+FLOW_ACT = "#9A7B4F"         # agir : bronze
+FLOW_COMMUNICATE = "#B07D62"  # communiquer : sable rosé
+
 # mode du robot : on ne doit jamais confondre robot réel et robot simulé
 REAL = "#B4472F"
 SIM = SLATE

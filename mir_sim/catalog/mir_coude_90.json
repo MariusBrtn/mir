@@ -1,0 +1,32 @@
+{
+    "description": "Coude MIR à 90° : un embout baïonnette mâle (axe +z) et une douille femelle (axe +y), à angle droit. Points de connexion retrouvés sur le STL : embout comme celui du rotor de servo et du lidar (à 40 mm du centre), douille comme celles du socle (sur sa face extérieure). Orientation de la douille choisie pour qu'une caméra posée dessus regarde vers l'extérieur du robot : à vérifier sur la pièce réelle. Repère de la CAO (MIR_SIMU_CONNECTEUR_90), en mm.",
+    "unit_scale": 0.001,
+    "parts": {
+        "corps": {
+            "mass": 0.03,
+            "geoms": [
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_CONNECTEUR_90.stl",
+                    "visual_only": true,
+                    "rgba": [0.08, 0.08, 0.09, 1],
+                    "select": [{"axis": [0, 0, 1], "max": 40.3}]
+                },
+                {
+                    "type": "mesh",
+                    "file": "../STL/MIR_SIMU_CONNECTEUR_90.stl",
+                    "visual_only": true,
+                    "rgba": [0.87, 0.78, 0.64, 1],
+                    "select": [{"axis": [0, 0, 1], "min": 40.3}, {"axis": [0, 0, 1], "center": [0, 0, 40.0], "rmax": 18.5}]
+                },
+                {"type": "box", "collision_only": true, "pos": [0, 13.2, 0], "size": [25.0, 38.2, 25.0]},
+                {"type": "cylinder", "collision_only": true, "pos": [0, 0, 32.5], "zaxis": [0, 0, 1], "size": [20.0, 7.5]},
+                {"type": "cylinder", "collision_only": true, "pos": [0, 0, 44.35], "zaxis": [0, 0, 1], "size": [16.0, 4.35]}
+            ]
+        }
+    },
+    "connectors": {
+        "embout": {"part": "corps", "gender": "male", "pos": [0, 0, 40.0], "zaxis": [0, 0, 1], "xaxis": [0, 1, 0]},
+        "douille": {"part": "corps", "gender": "female", "pos": [0, 51.4, 0], "zaxis": [0, 1, 0], "xaxis": [0, 0, -1]}
+    }
+}

@@ -1,0 +1,121 @@
+{
+  "nodes": [
+    {
+      "id": "start_1",
+      "type": "start",
+      "x": -760.0,
+      "y": -220.0,
+      "config": {
+        "name": "depart",
+        "description": ""
+      }
+    },
+    {
+      "id": "action_1",
+      "type": "action",
+      "x": -420.0,
+      "y": -180.0,
+      "config": {
+        "name": "errance",
+        "description": "Se promener au hasard sans rien percuter.",
+        "kind": "policy",
+        "setpoint": {},
+        "script": "from mir_robot.commande import Commande\n\n\nclass Action(Commande):\n    def demarrer(self, robot):\n        # robot.actions : consignes possibles ; robot.observations ; robot.fps\n        self.t = 0\n\n    def action(self, observation):\n        # appelée à chaque tour de boucle : renvoie les consignes à envoyer au robot\n        self.t += 1\n        return {}\n",
+        "policy": "modeles/errance_ppo/2026-10-19_22h38m00",
+        "fps": 20,
+        "duration_s": 90.0,
+        "until": "vision.nombre >0",
+        "watch": [],
+        "watch_period_s": 0.2
+      }
+    },
+    {
+      "id": "continuous_1",
+      "type": "continuous",
+      "x": -800.0,
+      "y": -60.0,
+      "config": {
+        "name": "en_continu",
+        "description": "",
+        "rate_hz": 5.0
+      }
+    },
+    {
+      "id": "camera_1",
+      "type": "camera",
+      "x": -400.0,
+      "y": -20.0,
+      "config": {
+        "name": "camera",
+        "description": "",
+        "sensor": "cam_1"
+      }
+    },
+    {
+      "id": "message_1",
+      "type": "message",
+      "x": -80.0,
+      "y": -220.0,
+      "config": {
+        "name": "message",
+        "description": "",
+        "text": "Pas trouvé !"
+      }
+    },
+    {
+      "id": "vision_1",
+      "type": "vision",
+      "x": -120.0,
+      "y": -20.0,
+      "config": {
+        "name": "vision",
+        "description": "",
+        "classes": "person, sports ball",
+        "score_min": 0.3
+      }
+    },
+    {
+      "id": "message_2",
+      "type": "message",
+      "x": -120.0,
+      "y": -140.0,
+      "config": {
+        "name": "message_2",
+        "description": "",
+        "text": "Trouvé !"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "start_1",
+      "to": "action_1",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "continuous_1",
+      "to": "camera_1",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "action_1",
+      "to": "message_1",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "camera_1",
+      "to": "vision_1",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "action_1",
+      "to": "message_2",
+      "kind": "main",
+      "port": "interrompu"
+    }
+  ]
+}

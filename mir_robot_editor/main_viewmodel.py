@@ -15,6 +15,7 @@ from mir_robot_editor.scripts.scripts_view_model import ScriptsViewModel
 from mir_robot_editor.collecte.collecte_view_model import CollecteViewModel
 from mir_robot_editor.entrainement.entrainement_view_model import EntrainementViewModel
 from mir_robot_editor.ia.ia_view_model import IAViewModel
+from mir_robot_editor.flow.flow_view_model import FlowViewModel
 from mir_robot_editor.assemblage.assemblage_view_model import AssemblageViewModel
 from mir_robot_editor.edit_configuration_view_model import EditConfigurationViewModel
 from mir_robot_editor.robot_model.structure_editor_view_model import StructureEditorViewModel
@@ -111,9 +112,11 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._ia_view_model = IAViewModel(dialogProvider, sim_world=self.get_sim_world,
                                           replacer_scene=self.reset_simulation)
         self._entrainement_view_model.modeles_changed.connect(self._ia_view_model.modeles_changed)
-        # une seule activité à la fois sur le robot : téléopération, essai, script, collecte ou IA
+        # MIR Flow : un modèle de langage pilote le robot
+        self._flow_view_model = FlowViewModel(dialogProvider, sim_world=self.get_sim_world)
+        # une seule activité à la fois sur le robot : téléopération, essai, script, collecte, IA ou MIR Flow
         self._activites = [self._robot_monitor_view_model, self._essais_view_model, self._scripts_view_model,
-                           self._collecte_view_model, self._ia_view_model]
+                           self._collecte_view_model, self._ia_view_model, self._flow_view_model]
         self._robot_monitor_view_model.set_other_busy(lambda: self._autre_activite(self._robot_monitor_view_model))
         for activite in self._activites[1:]:
             activite.set_other_busy((lambda a: lambda: self._autre_activite(a))(activite))
@@ -239,6 +242,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._collecte_view_model.set_dossier_robot(dossier, self.get_teleop_dir())
         self._entrainement_view_model.set_dossier_robot(dossier)
         self._ia_view_model.set_dossier_robot(dossier)
+        self._flow_view_model.set_dossier_robot(dossier)
 
     @property
     def _configuration_dirty(self) -> bool:
@@ -344,7 +348,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         if monitor.is_running():
             monitor.on_emergency_stop_clicked()
         for activite in (self._essais_view_model, self._scripts_view_model, self._collecte_view_model,
-                         self._ia_view_model):
+                         self._ia_view_model, self._flow_view_model):
             if activite.is_running():
                 activite.arret_urgence()
         if self._robot is not None:
@@ -384,6 +388,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._scripts_view_model.quit()
         self._entrainement_view_model.quit()
         self._ia_view_model.quit()
+        self._flow_view_model.quit()
         self._collecte_view_model.quit()
         if self._robot is not None:
             self._robot.disconnect()
@@ -523,6 +528,7 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         self._scripts_view_model.disconnect_from_robot()
         self._collecte_view_model.disconnect_from_robot()
         self._ia_view_model.disconnect_from_robot()
+        self._flow_view_model.disconnect_from_robot()
         self._set_state(MainViewModelState.LOADED)
 
     def execute_scan_devices(self, open_view):
@@ -752,6 +758,9 @@ class MainViewModel(ViewModelBase[MainVMAction]):
 
     def get_ia_view_model(self) -> IAViewModel:
         return self._ia_view_model
+
+    def get_flow_view_model(self) -> FlowViewModel:
+        return self._flow_view_model
 
     def get_entrainement_view_model(self) -> EntrainementViewModel:
         return self._entrainement_view_model

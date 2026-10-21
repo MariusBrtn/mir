@@ -1,0 +1,181 @@
+{
+    "id": "mir_robot",
+    "calibration_dir": null,
+    "motor_bus": {
+        "motor_port": "",
+        "motors": {
+            "roue_avant_gauche": {
+                "id": 2,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 1,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            },
+            "roue_arriere_gauche": {
+                "id": 3,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 1,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            },
+            "roue_arriere_droite": {
+                "id": 4,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 1,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            },
+            "roue_avant_droite": {
+                "id": 5,
+                "model": "sts3215",
+                "norm_mode": "degrees",
+                "motor_type_str": null,
+                "recv_id": null,
+                "operating_mode": 1,
+                "P": 16,
+                "I": 0,
+                "D": 32,
+                "position_mode_velocity": 100,
+                "torque_limit": 250
+            }
+        },
+        "calibration": {}
+    },
+    "sensors": {
+        "lidar_1": {
+            "sensor_type": "esp_lidar",
+            "ip": ""
+        },
+        "cam_1": {
+            "sensor_type": "pi_camera",
+            "ip": null,
+            "width": 640,
+            "height": 480,
+            "fps": 30,
+            "enable_stats": false,
+            "frame_stats_size": 0
+        }
+    },
+    "observations": {
+        "roue_avant_gauche.position": "float",
+        "roue_avant_gauche.velocity": "float",
+        "roue_avant_gauche.current": "float",
+        "roue_avant_gauche.temperature": "float",
+        "roue_avant_gauche.load": "float",
+        "roue_arriere_gauche.position": "float",
+        "roue_arriere_gauche.velocity": "float",
+        "roue_arriere_gauche.current": "float",
+        "roue_arriere_gauche.temperature": "float",
+        "roue_arriere_gauche.load": "float",
+        "roue_arriere_droite.position": "float",
+        "roue_arriere_droite.velocity": "float",
+        "roue_arriere_droite.current": "float",
+        "roue_arriere_droite.temperature": "float",
+        "roue_arriere_droite.load": "float",
+        "roue_avant_droite.position": "float",
+        "roue_avant_droite.velocity": "float",
+        "roue_avant_droite.current": "float",
+        "roue_avant_droite.temperature": "float",
+        "roue_avant_droite.load": "float",
+        "lidar_1": [
+            400,
+            2
+        ],
+        "cam_1": [
+            480,
+            640,
+            3
+        ]
+    },
+    "structure": {
+        "modules": {
+            "socle": {
+                "type": "mir_socle"
+            },
+            "lidar": {
+                "type": "mir_lidar",
+                "on": "socle.dessus",
+                "connector": "embout",
+                "sensors": {
+                    "laser": "lidar_1"
+                }
+            },
+            "coude_avant_gauche": {
+                "type": "mir_coude_60_b",
+                "on": "socle.cote_60",
+                "connector": "face_b"
+            },
+            "roue_avant_gauche": {
+                "type": "mir_roue",
+                "on": "coude_avant_gauche.face_a",
+                "connector": "stator",
+                "motor": "roue_avant_gauche"
+            },
+            "coude_arriere_gauche": {
+                "type": "mir_coude_60",
+                "on": "socle.cote_120",
+                "connector": "face_b"
+            },
+            "roue_arriere_gauche": {
+                "type": "mir_roue",
+                "on": "coude_arriere_gauche.face_a",
+                "connector": "stator",
+                "motor": "roue_arriere_gauche"
+            },
+            "coude_arriere_droite": {
+                "type": "mir_coude_60_b",
+                "on": "socle.cote_240",
+                "connector": "face_b"
+            },
+            "roue_arriere_droite": {
+                "type": "mir_roue",
+                "on": "coude_arriere_droite.face_a",
+                "connector": "stator",
+                "motor": "roue_arriere_droite"
+            },
+            "coude_avant_droite": {
+                "type": "mir_coude_60",
+                "on": "socle.cote_300",
+                "connector": "face_b"
+            },
+            "roue_avant_droite": {
+                "type": "mir_roue",
+                "on": "coude_avant_droite.face_a",
+                "connector": "stator",
+                "motor": "roue_avant_droite"
+            },
+            "coude_camera": {
+                "type": "mir_coude_90",
+                "on": "socle.cote_0",
+                "connector": "embout"
+            },
+            "camera_cam_1": {
+                "type": "mir_camera",
+                "on": "coude_camera.douille",
+                "connector": "embout",
+                "sensors": {
+                    "objectif": "cam_1"
+                }
+            }
+        }
+    },
+    "path": "/Users/marius/Documents/Atelier Vectoriel/MIR/MIR-software/mir/robots/mobile_camera/robot.json"
+}

@@ -1,6 +1,6 @@
 # Architecture de MIR
 
-*Document de conception — version du 18/10/2026 (première version le 15/10). La partie 4 (couches et interfaces) a été validée le 18/10 ; les interfaces encore « à définir » le seront une par une.*
+*Document de conception — version du 21/10/2026 (soir) (première version le 15/10). La partie 4 (couches et interfaces) a été validée le 18/10 ; les interfaces encore « à définir » le seront une par une. Le 21/10 : la couche tâche existe, c'est **MIR Flow** (partie 4.4), cinquième étape de l'application.*
 
 ## 1. Ce qu'est MIR
 
@@ -55,7 +55,17 @@ Même chaîne, avec des moteurs en mode vitesse, l'odométrie, le lidar et des b
 
 Apprentissage de la marche par renforcement en simulation, puis transfert vers le réel. C'est un **horizon** : le passage du simulé au réel est un sujet à part entière.
 
-### 2.4 Ce dont chaque activité a besoin
+### 2.4 Activités autonomes et jeux (MIR Flow)
+
+Des activités longues qui mêlent perception, décision et compétences apprises, autour de jeux avec des humains : cache-cache, loup, « 1-2-3 soleil », partie de nerf avec des balles en mousse. Elles se construisent dans MIR Flow (partie 4.4), en assemblant des compétences (politiques apprises, consignes, scripts), des capteurs, de la vision, de la logique et, si besoin, un modèle de langage.
+
+Premier exemple réalisé le 20/10/2026 : un **cache-cache** sur le robot `mobile_camera` (le robot mobile à lidar, avec une caméra à l'avant sur un coude 90°). La politique RL d'errance fait se promener le robot ; une chaîne « En continu » (Caméra → Vision) cherche une balle ; l'action s'arrête dès que la balle est vue. Scène « Rue avec une balle » (`robots/mobile_camera/scenes/rue_balle.json`).
+
+Cet exemple montre la mécanique, pas encore l'intérêt de l'approche : une seule politique RL aurait pu le faire. MIR Flow devient nécessaire pour les tâches à plusieurs phases et à règles (un vrai jeu avec des tours et des scores), pour combiner des compétences de natures différentes (navigation RL + saisie ACT + consignes), pour garantir des règles de sécurité écrites (pas apprises), pour l'interaction avec des humains (LLM) et pour changer d'objectif sans réentraîner. Démonstrateurs visés : un robot qui **rapporte un objet**, un jeu à règles comme **« 1-2-3 soleil »**.
+
+Deuxième exemple, réalisé le 21/10/2026 : une **cartographie par SLAM** sur `test_mobile`, entièrement écrite dans des nœuds Script Python, en faisant comme en réel (sans utiliser la position exacte que connaît la simulation), pour pouvoir passer au robot réel sans rien changer. La politique d'errance explore ; une chaîne « En continu » (5 Hz) enchaîne Mesure lidar → Mesure servos (positions des roues) → odométrie → recalage ICP → carte (grille d'occupation) → Scope. Voir le bilan en partie 10.
+
+### 2.5 Ce dont chaque activité a besoin
 
 | Activité | Description seule | Robot (réel ou simulé) | Données |
 |---|:---:|:---:|:---:|
@@ -65,6 +75,7 @@ Apprentissage de la marche par renforcement en simulation, puis transfert vers l
 | Collecte de données | | ✓ | datasets |
 | Entraînement | | | datasets |
 | Inférence, évaluation | | ✓ | modèle |
+| Activités autonomes (MIR Flow) | | ✓ | modèles, graphe |
 
 ## 3. Cycle de vie d'un robot
 
@@ -112,7 +123,7 @@ Cas particuliers :
 MIR est organisé en cinq couches, posées sur la description du robot. Chacune a **une interface simple et stable** : une nouveauté (un modèle, un planificateur, un simulateur) s'ajoute comme un module de plus dans une couche, sans refonte des autres.
 
 ```
-  Tâche          enchaîner des compétences, décider, gérer les échecs     à définir
+  Tâche          enchaîner des compétences, décider, gérer les échecs     MIR Flow (21/10)
  ─────────────────────────────────────────────────────────────────────────────────
   Compétence     action = politique(observation), sur quelques secondes   en partie
                  consigne · PID · téléop · script · MLP · ACT · VLA
@@ -134,7 +145,7 @@ MIR est organisé en cinq couches, posées sur la description du robot. Chacune 
 | **Robot** | `get_observation()` / `send_action()` | `Robot` de LeRobot | fait |
 | **Données** | LeRobotDataset (épisodes, images, actions, métadonnées) | Hub Hugging Face, outils LeRobot | à faire : étape Collecter |
 | **Compétence** | `action = politique(observation)` | politiques LeRobot (`select_action`) | en partie : téléop, scripts |
-| **Tâche** | enchaînement de compétences (partie 4.4) | — | à définir |
+| **Tâche** | graphe MIR Flow : chaîne principale, chaînes en continu, interruptions (partie 4.4) | idées des arbres de comportement et de `ros2_control` | première version le 21/10 |
 | **Monde simulé** | scène + robot ; plus tard `reset()` / `step()` | Gymnasium, MuJoCo | en partie : scènes à sortir du code |
 
 Les **données** sont la pièce maîtresse : les modèles appris, les modèles de fondation et les world models s'entraînent tous sur des données. Un format standard permet de réutiliser celles des autres et de partager les siennes.
@@ -150,6 +161,8 @@ Dans la couche **compétence**, tout a la même forme, du PID au VLA : c'est ce 
 5. **Le vocabulaire du code générique reste générique** (`mir_devices`, éditeur) : pas de « leader/follower » ni de cas d'usage précis. Ces notions vivent dans les briques et dans les exemples.
 6. **Brancher plutôt que réimplémenter.** Un modèle, un format ou un outil de l'écosystème s'utilise par son interface standard ; MIR n'en écrit pas sa propre version.
 7. **Le robot appartient à l'application.** Un script ou une politique peut tourner dans un autre processus, voire sur une autre machine (par exemple une politique lourde sur un serveur à carte graphique), mais passe par l'interface robot de l'application : l'arrêt d'urgence, la vue 3D et l'affichage des capteurs restent toujours dans MIR. C'est déjà le cas des scripts élèves (`mir_robot/script.py`).
+8. **`get_observation()` et `send_action()` ne se redéfinissent pas.** Ce sont les deux méthodes de base de MIR : aucune couche ne leur ajoute d'argument ni ne les expose telles quelles à un modèle de langage. Un LLM agit à travers des compétences nommées (partie 4.4).
+9. **Une seule source d'observation par activité.** Pendant une activité, un seul endroit appelle `get_observation()` à fréquence fixe et exécute l'action en cours ; tous les consommateurs lisent la dernière observation publiée. C'est la boucle robot de MIR Flow (partie 4.4) : même observation pour tous, et jamais deux fils sur le bus moteur.
 
 #### Paquets
 
@@ -158,11 +171,12 @@ Dans la couche **compétence**, tout a la même forme, du PID au VLA : c'est ce 
 | `mir_devices` | Pilotes du matériel réel (bus moteur, caméras, ESP32, lidar, découverte réseau) |
 | `mir_sim` | Catalogue de modules, construction du modèle MuJoCo, appareils simulés |
 | `mir_robot` | `mirRobot` et `mirRobotConfig` : le point d'entrée unique |
+| `mir_flow` | MIR Flow : graphe, boucle robot, exécution des nœuds, perception (MediaPipe), nœud LLM (OpenAI), contexte du robot, clé API |
 | `mir_robot_editor` | L'interface graphique |
 | `mir_utils` | Outils transverses (UI de base, enregistrement, métriques, concurrence) |
 | `mir_user_scripts` | Exemples et scripts d'élèves |
 
-Dossiers de travail (hors paquets) : `robots/<nom>/` (configuration `robot.json`, `teleop/`, `scripts/`, `essais/`) et `scenes/` (scènes de simulation, voir 4.3).
+Dossiers de travail (hors paquets) : `robots/<nom>/` (configuration `robot.json`, `teleop/`, `scripts/`, `essais/`, `flows/flow.json` pour MIR Flow) et `scenes/` (scènes de simulation, voir 4.3).
 
 ### 4.3 Scènes
 
@@ -172,15 +186,60 @@ Une **scène** décrit l'environnement simulé : sol ou table, position de dépa
 
 Le réalisme utile dépend du capteur : la géométrie suffit pour le lidar et la navigation, la physique compte pour l'asservissement, l'apparence seulement pour l'apprentissage sur images. Pour ce dernier, la priorité est de **faire varier** la scène (éclairage, couleurs, position des objets) plutôt que de la copier parfaitement ; des objets ou une pièce scannés (maillages texturés) pourront s'y ajouter sans changer d'outil.
 
-### 4.4 Activités longues : la couche tâche
+### 4.4 Activités longues : la couche tâche (MIR Flow)
 
-Les systèmes récents sont **hiérarchiques** : en bas, des compétences courtes (« attraper le dé », « aller jusqu'au mur ») ; au-dessus, une couche qui décide quoi faire ensuite, dans quel ordre, et que faire en cas d'échec. Dans MIR, cette couche se construira en trois niveaux, du plus pédagogique au plus avancé :
+Les systèmes récents sont **hiérarchiques** : en bas, des compétences courtes (« attraper le dé », « errer sans rien percuter ») ; au-dessus, une couche qui décide quoi faire ensuite, dans quel ordre, et que faire en cas d'échec ou d'événement. Dans MIR, cette couche est **MIR Flow** (réalisé du 20 au 21/10/2026), la cinquième étape de l'application : un éditeur de graphe dans l'esprit de n8n, qui assemble des compétences apprises, du contrôle classique, de la perception, de la logique et des modèles de langage.
 
-1. **Un script Python** qui enchaîne les compétences avec des conditions et des boucles (l'onglet Scripts le permet presque déjà).
-2. **Une machine à états ou un arbre de comportement**, lisibles et proches de ce qu'utilise l'industrie.
-3. **Un modèle de langage (LLM ou VLM) planificateur**, qui choisit la compétence suivante à partir de la caméra et d'un objectif exprimé en langage naturel.
+#### Principe
 
-Condition commune : des compétences **nommées, lançables, qui signalent leur fin et leur réussite**. C'est ce qu'il faut définir avant de construire cette couche.
+Un graphe contient trois sortes de chaînes, qui partagent les mêmes **données du flux** :
+
+| Chaîne | Commence par | Comportement |
+|---|---|---|
+| **Principale** | Départ | Séquentielle : un nœud se termine, le programme passe au suivant par la sortie qu'il a choisie (suite, oui/non, encore/fini, interrompu). Relier une sortie à un nœud précédent fait une boucle. C'est la « tâche ». |
+| **En continu** | En continu | Tourne en boucle à sa fréquence pendant tout le programme, à côté de la chaîne principale. Lecture et calcul seulement (capteurs, vision, scripts, conditions), jamais d'action. C'est la « perception ». |
+| **Interruption** | Interruption | Dès que sa condition devient vraie, la chaîne principale est interrompue (l'action en cours s'arrête) et le programme continue par cette chaîne. Pour les événements du jeu et la sécurité. |
+
+**Données du flux** (le « blackboard » des roboticiens) : chaque nœud range son résultat sous son nom (`vision.nombre`, `errance.duree`…), lisible par n'importe quel nœud : conditions, messages, scripts, LLM. Chaque nœud reçoit aussi en **entrée** le résultat du nœud précédent (`entree`), comme dans n8n.
+
+Une action peut s'interrompre elle-même : **« Arrêter quand »** est une condition vérifiée à chaque tour de l'action (ex. `vision.nombre > 0`, sur des données tenues à jour par une chaîne en continu) ; si elle devient vraie, l'action sort par « interrompu ».
+
+#### Nœuds (version minimale du 21/10)
+
+| Catégorie | Nœuds |
+|---|---|
+| Déroulement | Départ, En continu, Interruption, Attendre, Répéter (boucle), Fin |
+| Percevoir | Mesure (source au choix : caméra → image brute, lidar → points [angle, distance], servos → position, vitesse… ; et l'instant de la mesure), Vision (objets reconnus dans l'image du nœud précédent) |
+| Décider | Condition (oui/non), Script Python (`traiter(entree, donnees)`), LLM |
+| Agir | Action : une compétence — consigne fixe, mini script ou politique apprise (RL, ACT…) |
+| Communiquer | Message, Scope (affiche en direct une donnée : image, nuage lidar, courbes, trajectoire) |
+
+Choix faits avec l'utilisateur :
+- **Une Mesure par source, une seule lecture du robot.** On peut mettre plusieurs nœuds Mesure (caméra, lidar, codeurs des servos) ; tous lisent la même observation de la boucle robot (ajouté le 21/10 pour le SLAM, qui demande l'odométrie).
+- **Capteurs bruts, traitement explicite.** Les Mesures donnent les données brutes ; tout traitement se fait dans un Script Python ou un nœud de perception. MIR ne fournit pas d'attributs spécialisés (pas de « distance devant » toute faite).
+- **Nœuds selon la configuration.** La Mesure ne propose que les sources du robot ; Vision n'apparaît que si le robot a une caméra.
+- **Une action est une `Commande`** (partie 6.1) exécutée par la boucle habituelle : consigne, script et politique entraînée ont la même forme. Sa **durée est réglée dans le nœud** (exacte pour une consigne, maximale pour un script ou une politique qui peuvent finir d'eux-mêmes).
+- **Vision** : détecteur EfficientDet-Lite0 de MediaPipe (Google, licence Apache-2.0), 80 catégories d'objets du jeu COCO, téléchargé une fois (7 Mo). En simulation, une balle jaune est reconnue (« sports ball ») ; un humain fait de formes simples ne l'est pas. MediaPipe demande `opencv-contrib-python`, écarté par `override-dependencies` dans le `pyproject.toml` racine pour garder l'OpenCV de LeRobot.
+
+#### Le nœud LLM
+
+Un modèle de langage (OpenAI, compte de l'utilisateur ; clé dans le trousseau du système, jamais dans un fichier) qui agit **uniquement à travers les nœuds branchés sous lui comme outils** (losange « Outils », comme les outils d'un agent n8n). Il voit le nom et la description de chaque outil, sans paramètre : tout est réglé dans les nœuds (y compris la durée d'une action). Il répond dans la discussion de MIR Flow, et peut aussi être une étape du programme (message « Dans le flux », avec des `{…}` remplacés par les données). Une description du robot, générée à partir de sa configuration et du modèle MuJoCo (sens des roues, effet des articulations, pince, capteurs), peut lui être donnée.
+
+Une première version, où le LLM appelait directement `get_observation` et `send_action` avec des arguments ajoutés, a été abandonnée : ces deux méthodes restent la base de MIR (règle 8).
+
+#### Boucle robot unique
+
+Pendant un programme, une seule **boucle robot** (`mir_flow/robot_loop.py`) parle au robot : elle appelle `get_observation()` à fréquence fixe (celle de l'action en cours, sinon 30 Hz), publie la dernière observation, et exécute l'action en cours (`send_action()`). Tous les nœuds lisent cette observation (règle 9). Seul l'arrêt d'urgence passe directement. La boucle tourne **toujours dans le même fil** : le rendu de la caméra simulée garde un contexte OpenGL verrouillé par le fil qui l'a créé (MuJoCo sur macOS), et un nouveau fil à chaque lancement bloquait la caméra au deuxième lancement (corrigé le 21/10).
+
+#### Interface
+
+Bibliothèque de nœuds à gauche (clic : ajouté à côté du nœud choisi et relié ; ou glisser sur le graphe) ; réglages dans une fenêtre ouverte par un **double-clic**, en trois colonnes **Entrée | Réglages | Sortie** qui montrent les données du dernier passage dans le nœud (images en vignette), mises à jour en direct pendant l'exécution ; liens aimantés ; boucles tracées en U sous les nœuds ; Ctrl+Z, zoom, clic droit pour supprimer. Pendant l'exécution, le graphe est en lecture seule et le nœud en cours est entouré. Couleurs des catégories dans la charte (`theme.FLOW_*`), à l'écart des couleurs d'état. Le graphe est enregistré dans `robots/<robot>/flows/flow.json`.
+
+#### Positionnement
+
+Chaque élément a un équivalent dans l'industrie et la recherche : chaîne principale et conditions ↔ arbres de comportement et machines à états (BehaviorTree.CPP, Nav2, SMACH) ; chaînes en continu ↔ nœuds de perception ROS 2 ; données du flux ↔ blackboard ; boucle robot ↔ `ros2_control` ; actions ↔ bibliothèque de compétences ; nœud LLM ↔ planificateurs sur compétences (SayCan). MIR Flow en est une **version pédagogique fidèle** : les notions sont transférables. Ce n'est pas un outil industriel : réactivité moins générale qu'un arbre de comportement (pas de priorités imbriquées), données non horodatées, pas d'actions parallèles, pas de temps réel, pas de sous-flux ni d'enregistrement-rejeu.
+
+MIR Flow ne remplace pas l'apprentissage : un comportement court et réactif (errer, saisir) s'apprend mieux qu'il ne se dessine. MIR Flow **assemble** ces compétences apprises avec des règles, de la perception et des modèles de langage.
 
 ### 4.5 Ouverture vers les modèles avancés
 
@@ -191,7 +250,7 @@ Condition commune : des compétences **nommées, lançables, qui signalent leur 
 | Modèles vision-langage-action (π0, SmolVLA…) | idem, plus l'inférence éventuellement sur une autre machine (règle 7) |
 | World models | des données en quantité, réelles et simulées, au format standard |
 | Apprentissage par renforcement | le monde simulé sous forme d'environnement Gym (`reset`, `step`) |
-| Planificateurs à base de modèles de langage | des compétences nommées (4.4) |
+| Planificateurs à base de modèles de langage | des compétences nommées : le nœud LLM de MIR Flow et ses outils (4.4) |
 
 ### 4.6 Dépendance à LeRobot
 
@@ -311,6 +370,8 @@ Notion à préciser : un dossier qui regroupe la configuration, la scène, les e
 
 *État au 18/10/2026* : les étapes sont dans l'en-tête, comme les espaces de travail d'un logiciel de CAO (plus de colonne à gauche) ; l'en-tête porte aussi le robot ouvert (menu), le choix Réel/Simulé (liseré rouge ou ardoise sous l'en-tête), la connexion et l'unique arrêt d'urgence. Quatre étapes, **Configurer le robot** → **Piloter** → **Collecter des données** → **Entraîner un modèle** (fait le 19/10 : dataset, scripts d'entraînement PyTorch ou LeRobot, modèles entraînés). « Évaluer » est retiré pour l'instant. Piloter regroupe les **modalités de commande** du robot, présentées comme des cartes : **Essais**, **Téléopération**, **Scripts** et **IA** (fait le 19/10 : un modèle entraîné, PyTorch ou LeRobot, pilote le robot réel ou simulé). Le déploiement d'une politique est une façon de plus de commander le robot (couche compétence), au même titre que la téléopération : il est donc dans Piloter, pas dans une étape à part. « Entraîner un modèle » couvre tout ce qui produit une politique ou un modèle : behavior cloning écrit à la main, ACT, diffusion, réglage fin d'un VLA, et plus tard RL en simulation et world models.
 
+*Ajout du 20-21/10/2026* : une cinquième étape, **MIR Flow** (couche tâche, partie 4.4), qui assemble les compétences des étapes précédentes (politiques entraînées, consignes, scripts) avec des capteurs, de la vision, de la logique et un modèle de langage.
+
 ### Historique (15/10)
 
 
@@ -356,6 +417,42 @@ Suite décidée le 18/10/2026 :
 4. ensuite seulement, la couche **tâche** ;
 5. en parallèle, quand c'est utile : scènes dans `mir/scenes/` (prérequis de la collecte en simulé), chaîne réelle du robot mobile (guide de montage des roues et du lidar).
 
+Fait les 20-21/10/2026 : la couche **tâche** (MIR Flow, partie 4.4), avant l'interface compétence unifiée ; le robot `mobile_camera` (coude 90° ajouté au catalogue) et un premier cache-cache en simulation.
+
+#### Bilan au 21/10/2026 (MIR Flow)
+
+**Ce qui existe.** L'étape MIR Flow (partie 4.4) : 14 types de nœuds (Départ, En continu, Interruption, Attendre, Répéter, Fin ; Mesure, Vision ; Condition, Script Python, LLM ; Action ; Message, Scope), une boucle robot unique, les données du flux, « Arrêter quand », le LLM et ses outils. L'interface : bibliothèque de nœuds, réglages au double-clic en trois colonnes (Données disponibles et Entrée | Réglages | Sortie du dernier passage), liens aimantés, en S ou en U, Ctrl+Z, graphe en lecture seule pendant l'exécution, discussion masquée sans nœud LLM, éditeur Python avec coloration, fenêtres Scope. Robot `mobile_camera` et coude 90° au catalogue. Tests : `tests/test_flow.py` (17 tests), 97 tests en tout.
+
+**Deux applications réalisées en simulation :**
+- **cache-cache** (`mobile_camera`) : errance RL + Mesure caméra → Vision (« sports ball ») ; l'action s'arrête quand la balle est vue ;
+- **SLAM** (`test_mobile`) : odométrie à partir des positions angulaires des roues (« dépliées » entre −180° et +180° ; plus juste que les vitesses, arrondies au tr/min), carte en grille d'occupation (« log-odds »), recalage ICP. Sur 90 s d'errance dans la rue encombrée (mesuré pour le développement uniquement) : odométrie seule, 2 à 3 m d'erreur et 80 à 170° de cap ; avec l'ICP, 20 à 30 cm et 8 à 10°.
+
+**Ce que ces applications ont fait ajouter** (règle : on ne code que ce qu'une application rend nécessaire) :
+- le nœud **Mesure** (source au choix : caméra, lidar, servos ; et l'instant de la mesure), qui remplace Caméra et Lidar : le SLAM avait besoin des codeurs des roues ;
+- le nœud **Scope**, pour voir la carte, le lidar, des courbes ou une trajectoire en direct ;
+- la liste des **données disponibles**, pour retrouver et insérer un nom (`carte.image`, `donnees["carte"]["image"]`).
+
+**Leçons techniques :**
+- l'**ICP seul se trompe quand le robot tourne beaucoup entre deux scans** ; une recherche grossière de l'angle (±20° autour de l'odométrie, degré par degré) avant l'ICP règle le problème ;
+- en rotation, le robot à quatre roues fixes **dérape** : la voie effective (0,55 m) vaut plus du double de la voie géométrique (0,25 m) ; en réel, elle s'étalonne (dix tours sur place) ;
+- le recalage scan sur scan **dérive lentement** : dans une salle carrée et vide, les murs finissent par se dédoubler. La correction est connue (recalage sur la carte déjà construite, puis fermeture de boucle) ; laissée de côté pour l'instant ;
+- la boucle robot doit tourner **toujours dans le même fil** (contexte OpenGL de la caméra simulée, verrouillé par son fil sous macOS) ;
+- un affichage (Scope) ne doit jamais arrêter le programme : une expression fautive s'affiche dans sa fenêtre.
+
+**Points d'attention :**
+- les modèles entraînés ne sont pas dans le dépôt (`robots/*/modeles/*/` est ignoré) : sur une autre machine, la politique d'errance de `test_mobile` et `mobile_camera` est à réentraîner ou à copier ;
+- un seul graphe par robot (`robots/<robot>/flows/flow.json`) : le SLAM a été fait sur `test_mobile` pour ne pas effacer le cache-cache de `mobile_camera` ;
+- rien n'est encore essayé sur le robot réel.
+
+Suite proposée le 21/10/2026 pour MIR Flow :
+1. **un démonstrateur qui justifie l'approche** : un robot qui rapporte un objet (navigation RL + saisie ACT + consignes) ou un jeu à règles (« 1-2-3 soleil ») ;
+2. **un essai sur le robot réel** (caméra en réseau, lidar ESP32, détection d'une vraie personne ; le SLAM tel quel) ;
+3. *(SLAM)* recalage sur la carte et fermeture de boucle, si une application en a besoin ; plusieurs graphes par robot, si le besoin se confirme ;
+4. **horodater les données du flux** (âge d'une mesure ; les Mesures donnent déjà leur instant) ;
+5. **les sous-flux** (regrouper « chercher la balle » en un nœud réutilisable) ;
+6. plus tard : priorités entre interruptions, actions parallèles sur des actionneurs différents, fréquence propre à chaque capteur dans la boucle robot (utile pour une politique rapide avec caméra) ;
+7. idée pédagogique : faire le même jeu en RL de bout en bout et avec MIR Flow, et comparer.
+
 Premiers chantiers proposés le 15/10 pour le parcours 1 (en grande partie faits) :
 - plages par défaut dans le catalogue (±90°, pince) ;
 - assistant d'assemblage (ID + retour en direct + calibration par module) ;
@@ -368,8 +465,28 @@ Premiers chantiers proposés le 15/10 pour le parcours 1 (en grande partie faits
 - **Fidélité de la simulation des registres** : régler le PID ou passer en vitesse ou en position, c'est modifier les registres du servo (déjà possible depuis l'éditeur). Pour qu'un essai simulé soit comparable au réel, les servos simulés doivent tenir compte de ces registres (P/I/D, mode, vitesse, couple max). Il reste à mesurer à quel point.
 - **Fréquence maximale d'un essai** : limitée par le bus et le wifi, à mesurer.
 - **Robot mobile** : roues décrites par une articulation `"mode": "velocity"` du catalogue (réglé le 18/10) ; reste l'odométrie, l'avant du lidar et le guide de montage des roues et du lidar.
-- **Interface compétence** : forme exacte (méthode `select_action` de LeRobot ou équivalent ; comment une compétence signale sa fin et sa réussite).
-- **Couche tâche** : machine à états ou arbre de comportement, et leur représentation dans l'interface.
+- **Interface compétence** : forme exacte (méthode `select_action` de LeRobot ou équivalent ; comment une compétence signale sa fin et sa réussite). MIR Flow utilise pour l'instant la `Commande` de MIR (fin par `terminer()`, durée, « Arrêter quand ») ; une compétence ne rend pas encore compte de sa réussite.
+- **Quatre façons d'écrire du code** : onglet Scripts, nœud Script Python, mini script d'une action, Commande. À unifier, ou au moins à expliquer (qui sert à quoi).
+- **MIR Flow et l'échelle** : un vrai jeu fera 30 à 50 nœuds ; sous-flux et priorités entre interruptions à concevoir.
+- **MIR Flow : comportements asynchrones et discrets** (discussion du 21/10/2026). La séparation chaîne principale séquentielle / chaînes en continu est la séparation classique « flux de contrôle pour la tâche, flux de données pour la perception » (architectures en couches, Nav2). Différence avec un arbre de comportement : la chaîne principale n'est pas réévaluée en permanence, elle n'est réactive que par « Arrêter quand » et les interruptions. Ce qui manque, au regard des statecharts (Harel : événements en file, régions parallèles, hiérarchie) et des arbres de comportement (Parallèle, décorateurs) :
+
+  | Besoin | Exemple | État au 21/10 |
+  |---|---|---|
+  | Perception lente à côté | VLM, détection lourde | couvert (chaîne en continu) |
+  | Événement qui dure | personne visible, obstacle proche | couvert (Interruption, « Arrêter quand ») |
+  | Événement bref | clap, bouton, ordre vocal, balle qui touche | peut être manqué : rien ne retient un événement passé |
+  | Décision lente pendant que le robot agit | le LLM réfléchit pendant l'errance | non : un nœud LLM bloque la chaîne principale |
+  | Actions simultanées | la base cherche, la tourelle vise | non |
+  | Délai sur une phase entière | « abandonner au bout de 2 min » | non : seule une action a une durée ; pas d'horloge dans les données |
+  | Modes du jeu | attente → recherche → fin → recommencer | faisable, mais vite confus |
+
+  Ajouts proposés, sans changer de modèle (ordre à choisir) :
+  1. **Événements retenus** : un événement bref est noté dans les données avec son heure et reste en attente jusqu'à ce qu'une Interruption ou une Condition le traite ; une **horloge** (`temps`) et l'**âge** de chaque mesure dans les données.
+  2. **Nœud « En parallèle »**, rejoint par « attendre toutes les branches » ou « la première qui finit arrête les autres » : actions simultanées et décisions asynchrones ; refus de deux branches qui commandent les mêmes actionneurs.
+  3. **Sous-flux** : un nœud qui contient un graphe (« phase de recherche »), avec son délai maximal et ses interruptions ; c'est la hiérarchie des statecharts, pour écrire les modes d'un jeu.
+  4. **Délai maximal et nouvelle tentative** sur une action ou un sous-flux (« essayer 3 fois », « abandonner au bout de 2 min »).
+- **Coude 90°** : orientation de la douille déduite du STL pour qu'une caméra regarde vers l'extérieur ; à vérifier sur la pièce réelle.
+- **Humains en simulation** : le détecteur ne reconnaît pas des formes simples ; il faudrait des maillages texturés réalistes dans les scènes (pas encore pris en charge).
 - **Inférence distante** : politique lourde sur une autre machine, avec quelle latence acceptable.
 - **Données** : où stocker les datasets (dossier du robot, d'une expérience, Hub Hugging Face).
 - **RL** : forme de l'environnement gymnasium construit à partir de la description.

@@ -1,0 +1,161 @@
+{
+  "nodes": [
+    {
+      "id": "start_1",
+      "type": "start",
+      "x": -680.0,
+      "y": -320.0,
+      "config": {
+        "name": "depart",
+        "description": ""
+      }
+    },
+    {
+      "id": "action_1",
+      "type": "action",
+      "x": -380.0,
+      "y": -320.0,
+      "config": {
+        "name": "errance",
+        "description": "",
+        "kind": "policy",
+        "setpoint": {},
+        "script": "from mir_robot.commande import Commande\n\n\nclass Action(Commande):\n    def demarrer(self, robot):\n        # robot.actions : consignes possibles ; robot.observations ; robot.fps\n        self.t = 0\n\n    def action(self, observation):\n        # appelée à chaque tour de boucle : renvoie les consignes à envoyer au robot\n        self.t += 1\n        return {}\n",
+        "policy": "modeles/errance_ppo/2026-10-19_22h38m00",
+        "fps": 20,
+        "duration_s": 120.0,
+        "until": ""
+      }
+    },
+    {
+      "id": "continuous_1",
+      "type": "continuous",
+      "x": -700.0,
+      "y": -160.0,
+      "config": {
+        "name": "en_continu",
+        "description": "",
+        "rate_hz": 5.0
+      }
+    },
+    {
+      "id": "measure_1",
+      "type": "measure",
+      "x": -420.0,
+      "y": -140.0,
+      "config": {
+        "name": "lidar",
+        "description": "",
+        "source": "lidar_1",
+        "quantities": [
+          "position",
+          "vitesse"
+        ]
+      }
+    },
+    {
+      "id": "measure_2",
+      "type": "measure",
+      "x": -160.0,
+      "y": -200.0,
+      "config": {
+        "name": "codeurs",
+        "description": "",
+        "source": "servos",
+        "quantities": [
+          "position"
+        ]
+      }
+    },
+    {
+      "id": "script_1",
+      "type": "script",
+      "x": 120.0,
+      "y": -180.0,
+      "config": {
+        "name": "odometrie",
+        "description": "",
+        "code": "import math\n\nR = 0.045       # rayon des roues (m)\nVOIE = 0.55     # écartement effectif gauche-droite (m), à étalonner\nGAUCHE = [\"roue_avant_gauche\", \"roue_arriere_gauche\"]\nDROITE = [\"roue_avant_droite\", \"roue_arriere_droite\"]\n\n\ndef traiter(entree, donnees):\n    positions = donnees[\"codeurs\"][\"position\"]      # {roue: angle en degrés, entre -180 et +180}\n    avant = donnees.get(\"odometrie\")                # mon résultat du tour précédent (None au premier tour)\n    if avant is None:\n        return {\"x\": 0.0, \"y\": 0.0, \"theta\": 0.0, \"cap\": 0.0, \"positions\": positions}\n\n    # 1. angle tourné par chaque roue depuis le tour précédent, ramené entre -180 et +180 (en degrés)\n    tourne = {roue: (positions[roue] - avant[\"positions\"][roue] + 180) % 360 - 180 for roue in positions}\n\n    # 2. distance parcourue par chaque roue (m) ; les roues de droite sont montées en miroir\n    distance = {roue: R * math.radians(angle) for roue, angle in tourne.items()}\n    for roue in DROITE:\n        distance[roue] = -distance[roue]\n\n    # 3. distance moyenne de chaque côté\n    sL = sum(distance[roue] for roue in GAUCHE) / len(GAUCHE)\n    sR = sum(distance[roue] for roue in DROITE) / len(DROITE)\n\n    # 4. avance du robot et rotation (radians, positive vers la gauche)\n    ds = (sL + sR) / 2\n    dtheta = (sR - sL) / VOIE\n\n    # 5. nouvelle pose, en avançant dans la direction du milieu de la rotation\n    theta_milieu = avant[\"theta\"] + dtheta / 2\n    x = avant[\"x\"] + ds * math.cos(theta_milieu)\n    y = avant[\"y\"] + ds * math.sin(theta_milieu)\n    theta = avant[\"theta\"] + dtheta\n\n    return {\"x\": x, \"y\": y, \"theta\": theta, \"cap\": math.degrees(theta), \"positions\": positions}\n"
+      }
+    },
+    {
+      "id": "script_2",
+      "type": "script",
+      "x": 600.0,
+      "y": -80.0,
+      "config": {
+        "name": "carte",
+        "description": "",
+        "code": "import math\nimport numpy as np\n\nRESOLUTION = 0.05                     # taille d'une case (m)\nTAILLE = 400                          # cases de côté : 400 × 5 cm = 20 m, départ au centre\nPORTEE = 6.0                          # on ignore les mesures plus lointaines (m), peu fiables\nL_OCCUPE, L_LIBRE, L_MAX = 1.5, -0.4, 5.0   # ajouts au score d'une case ; score borné entre -5 et 5\n\n\ndef vers_case(xs, ys):\n    \"\"\"Positions dans la carte (m) -> (ligne, colonne) de la grille ; y vers le haut de l'image.\"\"\"\n    col = np.floor(np.asarray(xs) / RESOLUTION).astype(int) + TAILLE // 2\n    lig = TAILLE // 2 - 1 - np.floor(np.asarray(ys) / RESOLUTION).astype(int)\n    return lig, col\n\n\ndef marquer(grille, xs, ys, valeur):\n    \"\"\"Ajoute valeur au score des cases qui contiennent ces points (chaque case une seule fois).\"\"\"\n    lig, col = vers_case(xs, ys)\n    dedans = (lig >= 0) & (lig < TAILLE) & (col >= 0) & (col < TAILLE)\n    cases = np.unique(lig[dedans] * TAILLE + col[dedans])\n    grille.flat[cases] += valeur\n\n\ndef dessiner(grille, x, y, theta):\n    \"\"\"Image de la carte : occupé = noir, libre = blanc, inconnu = gris ; le robot en rouge.\"\"\"\n    proba = 1.0 / (1.0 + np.exp(-grille))                 # probabilité qu'une case soit occupée\n    gris = (255 * (1.0 - proba)).astype(np.uint8)\n    image = np.stack([gris, gris, gris], axis=-1)\n    for k in range(8):                                    # un trait dans la direction du cap\n        lig, col = vers_case([x + k * RESOLUTION * math.cos(theta)], [y + k * RESOLUTION * math.sin(theta)])\n        l, c = int(lig[0]), int(col[0])\n        if 1 <= l < TAILLE - 1 and 1 <= c < TAILLE - 1:\n            image[l - 1:l + 2, c - 1:c + 2] = (200, 40, 40)\n    return image\n\n\ndef traiter(entree, donnees):\n    pose = donnees[\"recalage\"]\n    x, y, theta = pose[\"x\"], pose[\"y\"], pose[\"theta\"]\n    avant = donnees.get(\"carte\")                          # mon résultat précédent : la carte en cours\n    grille = avant[\"grille\"] if avant is not None else np.zeros((TAILLE, TAILLE), np.float32)\n\n    points = donnees[\"lidar\"][\"points\"]                   # [angle en degrés (sens horaire), distance en cm]\n    d = points[:, 1] / 100.0\n    garde = (d > 0.05) & (d < PORTEE)                     # distance 0 = rien mesuré\n    angle = theta - np.radians(points[garde, 0])          # direction des rayons dans la carte (sens trigo)\n    d = d[garde]\n    cos, sin = np.cos(angle), np.sin(angle)\n\n    # 1. les cases traversées par chaque rayon, avant le point touché, sont libres\n    pas = np.arange(0.0, PORTEE, RESOLUTION / 2)\n    avant_obstacle = pas[None, :] < d[:, None] - 2*RESOLUTION\n    rx = x + pas[None, :] * cos[:, None]\n    ry = y + pas[None, :] * sin[:, None]\n    marquer(grille, rx[avant_obstacle], ry[avant_obstacle], L_LIBRE)\n\n    # 2. la case du point touché est occupée\n    marquer(grille, x + d * cos, y + d * sin, L_OCCUPE)\n    np.clip(grille, -L_MAX, L_MAX, out=grille)\n\n    connues = int(np.count_nonzero(np.abs(grille) > 0.5))\n    return {\"image\": dessiner(grille, x, y, theta), \"surface_connue_m2\": round(connues * RESOLUTION ** 2, 1),\n            \"grille\": grille}\n"
+      }
+    },
+    {
+      "id": "script_3",
+      "type": "script",
+      "x": 260.0,
+      "y": -80.0,
+      "config": {
+        "name": "recalage",
+        "description": "",
+        "code": "import math\nimport numpy as np\n\nECART_MAX = 0.30          # appariement : distance maximale entre un point et son voisin (m), au départ\nITERATIONS = 20\nNOUVEAU_SCAN = 0.10       # on change de scan de référence quand le robot a bougé de 10 cm…\nNOUVEAU_CAP = 0.10        # … ou tourné de 0,1 rad (6°)\nMIN_APPARIEMENTS = 40     # en dessous, on garde l'odométrie (ICP pas fiable)\nRECHERCHE_CAP = math.radians(20)   # recherche grossière de la rotation autour de l'odométrie : ± 20°…\nPAS_CAP = math.radians(1)          # … degré par degré\n\n\ndef scan_vers_points(points_lidar):\n    \"\"\"[angle en degrés (sens horaire), distance en cm] -> points (m) dans le repère du robot (x devant, y à gauche).\"\"\"\n    d = points_lidar[:, 1] / 100.0\n    garde = (d > 0.05) & (d < 6.0)\n    a = -np.radians(points_lidar[garde, 0])               # sens horaire -> sens trigonométrique\n    return np.column_stack([d[garde] * np.cos(a), d[garde] * np.sin(a)])\n\n\ndef composer(pose, increment):\n    \"\"\"Applique un petit déplacement (dx, dy dans le repère du robot, dtheta) à une pose (x, y, theta).\"\"\"\n    x, y, t = pose\n    dx, dy, dt = increment\n    return (x + dx * math.cos(t) - dy * math.sin(t), y + dx * math.sin(t) + dy * math.cos(t), t + dt)\n\n\ndef difference(pose_avant, pose_apres):\n    \"\"\"Déplacement de pose_avant à pose_apres, exprimé dans le repère de pose_avant.\"\"\"\n    dx, dy = pose_apres[0] - pose_avant[0], pose_apres[1] - pose_avant[1]\n    t = pose_avant[2]\n    return (dx * math.cos(t) + dy * math.sin(t), -dx * math.sin(t) + dy * math.cos(t), pose_apres[2] - t)\n\n\ndef distance_voisins(points, reference):\n    \"\"\"Distance de chaque point à son plus proche voisin dans la référence, et l'indice de ce voisin.\"\"\"\n    d2 = ((points[:, None, :] - reference[None, :, :]) ** 2).sum(axis=2)\n    voisin = d2.argmin(axis=1)\n    return np.sqrt(d2[np.arange(len(points)), voisin]), voisin\n\n\ndef placer(scan, dx, dy, dt):\n    \"\"\"Points du scan placés dans le repère de la référence (rotation dt puis translation dx, dy).\"\"\"\n    c, s = math.cos(dt), math.sin(dt)\n    return scan @ np.array([[c, s], [-s, c]]) + (dx, dy)\n\n\ndef meilleur_cap(reference, scan, increment):\n    \"\"\"Recherche grossière : parmi les rotations proches de celle de l'odométrie, celle qui superpose le mieux les\n    deux scans (l'ICP seul se trompe quand le robot a beaucoup tourné entre deux scans).\"\"\"\n    dx, dy, dt = increment\n    echantillon = scan[::2]                                 # un point sur deux suffit pour comparer\n    meilleur, score_min = dt, None\n    for essai in np.arange(dt - RECHERCHE_CAP, dt + RECHERCHE_CAP + 1e-9, PAS_CAP):\n        distance, _ = distance_voisins(placer(echantillon, dx, dy, essai), reference)\n        score = np.minimum(distance, ECART_MAX).mean()      # les points sans voisin proche comptent pour ECART_MAX\n        if score_min is None or score < score_min:\n            meilleur, score_min = essai, score\n    return dx, dy, meilleur\n\n\ndef icp(reference, scan, increment):\n    \"\"\"Cherche le déplacement (dx, dy, dtheta) qui superpose scan sur reference, en partant de increment\n    (l'estimation de l'odométrie). Renvoie (déplacement, nombre d'appariements, écart moyen en m).\"\"\"\n    dx, dy, dt = meilleur_cap(reference, scan, increment)\n    ecart_max = ECART_MAX\n    n, erreur = 0, 0.0\n    for _ in range(ITERATIONS):\n        # 1. placer le scan dans le repère de la référence avec l'estimation actuelle,\n        # 2. et chercher pour chaque point son plus proche voisin dans la référence\n        distance, voisin = distance_voisins(placer(scan, dx, dy, dt), reference)\n        bons = distance < ecart_max                        # on écarte les appariements trop lointains\n        n = int(bons.sum())\n        if n < MIN_APPARIEMENTS:\n            break\n        a, b = scan[bons], reference[voisin[bons]]\n        erreur = float(distance[bons].mean())\n        # 3. meilleure rotation + translation qui envoie a sur b (méthode de Kabsch, par SVD)\n        ca, cb = a.mean(axis=0), b.mean(axis=0)\n        u, _, vt = np.linalg.svd((a - ca).T @ (b - cb))\n        r = (u @ vt).T\n        if np.linalg.det(r) < 0:                           # pas de symétrie miroir\n            vt[-1] *= -1\n            r = (u @ vt).T\n        dt = math.atan2(r[1, 0], r[0, 0])\n        dx, dy = cb - r @ ca\n        ecart_max = max(0.05, ecart_max * 0.8)             # de plus en plus exigeant\n    return (float(dx), float(dy), dt), n, erreur\n\n\ndef traiter(entree, donnees):\n    odo = donnees[\"odometrie\"]\n    pose_odo = (odo[\"x\"], odo[\"y\"], odo[\"theta\"])\n    scan = scan_vers_points(donnees[\"lidar\"][\"points\"])\n    avant = donnees.get(\"recalage\")\n    if avant is None:                                      # premier scan : il devient la référence\n        return {\"x\": 0.0, \"y\": 0.0, \"theta\": 0.0, \"cap\": 0.0, \"reference\": scan, \"pose_ref\": (0.0, 0.0, 0.0),\n                \"odo_ref\": pose_odo, \"appariements\": 0, \"ecart_cm\": 0.0}\n\n    # déplacement depuis le scan de référence, d'après l'odométrie : point de départ de l'ICP\n    increment_odo = difference(avant[\"odo_ref\"], pose_odo)\n    increment, n, erreur = icp(avant[\"reference\"], scan, increment_odo)\n    if n < MIN_APPARIEMENTS:\n        increment = increment_odo                          # ICP pas fiable : on se contente de l'odométrie\n    x, y, theta = composer(avant[\"pose_ref\"], increment)\n\n    # assez bougé : ce scan devient la nouvelle référence (sinon on garde l'ancienne, l'erreur s'accumule moins)\n    if math.hypot(increment[0], increment[1]) > NOUVEAU_SCAN or abs(increment[2]) > NOUVEAU_CAP:\n        reference, pose_ref, odo_ref = scan, (x, y, theta), pose_odo\n    else:\n        reference, pose_ref, odo_ref = avant[\"reference\"], avant[\"pose_ref\"], avant[\"odo_ref\"]\n    return {\"x\": x, \"y\": y, \"theta\": theta, \"cap\": math.degrees(theta), \"reference\": reference,\n            \"pose_ref\": pose_ref, \"odo_ref\": odo_ref, \"appariements\": n, \"ecart_cm\": round(100 * erreur, 1)}\n"
+      }
+    },
+    {
+      "id": "scope_1",
+      "type": "scope",
+      "x": 520.0,
+      "y": -340.0,
+      "config": {
+        "name": "scope",
+        "description": "",
+        "expression": "carte.image",
+        "history_s": 30.0,
+        "display": "automatique"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "from": "start_1",
+      "to": "action_1",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "continuous_1",
+      "to": "measure_1",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "measure_1",
+      "to": "measure_2",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "measure_2",
+      "to": "script_1",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "script_1",
+      "to": "script_3",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "script_3",
+      "to": "script_2",
+      "kind": "main",
+      "port": "suite"
+    },
+    {
+      "from": "script_2",
+      "to": "scope_1",
+      "kind": "main",
+      "port": "suite"
+    }
+  ]
+}
