@@ -57,8 +57,8 @@ constituer un jeu de données, entraîner un modèle, puis confier le robot à c
 
 Les parcours se suivent dans le menu de gauche :
 
-1. **[Prise en main](prise-en-main.qmd)** : installer MIR et faire le tour de l'application ;
-2. **[Apprendre par imitation](behavioral-cloning.qmd)** : le *Behavioral Cloning*, avec un bras simple à trois
+1. **[Prise en main](prise-en-main/index.qmd)** : installer MIR et faire le tour de l'application ;
+2. **[Apprendre par imitation](behavioral-cloning/index.qmd)** : le *Behavioral Cloning*, avec un bras simple à trois
    degrés de liberté et une pince.
 
 Tout se fait en simulation : un ordinateur suffit. Les manipulations dans l'application sont montrées dans de

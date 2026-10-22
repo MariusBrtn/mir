@@ -1,6 +1,7 @@
 project:
   type: website
   output-dir: _site
+  post-render: _liens_propres.py     # liens « dossier/ » plutôt que « dossier/index.html »
   resources:
     - CNAME          # nom de domaine du site (GitHub Pages)
     - .nojekyll      # fichiers servis tels quels (pas de traitement Jekyll par GitHub)
@@ -21,11 +22,11 @@ website:
         text: Accueil
       - section: "Prise en main"
         contents:
-          - href: prise-en-main.qmd
+          - href: prise-en-main/index.qmd
             text: Installer et découvrir MIR
       - section: "Apprendre par imitation"
         contents:
-          - href: behavioral-cloning.qmd
+          - href: behavioral-cloning/index.qmd
             text: Behavioral Cloning
     tools:
       - icon: github
