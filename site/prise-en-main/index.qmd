@@ -1,4 +1,8 @@
 ---
+aliases:
+  - ../prise-en-main.html
+  - ../installation.html
+  - ../decouverte.html
 title: "Installer et découvrir MIR"
 subtitle: "Le logiciel sur votre ordinateur, et un premier tour de l'application"
 ---

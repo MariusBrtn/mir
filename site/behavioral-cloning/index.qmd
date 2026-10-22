@@ -1,4 +1,6 @@
 ---
+aliases:
+  - ../behavioral-cloning.html
 title: "Behavioral Cloning"
 subtitle: "Apprendre à un robot à imiter un opérateur, avec un bras simple à trois degrés de liberté et une pince"
 toc: false
