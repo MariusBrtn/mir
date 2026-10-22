@@ -1,7 +1,7 @@
 [
   {
     "objectID": "behavioral-cloning/index.html",
-    "href": "behavioral-cloning/index.html",
+    "href": "behavioral-cloning/",
     "title": "Behavioral Cloning",
     "section": "",
     "text": "NoteEn préparation\n\n\n\nCe parcours est en cours d’écriture. On y découvrira le Behavioral Cloning avec un bras simple à trois degrés de liberté et une pince : un opérateur fait des démonstrations, MIR les enregistre, puis on entraîne un modèle qui pilote le robot à partir de ce qu’il observe.",
@@ -12,7 +12,7 @@
   },
   {
     "objectID": "index.html",
-    "href": "index.html",
+    "href": "./",
     "title": "MIR — Modular Intelligent Robot",
     "section": "",
     "text": "Quelques configurations de MIR : bras 2 ddl, plateforme mobile avec bras 5 ddl et caméra, plateforme mobile avec lidar, plateforme mobile avec pince.",
@@ -22,7 +22,7 @@
   },
   {
     "objectID": "index.html#la-plateforme-mir",
-    "href": "index.html#la-plateforme-mir",
+    "href": "./#la-plateforme-mir",
     "title": "MIR — Modular Intelligent Robot",
     "section": "La plateforme MIR",
     "text": "La plateforme MIR\nMIR est une plateforme robotique modulaire, open source, pensée pour l’enseignement, la recherche et l’expérimentation. Les mêmes modules matériels (servos, jonctions, coudes, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…\n\n\n\n\n\nUn module servo MIR.\n\n\n\n\n\n\n\n\nLes modules se branchent les uns sur les autres.\n\n\n\n\nLes robots pédagogiques sont souvent conçus pour un seul usage. MIR fait l’inverse : on fait évoluer le robot selon l’activité, en ajoutant ou en remplaçant des actionneurs et des capteurs, sans repartir de zéro. Une même plateforme couvre ainsi la cinématique, l’asservissement, la téléopération, la perception, la navigation et le robot learning.\n  Voir MIR en vidéo : un robot construit en quelques clics",
@@ -32,7 +32,7 @@
   },
   {
     "objectID": "index.html#le-logiciel-mir",
-    "href": "index.html#le-logiciel-mir",
+    "href": "./#le-logiciel-mir",
     "title": "MIR — Modular Intelligent Robot",
     "section": "Le logiciel MIR",
     "text": "Le logiciel MIR\nL’application MIR accompagne toute la vie d’un robot :\n\nle concevoir module par module, dans un éditeur 3D ;\nle construire, guidé pas à pas, chaque module étant détecté dès qu’on le branche ;\nle piloter, réel ou simulé (moteur physique MuJoCo) : essais d’asservissement, téléopération, scripts Python ;\nenregistrer des démonstrations et entraîner des modèles : behavioral cloning, politiques de LeRobot comme ACT, apprentissage par renforcement ;\nenchaîner des tâches avec MIR Flow, jusqu’à un modèle de langage qui décide quoi faire.\n\nUn robot est décrit une seule fois : la même description sert au robot réel et à son jumeau simulé. Tout ce qui se fait avec le robot réel peut se faire en simulation, sans matériel. MIR est compatible avec l’écosystème LeRobot de Hugging Face.",
@@ -42,7 +42,7 @@
   },
   {
     "objectID": "index.html#ce-site",
-    "href": "index.html#ce-site",
+    "href": "./#ce-site",
     "title": "MIR — Modular Intelligent Robot",
     "section": "Ce site",
     "text": "Ce site\nCe site propose une découverte progressive du robot learning par l’expérimentation. Les activités font émerger les notions à partir de situations concrètes : observer le comportement d’un robot, enregistrer ses actions, constituer un jeu de données, entraîner un modèle, puis confier le robot à ce modèle.\nLes parcours se suivent dans le menu de gauche :\n\nPrise en main : installer MIR et faire le tour de l’application ;\nApprendre par imitation : le Behavioral Cloning, avec un bras simple à trois degrés de liberté et une pince.\n\nTout se fait en simulation : un ordinateur suffit. Les manipulations dans l’application sont montrées dans de courtes vidéos.",
@@ -52,7 +52,7 @@
   },
   {
     "objectID": "index.html#le-projet",
-    "href": "index.html#le-projet",
+    "href": "./#le-projet",
     "title": "MIR — Modular Intelligent Robot",
     "section": "Le projet",
     "text": "Le projet\nMIR est conçu et développé par Marius Bertin et Michel Bertin. Le code, les modèles 3D des modules et la documentation sont sur GitHub, sous licence Apache 2.0. De nouveaux modules, documents et logiciels sont ajoutés au fil du projet.",
@@ -62,7 +62,7 @@
   },
   {
     "objectID": "prise-en-main/index.html",
-    "href": "prise-en-main/index.html",
+    "href": "prise-en-main/",
     "title": "Installer et découvrir MIR",
     "section": "",
     "text": "MIR fonctionne sous Windows, macOS (processeur Apple : M1, M2…) et Linux. L’installation ne demande pas de droits d’administrateur, ni d’installer Python soi-même : l’outil uv télécharge Python et les versions exactes de tout ce dont MIR a besoin (LeRobot, MuJoCo, PyTorch…). Il faut une connexion internet et environ 5 Go d’espace libre.\n\n\nOuvrez l’application Terminal (Spotlight → « Terminal »), collez cette ligne puis appuyez sur Entrée :\ncurl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos/install_mir.sh | bash\nLa commande installe MIR dans votre dossier personnel (~/MIR) et crée l’application MIR dans le dossier Applications. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.\n\n\n\n\nInstaller uv (une seule fois). Sous Windows, dans PowerShell :\npowershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"\nSous Linux, dans un Terminal :\ncurl -LsSf https://astral.sh/uv/install.sh | sh\nFermez puis rouvrez la fenêtre, pour que la commande uv soit trouvée.\nTélécharger MIR : sur github.com/MariusBrtn/mir, bouton vert Code → Download ZIP, puis décompressez l’archive.\nInstaller, dans le dossier de MIR (celui qui contient pyproject.toml) : uv sync (ou double-clic sur install.bat sous Windows). Comptez une dizaine de minutes la première fois.\nLancer MIR, depuis le même dossier : uv run mir.",
@@ -73,7 +73,7 @@
   },
   {
     "objectID": "prise-en-main/index.html#installer-mir",
-    "href": "prise-en-main/index.html#installer-mir",
+    "href": "prise-en-main/#installer-mir",
     "title": "Installer et découvrir MIR",
     "section": "",
     "text": "MIR fonctionne sous Windows, macOS (processeur Apple : M1, M2…) et Linux. L’installation ne demande pas de droits d’administrateur, ni d’installer Python soi-même : l’outil uv télécharge Python et les versions exactes de tout ce dont MIR a besoin (LeRobot, MuJoCo, PyTorch…). Il faut une connexion internet et environ 5 Go d’espace libre.\n\n\nOuvrez l’application Terminal (Spotlight → « Terminal »), collez cette ligne puis appuyez sur Entrée :\ncurl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos/install_mir.sh | bash\nLa commande installe MIR dans votre dossier personnel (~/MIR) et crée l’application MIR dans le dossier Applications. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.\n\n\n\n\nInstaller uv (une seule fois). Sous Windows, dans PowerShell :\npowershell -ExecutionPolicy ByPass -c \"irm https://astral.sh/uv/install.ps1 | iex\"\nSous Linux, dans un Terminal :\ncurl -LsSf https://astral.sh/uv/install.sh | sh\nFermez puis rouvrez la fenêtre, pour que la commande uv soit trouvée.\nTélécharger MIR : sur github.com/MariusBrtn/mir, bouton vert Code → Download ZIP, puis décompressez l’archive.\nInstaller, dans le dossier de MIR (celui qui contient pyproject.toml) : uv sync (ou double-clic sur install.bat sous Windows). Comptez une dizaine de minutes la première fois.\nLancer MIR, depuis le même dossier : uv run mir.",
@@ -84,7 +84,7 @@
   },
   {
     "objectID": "prise-en-main/index.html#premier-tour-de-lapplication",
-    "href": "prise-en-main/index.html#premier-tour-de-lapplication",
+    "href": "prise-en-main/#premier-tour-de-lapplication",
     "title": "Installer et découvrir MIR",
     "section": "Premier tour de l’application",
     "text": "Premier tour de l’application\nMIR s’ouvre sur l’étape Configurer le robot. Deux robots sont fournis pour essayer tout de suite : bras_4ddl_cam_V2 (un bras avec une caméra) et test_mobile (un robot mobile avec un lidar).\n\nLes étapes\nElles sont en haut de la fenêtre, de gauche à droite dans l’ordre où on les suit.\n\n\n\n\n\n\n\nÉtape\nCe qu’on y fait\n\n\n\n\nConfigurer le robot\nConcevoir la structure module par module, ouvrir un robot, construire le robot réel.\n\n\nPiloter\nFaire bouger le robot, réel ou simulé.\n\n\nCollecter des données\nEnregistrer des démonstrations d’une tâche.\n\n\nEntraîner un modèle\nApprendre, à partir des démonstrations, un modèle capable de refaire la tâche.\n\n\nMIR Flow\nEnchaîner des tâches sous forme de graphe, avec de la vision ou un modèle de langage.\n\n\n\n\n\nPiloter le robot\nLe sélecteur Réel / Simulé, en haut à droite, choisit le robot. Sans robot branché, MIR utilise le robot simulé, dans une scène que l’on peut replacer à tout moment. Quatre façons de le piloter, une seule à la fois :\n\nEssais : envoyer une consigne à un moteur (échelon, rampe, sinus, créneau) et tracer sa réponse ;\nTéléopération : piloter à la main, au clavier ou avec un bras leader ;\nScripts : programmer le robot en Python ;\nIA : laisser un modèle entraîné piloter le robot.\n\nL’arrêt d’urgence, toujours en haut à droite, arrête tout de suite ce qui fait bouger le robot.\n\n\nOù sont rangés les fichiers\nChaque robot a son dossier dans robots/ : sa configuration (robot.json), ses essais, ses scripts, ses scènes, ses démonstrations (datasets/) et ses modèles entraînés (modeles/). Ce sont des fichiers ordinaires, que l’on peut copier, échanger ou ouvrir avec un autre logiciel.",
