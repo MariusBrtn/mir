@@ -1,0 +1,11 @@
+---
+title: "4. Behavioral Cloning"
+subtitle: "Apprendre au robot à imiter un opérateur"
+toc: false
+---
+
+::: {.callout-note}
+## À venir
+Ce chapitre est en préparation : un opérateur fait des démonstrations, MIR les enregistre, puis on entraîne un modèle
+qui pilote le robot à partir de ce qu'il observe.
+:::

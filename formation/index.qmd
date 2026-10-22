@@ -1,0 +1,22 @@
+---
+title: "Robotique et IA"
+subtitle: "Découvrir le robot learning avec la plateforme MIR"
+toc: false
+---
+
+Le *robot learning* regroupe les méthodes qui permettent à un robot d'acquérir des comportements à partir de
+données et d'expériences. Ce parcours le fait découvrir par l'expérimentation, avec **MIR — Modular Intelligent
+Robot** : une plateforme robotique modulaire et son logiciel, qui permettent de concevoir un robot, de le piloter,
+d'enregistrer des démonstrations, d'entraîner un modèle, puis de confier le robot à ce modèle.
+
+Tout le parcours se fait **en simulation** : aucun robot n'est nécessaire, seulement un ordinateur.
+
+## Le parcours
+
+1. **[Installer MIR](installation.qmd)** : le logiciel sur votre ordinateur, en une dizaine de minutes.
+2. **[Découvrir MIR](decouverte.qmd)** : une vue d'ensemble de ce que permet le logiciel.
+3. **[Un bras 4 ddl](bras-4ddl.qmd)** : concevoir pas à pas un bras à quatre articulations et une pince, le faire
+   bouger, puis analyser sa réponse avec un petit script Python.
+4. **[Behavioral Cloning](behavioral-cloning.qmd)** : apprendre au robot à imiter un opérateur (à venir).
+
+Les étapes faites dans l'application sont montrées dans de courtes vidéos.

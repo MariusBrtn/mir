@@ -1,0 +1,32 @@
+project:
+  type: website
+  output-dir: _site
+  resources:
+    - videos/
+
+lang: fr
+
+website:
+  title: "MIR — Robotique et IA"
+  page-navigation: true
+  navbar:
+    left:
+      - href: index.qmd
+        text: Accueil
+      - href: installation.qmd
+        text: "1. Installer MIR"
+      - href: decouverte.qmd
+        text: "2. Découvrir MIR"
+      - href: bras-4ddl.qmd
+        text: "3. Un bras 4 ddl"
+      - href: behavioral-cloning.qmd
+        text: "4. Behavioral Cloning"
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    toc-title: "Sur cette page"
+    number-sections: false
+    html-math-method: katex

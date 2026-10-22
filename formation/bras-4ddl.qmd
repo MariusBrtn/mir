@@ -1,0 +1,152 @@
+---
+title: "3. Un bras 4 ddl"
+subtitle: "Concevoir un bras avec une pince, le faire bouger, analyser sa réponse"
+---
+
+Dans ce chapitre, on crée de zéro un bras à **quatre degrés de liberté** (quatre articulations) terminé par une
+**pince**, sans caméra. Tout se fait dans l'application MIR, en simulation. On fait ensuite de premiers essais :
+des **échelons** de consigne sur une articulation, puis une petite analyse de la réponse avec un script Python.
+
+## Concevoir la structure
+
+La **structure** décrit les modules du robot et la façon dont ils sont branchés les uns aux autres. Elle sert à la
+fois au robot réel (pour le construire) et à sa simulation.
+
+<figure class="tuto">
+<video controls preload="metadata" poster="videos/bras-4ddl-structure.jpg" src="videos/bras-4ddl-structure.mp4"></video>
+<figcaption>Concevoir le bras 4 ddl avec pince, puis l'enregistrer.</figcaption>
+</figure>
+
+1. À l'étape **Configurer le robot**, cliquez sur **Concevoir la structure**. Sans robot ouvert, MIR crée un nouveau
+   robot.
+2. Le **socle** est déjà placé : c'est le module de départ, fixé à la table (case **Bâti** cochée).
+3. Glissez les modules de la liste de gauche sur les **pastilles** de la vue 3D, dans cet ordre :
+
+   | Module | Sur la pastille | Branché par |
+   |---|---|---|
+   | servo 1 | dessus du socle | son rotor |
+   | servo 2 | stator du servo 1 | son rotor |
+   | jonction | stator du servo 2 | sa face A |
+   | servo 3 | face B de la jonction | son stator |
+   | servo 4 | rotor du servo 3 | son stator |
+   | pince | rotor du servo 4 | son stator |
+
+   Un module peut souvent se brancher par plusieurs de ses faces : la touche **R** le retourne pour changer la face
+   utilisée. Si une pastille est cachée, faites tourner la vue en glissant dans la 3D avec la souris ; le bouton
+   **Recadrer** remontre tout le robot.
+4. Cliquez sur **Valider**, acceptez d'enregistrer le robot et nommez-le `bras_4ddl_pince`.
+
+Les moteurs sont nommés dans l'ordre : `joint_1` à `joint_4` pour les quatre articulations, `joint_5` pour la
+pince.
+
+::: {.callout-important}
+## À retenir
+Un **degré de liberté** (ddl) est un mouvement indépendant possible du robot. Chaque servo ajoute ici une rotation :
+le bras a quatre ddl, et la pince (ouverture et fermeture) en ajoute un cinquième.
+:::
+
+## Premier essai : un échelon
+
+À l'étape **Piloter**, le bras simulé est prêt : il n'y a rien à brancher ni à connecter. La modalité **Essais**
+envoie une consigne à **un** moteur et enregistre sa réponse.
+
+<figure class="tuto">
+<video controls preload="metadata" poster="videos/bras-4ddl-echelon.jpg" src="videos/bras-4ddl-echelon.mp4"></video>
+<figcaption>Deux échelons sur l'articulation <code>joint_2</code> : réglage par défaut, puis sans terme dérivé.</figcaption>
+</figure>
+
+1. Choisissez l'actionneur `joint_2.position` et la sollicitation **Échelon**.
+2. Réglez une valeur finale de **45°** et une durée d'essai de **2 s**. La consigne passe de 0 à 45° à l'instant
+   0,5 s.
+3. Dans **Grandeurs enregistrées**, gardez `joint_2.position` et `joint_2.velocity`, puis choisissez une fréquence
+   d'acquisition de **100 Hz**.
+4. Cliquez sur **Lancer l'essai**. MIR amène d'abord l'articulation à la valeur initiale, puis applique l'échelon.
+   Les courbes s'affichent à la fin de l'essai : en trait plein la mesure, en pointillés la consigne.
+5. Recommencez avec **D = 0**. Les deux essais sont superposés ; cochez ou décochez-les dans la liste de droite.
+6. Sélectionnez un essai, puis enregistrez-le (icône **Enregistrer**). Il est rangé dans
+   `robots/bras_4ddl_pince/essais/`.
+
+::: {.callout-note}
+## Le servo simulé
+Chaque servo est asservi par un correcteur **PID** : à partir de l'écart entre la consigne et la position, il calcule
+la tension appliquée au moteur. La seule limite est l'alimentation : la tension ne peut pas dépasser 12 V. Par défaut
+(P = 45, I = 0, D = 60), il est réglé pour répondre le plus vite possible, sans dépassement. Les gains se modifient
+dans **Réglages du moteur**, le temps des essais seulement ; ils ne donnent pas la même réponse que sur le servo réel.
+:::
+
+**Questions**
+
+1. Combien de temps faut-il à l'articulation pour atteindre la consigne ? Quel est le rôle du terme D ?
+2. Au début du mouvement, la position augmente presque linéairement : la tension est à son maximum (12 V). Que vaut
+   alors la vitesse de rotation, en °/s ? Comparez-la à la courbe `joint_2.velocity`, donnée en tr/min.
+3. La position finale est-elle exactement égale à la consigne ? Refaites l'essai sur `joint_1` (rotation autour de
+   l'axe vertical) et comparez. D'où peut venir la différence ?
+4. Ajoutez un terme intégral (I = 10). Que devient la réponse ? Regardez la courbe `joint_2.load` (la tension
+   appliquée, en % de 12 V) pendant la montée : pourquoi le terme intégral pose-t-il problème ?
+
+## Analyser l'essai avec un script
+
+La modalité **Scripts** permet d'écrire et de lancer des programmes Python. On s'en sert ici pour relire l'essai
+enregistré et calculer son **temps de réponse à 5 %**.
+
+<figure class="tuto">
+<video controls preload="metadata" poster="videos/bras-4ddl-analyse.jpg" src="videos/bras-4ddl-analyse.mp4"></video>
+<figcaption>Un script relit l'essai enregistré et calcule son temps de réponse à 5 %.</figcaption>
+</figure>
+
+1. Dans **Piloter → Scripts**, cliquez sur **Nouveau script…** et nommez-le `Analyse echelon`.
+2. Remplacez le contenu du script par le programme ci-dessous.
+3. Cliquez sur **Lancer**. Le résultat s'affiche dans la console, la figure à droite.
+
+```python
+"""
+Analyse d'un échelon : temps de réponse à 5 %
+"""
+from pathlib import Path
+import matplotlib.pyplot as plt
+from mir_robot.essai import Essai
+
+# le dernier essai enregistré dans Piloter -> Essais
+fichier = sorted(Path("../essais").glob("*.npz"))[-1]
+essai = Essai.charger(fichier)
+t, consigne, position = essai.t, essai.consigne, essai.mesure
+
+# instant de l'échelon, positions initiale et finale
+t0 = t[consigne != consigne[0]][0]
+initiale, finale = position[0], position[-1]
+
+# temps de réponse à 5 % : après, la position reste dans la bande finale ± 5 %
+bande = 0.05 * abs(finale - initiale)
+hors_bande = abs(position - finale) > bande
+t5 = t[hors_bande][-1] - t0
+print(f"Temps de réponse à 5 % : {t5:.3f} s")
+
+plt.plot(t, consigne, "--", label="Consigne")
+plt.plot(t, position, label="Position")
+plt.axhspan(finale - bande, finale + bande, alpha=0.2, label="Bande ± 5 %")
+plt.axvline(t0 + t5, color="k", linewidth=0.8)
+plt.xlabel("Temps (s)")
+plt.ylabel("Position (°)")
+plt.legend()
+plt.grid()
+plt.show()
+```
+
+Le script est rangé dans `robots/bras_4ddl_pince/scripts/` ; il cherche les essais dans le dossier voisin
+`essais/`. Un essai se relit avec `Essai.charger(...)` : `essai.t` contient les instants de mesure (en s),
+`essai.consigne` la consigne, `essai.mesure` la grandeur sollicitée et `essai["joint_2.velocity"]` toute autre
+grandeur enregistrée.
+
+::: {.callout-important}
+## À retenir
+Le **temps de réponse à 5 %** est la durée, comptée depuis l'échelon, au bout de laquelle la mesure entre
+définitivement dans la bande ± 5 % autour de sa valeur finale.
+:::
+
+**À vous**
+
+1. Comparez le temps de réponse des deux essais (avec et sans D).
+2. Ajoutez au script le calcul du **temps de montée** (passage de 10 % à 90 % de la variation de position).
+3. Calculez la vitesse moyenne pendant la montée, en °/s, et comparez-la à la mesure de `joint_2.velocity`.
+
+Dans le chapitre suivant, on n'écrira plus la consigne à la main : on apprendra au robot à imiter un opérateur.
