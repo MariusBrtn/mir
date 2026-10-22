@@ -1,0 +1,71 @@
+/* Charte « Atelier » : PLA noir et sable, bleu ardoise de la marque */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono&display=swap");
+
+:root {
+  --ink: #141417;
+  --sand: #DEC7A3;
+  --sand-dark: #8A7350;
+  --slate: #5A6B85;
+  --window: #FAF8F4;
+  --surface: #FFFDF9;
+  --panel: #F2EDE4;
+  --border: #E2DACD;
+  --text: #1C1C1F;
+  --muted: #6B655C;
+}
+
+body {
+  background: var(--window);
+  color: var(--text);
+  font-family: "IBM Plex Sans", "Inter", system-ui, sans-serif;
+}
+code, pre { font-family: "IBM Plex Mono", Menlo, monospace; }
+a { color: var(--slate); }
+/* --- Menu de gauche : le parcours --- */
+.sidebar { background: var(--panel) !important; border-right: 1px solid var(--border); }
+.sidebar .sidebar-title { color: var(--ink); font-weight: 600; }
+.sidebar .sidebar-subtitle { color: var(--muted); }
+.sidebar .sidebar-section .sidebar-item-text { color: var(--muted); }
+.sidebar .sidebar-item-section > .sidebar-item-container .sidebar-item-text {
+  text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.78rem; font-weight: 600; color: var(--sand-dark);
+}
+.sidebar .sidebar-link { color: var(--text); }
+.sidebar .sidebar-link:hover { color: var(--ink); }
+.sidebar .sidebar-link.active, .sidebar .sidebar-link.active .menu-text {
+  color: var(--ink) !important; font-weight: 600;
+}
+.sidebar .sidebar-link.active { border-left: 3px solid var(--sand); padding-left: 6px; }
+
+/* --- Vignette de la vidéo de présentation --- */
+.video-presentation {
+  display: flex; align-items: center; gap: 16px; margin: 1.5rem 0; padding: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  text-decoration: none; color: var(--text);
+}
+.video-presentation:hover { border-color: var(--border-strong, #CFC4B2); background: var(--panel); }
+.video-presentation img { width: 72px; border-radius: 6px; }
+.video-presentation span { font-weight: 500; }
+
+/* Encadrés « À retenir » : sable plutôt que le rouge par défaut */
+.callout.callout-style-default.callout-important {
+  border-left-color: var(--sand-dark);
+  background: var(--surface);
+}
+.callout-important .callout-header { background: var(--panel) !important; }
+.callout-important .callout-icon::before { filter: sepia(1) saturate(0.6) hue-rotate(-10deg); }
+
+/* --- Vidéos de tuto --- */
+.tuto { margin: 1.5rem 0; }
+.tuto video {
+  width: 100%;
+  display: block;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(20, 20, 23, 0.08);
+}
+.tuto figcaption { font-size: 0.85rem; color: var(--muted); margin-top: 6px; text-align: center; }
+
+/* --- Code et table des matières aux couleurs de la charte --- */
+p code, li code, td code { color: var(--sand-dark) !important; background: var(--panel) !important; }
+#TOC .nav-link.active, #TOC a.active { color: var(--ink) !important; border-left-color: var(--sand) !important; }
+#TOC a { color: var(--muted); }
