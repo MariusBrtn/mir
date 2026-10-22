@@ -667,6 +667,8 @@ class MainView(MainWindowBase, ViewBase[MainViewModel, MainVMAction]):
             return
         self._pages.setCurrentIndex(row)
         self._robot_pages.setCurrentIndex(0)
+        if row != STEP_PILOT:
+            self._view_model.restore_essai_settings()     # réglages d'essai temporaires : pas hors des essais
         if row == STEP_COLLECT:
             self.collecte_view.aligner_scene()        # une scène par dataset
         self._update_header()

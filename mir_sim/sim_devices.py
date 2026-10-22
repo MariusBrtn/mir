@@ -205,17 +205,15 @@ class SimMotorBus(ImirFeetechMotorBus):
                 for m, v in self._world.get_velocities_deg_s(motors).items()}
 
     def mir_read_currents(self, motors: list[str] | None = None) -> dict[str, int | float]:
-        return {m: int(abs(r) * MAX_CURRENT_MA * self._torque_ratio(m))
-                for m, r in self._world.get_load_ratios(motors).items()}
+        # courant proportionnel au couple : MAX_CURRENT_MA rotor bloqué sous 12 V
+        return {m: int(abs(r) * MAX_CURRENT_MA) for m, r in self._world.get_torque_ratios(motors).items()}
 
     def mir_read_loads(self, motors: list[str] | None = None) -> dict[str, int | float]:
-        return {m: int(r * 100 * self._torque_ratio(m)) for m, r in self._world.get_load_ratios(motors).items()}
+        # comme le STS3215 : rapport cyclique du moteur (tension appliquée / 12 V), en %
+        return {m: int(r * 100) for m, r in self._world.get_load_ratios(motors).items()}
 
     def mir_read_temperatures(self, motors: list[str] | None = None) -> dict[str, int | float]:
         return {m: 30 for m in (motors or self._config.motors)}
-
-    def _torque_ratio(self, motor: str) -> float:
-        return self._config.motors[motor].torque_limit / 1000
 
     def mir_is_moving(self, motors: list[str] | None = None) -> bool:
         return self._world.is_moving(motors)

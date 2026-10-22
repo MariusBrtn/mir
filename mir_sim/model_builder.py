@@ -61,6 +61,15 @@ NOIR_AFFICHE = 0.17         # luminance minimale des couleurs sombres (PLA noir 
 MATIERE = {"specular": 0.15, "shininess": 0.3}      # plastique mat : reflets doux
 MATIERE_BRILLANTE = {"specular": 1.0, "shininess": 0.8}     # "glossy" : verre, optique (œil du lidar)
 DEFAULT_STALL_TORQUE = 2.9  # N.m, STS3215 alimenté en 12V (≈1.9 N.m en 7.4V)
+DEFAULT_NO_LOAD_SPEED_DEG_S = 270.0     # STS3215 à vide en 12V : 0,222 s pour 60° (45 tr/min)
+# PID du servo simulé (unités des registres P, I, D, gains dans sim_world.GAINS_*) : propre à la simulation,
+# indépendant de la configuration (dont les P, I, D sont ceux du servo réel). Réglages par défaut, cherchés sur des
+# échelons du bras 4 ddl (avec et sans gravité, 10° et 45°) et du robot mobile :
+# - position : PD, le plus rapide sans dépassement ; écart dû à la gravité ≤ 0,04°, sous la résolution du capteur
+#   (0,088°). Un terme I ne ferait qu'empirer : il s'accumule pendant que la tension sature (pas d'anti-emballement) ;
+# - vitesse (roues) : PI, sans dépassement ni écart statique, ≈ 50 ms.
+SIM_PID_POSITION = (45, 0, 60)
+SIM_PID_VELOCITY = (25, 32, 0)
 # un connecteur branché sur un autre : demi-tour autour de x (z opposés, détrompeurs alignés)
 FLIP_X = np.array([0.0, 1.0, 0.0, 0.0])
 MATING_GENDERS = {("male", "female"), ("female", "male")}
@@ -111,6 +120,9 @@ class SimJointInfo:
     zero_offset_deg: float = 0.0
     range_deg: tuple[float, float] = (-180.0, 180.0)  # dans le repère moteur (degrés normalisés lerobot)
     velocity: bool = False      # asservi en vitesse (roue) : rotation continue, consigne en tr/min
+    pid: tuple[float, float, float] = SIM_PID_POSITION  # PID du servo simulé (unités des registres P, I, D)
+    stall_torque: float = DEFAULT_STALL_TORQUE          # couple rotor bloqué sous 12 V (N.m)
+    no_load_speed_deg_s: float = DEFAULT_NO_LOAD_SPEED_DEG_S    # vitesse à vide sous 12 V
 
     def motor_to_sim_rad(self, motor_deg: float) -> float:
         return float(np.deg2rad(self.direction * motor_deg + self.zero_offset_deg))
@@ -123,8 +135,6 @@ class SimJointInfo:
 class MotorParams:
     """Paramètres moteur issus de la configuration du robot (mirRobotConfig)."""
     range_deg: tuple[float, float] | None = None   # None : pas de calibration, plage par défaut du module (catalogue)
-    torque_limit: int = 1000            # en 0.1% du couple max
-    position_mode_velocity: int = 100   # en tr/min, comme sur le bus réel
     velocity: bool = False              # moteur en mode vitesse (operating_mode VELOCITY de la configuration)
 
 
@@ -133,7 +143,7 @@ class BuiltModel:
     spec: mujoco.MjSpec
     model: mujoco.MjModel
     joints: dict[str, SimJointInfo] = field(default_factory=dict)
-    max_velocity_deg_s: dict[str, float] = field(default_factory=dict)
+    max_velocity_deg_s: dict[str, float] = field(default_factory=dict)   # vitesse à vide sous 12 V
     body_module: dict[int, str] = field(default_factory=dict)        # id du corps -> module de la structure
     connector_markers: dict[int, str] = field(default_factory=dict)  # id de la pastille -> "module.connecteur" libre
     lidars: dict[str, dict[str, Any]] = field(default_factory=dict)  # capteur de la config -> {"points", "range_m"}
@@ -220,13 +230,13 @@ def lookat_quat(pos: list[float], target: list[float]) -> np.ndarray:
 
 
 def motor_params_from_config(config: Any) -> dict[str, MotorParams]:
-    """Extrait plages, couples et vitesses d'une mirRobotConfig (positions normalisées comme lerobot : 0° au milieu de la plage)."""
+    """Extrait plages et modes d'une mirRobotConfig (positions normalisées comme lerobot : 0° au milieu de la plage).
+    Les P, I, D de la configuration (servo réel) ne servent pas : le servo simulé a les siens (SIM_PID_*)."""
     params: dict[str, MotorParams] = {}
     if config is None or config.motor_bus is None:
         return params
     for name, motor in config.motor_bus.motors.items():
-        p = MotorParams(torque_limit=motor.torque_limit, position_mode_velocity=motor.position_mode_velocity,
-                        velocity=int(getattr(motor.operating_mode, "value", motor.operating_mode)) == VELOCITY_MODE)
+        p = MotorParams(velocity=int(getattr(motor.operating_mode, "value", motor.operating_mode)) == VELOCITY_MODE)
         cal = config.motor_bus.calibration.get(name)
         if cal is not None:
             half = (cal.range_max - cal.range_min) / 2 * 360 / STS3215_RESOLUTION
@@ -569,11 +579,14 @@ class ModelBuilder:
                             direction=float(inst.get("direction", 1)),
                             zero_offset_deg=float(inst.get("zero_offset_deg", 0)),
                             range_deg=range_deg,
-                            velocity=params.velocity or joint.get("mode") == "velocity")
+                            velocity=params.velocity or joint.get("mode") == "velocity",
+                            stall_torque=joint.get("stall_torque", DEFAULT_STALL_TORQUE),
+                            no_load_speed_deg_s=joint.get("no_load_speed_deg_s", DEFAULT_NO_LOAD_SPEED_DEG_S))
+        info.pid = SIM_PID_VELOCITY if info.velocity else SIM_PID_POSITION
         if info.velocity:
             info.range_deg = (-180.0, 180.0)        # position lue sur un tour, comme le servo réel en mode vitesse
         self._joints[motor] = info
-        self._max_vel[motor] = params.position_mode_velocity * 6  # tr/min -> deg/s
+        self._max_vel[motor] = info.no_load_speed_deg_s
         return info
 
     def _add_joint(self, spec: mujoco.MjSpec, body: Any, joint: dict[str, Any], pos: np.ndarray, axis: list[float],
@@ -585,25 +598,12 @@ class ModelBuilder:
             kwargs = {"limited": mujoco.mjtLimited.mjLIMITED_FALSE}     # rotation continue
         body.add_joint(name=joint_info.joint_name, type=mujoco.mjtJoint.mjJNT_HINGE,
                        pos=pos, axis=axis, **kwargs,
-                       damping=joint.get("damping", 0.5),
+                       damping=joint.get("damping", 0.02),     # frottements visqueux du réducteur
                        armature=joint.get("armature", 0.01),
                        frictionloss=joint.get("frictionloss", 0.02))
-
-        params = self._motor_params.get(joint_info.motor, MotorParams())
-        max_torque = joint.get("stall_torque", DEFAULT_STALL_TORQUE) * params.torque_limit / 1000
-        act = spec.add_actuator(name=joint_info.actuator_name, target=joint_info.joint_name,
-                                trntype=mujoco.mjtTrn.mjTRN_JOINT)
-        if joint_info.velocity:
-            # asservissement en vitesse : consigne en rad/s, bornée à la vitesse max du moteur
-            max_speed = np.deg2rad(self._max_vel[joint_info.motor])
-            act.set_to_velocity(kv=joint.get("kv_velocity", 2.0))
-            act.ctrlrange = [-max_speed, max_speed]
-        else:
-            act.set_to_position(kp=joint.get("kp", 20.0), kv=joint.get("kv", 0.5))
-            act.ctrlrange = sim_range
-        act.forcelimited = mujoco.mjtLimited.mjLIMITED_TRUE
-        act.forcerange = [-max_torque, max_torque]
-        act.ctrllimited = mujoco.mjtLimited.mjLIMITED_TRUE
+        # actionneur de couple pur : le couple est calculé par le servo simulé (PID, tension, moteur), voir SimWorld
+        spec.add_actuator(name=joint_info.actuator_name, target=joint_info.joint_name,
+                          trntype=mujoco.mjtTrn.mjTRN_JOINT)
 
     def _add_part(self, spec: mujoco.MjSpec, prefix: str, body: Any, part: dict[str, Any], scale: float = 1.0) -> None:
         geoms = part.get("geoms", [])

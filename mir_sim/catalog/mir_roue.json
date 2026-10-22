@@ -126,8 +126,7 @@
                 1
             ],
             "mode": "velocity",
-            "damping": 0.02,
-            "kv_velocity": 2.0
+            "damping": 0.02
         }
     },
     "connectors": {

@@ -147,12 +147,15 @@ class Essai:
 def lancer_essai(robot, sollicitation: Sollicitation, fps: float = 50, observations: list[str] | None = None,
                  conditions: dict[str, Any] | None = None,
                  progression: Callable[[float, dict[str, Any], float], None] | None = None,
-                 arret: Callable[[], bool] | None = None) -> Essai:
+                 arret: Callable[[], bool] | None = None,
+                 avancer: Callable[[float], float] | None = None) -> Essai:
     """Fait l'essai sur un robot connecté et configuré (réel ou simulé).
     1. préparation : l'actionneur est amené à la consigne initiale (non enregistré) ;
     2. essai : la consigne suit la sollicitation pendant sa durée ; consigne et mesures sont enregistrées.
     observations : grandeurs enregistrées (par défaut, toutes celles du moteur sollicité) ;
-    progression(t, observation, consigne) : appelée à chaque mesure ; arret() : True pour interrompre l'essai."""
+    progression(t, observation, consigne) : appelée à chaque mesure ; arret() : True pour interrompre l'essai ;
+    avancer(duree) (simulation) : fait avancer la physique d'environ duree secondes et renvoie la durée exacte. L'essai
+    suit alors le temps simulé : une mesure après chaque pas, à intervalles exacts (pas d'horloge réelle)."""
     actions = robot.action_features
     actionneur = sollicitation.actionneur
     if actionneur not in actions:
@@ -179,7 +182,10 @@ def lancer_essai(robot, sollicitation: Sollicitation, fps: float = 50, observati
             break
         if abs(robot.get_observation()[actionneur] - initiale[actionneur]) < PREPARATION_TOLERANCE:
             break
-        time.sleep(0.02)
+        if avancer is not None:
+            avancer(0.02)
+        else:
+            time.sleep(0.02)
 
     # 2. essai
     recorder = DataRecorder(proprietes, int(duree * fps * 1.2) + 10)
@@ -187,25 +193,35 @@ def lancer_essai(robot, sollicitation: Sollicitation, fps: float = 50, observati
     periode = PeriodWaiterSafeForJitter(1 / fps)
     recorder.start()
     cycles: list[float] = []        # durée d'un pas (consigne envoyée + mesures lues) : marge sur la période
+    instants: list[float] = []      # simulation : temps simulé de chaque mesure
     debut = time.perf_counter()
+    t_simule = 0.0
     try:
         while True:
-            t = time.perf_counter() - debut
+            t = t_simule if avancer is not None else time.perf_counter() - debut
             if t > duree or (arret is not None and arret()):
                 break
             consigne = sollicitation.consigne(t)
             robot.send_action(verifier_action({actionneur: consigne}, actions))
             observation = robot.get_observation()
             recorder.append({**observation, CONSIGNE: consigne})
-            cycles.append(time.perf_counter() - debut - t)
+            if avancer is not None:
+                instants.append(t)
+            else:
+                cycles.append(time.perf_counter() - debut - t)
             if progression is not None:
                 progression(t, observation, consigne)
-            periode.wait()
+            if avancer is not None:
+                t_simule += avancer(1 / fps)
+            else:
+                periode.wait()
     finally:
         robot.motors_stop()
 
     series = {nom: recorder.get(nom).copy() for nom in proprietes}
-    series["__timestamps__"] = recorder.get("__timestamps__").copy()
+    series["__timestamps__"] = np.array(instants) if avancer is not None else recorder.get("__timestamps__").copy()
+    if avancer is not None and len(instants) > 1:
+        fps = round(1 / (instants[1] - instants[0]), 3)      # pas de la simulation : la fréquence vraiment obtenue
     tout = {"date": time.strftime("%Y-%m-%d %H:%M:%S"), "fps": fps, "sollicitation": sollicitation.decrire()}
     if cycles:
         c = np.array(cycles) * 1000

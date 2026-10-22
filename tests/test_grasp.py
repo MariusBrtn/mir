@@ -88,8 +88,8 @@ def test_replacer_les_scenes_selon_leurs_regles():
             assert rayon[0] <= math.hypot(x, y) <= rayon[1] and abs(math.degrees(math.atan2(y, x))) <= 15
             assert monde.get_object_position(objet)[:2] == pytest.approx([x, y], abs=1e-6)
             depart = monde.get_positions()
-            # (la pince serre le cube : pas à sa consigne ; l'épaule fléchit un peu sous la charge)
-            assert all(depart[m] == pytest.approx(v, abs=2.0) for m, v in scene["start_pose"].items()
+            # (la pince serre le cube : pas à sa consigne ; l'épaule fléchit sous la charge : écart statique du P seul)
+            assert all(depart[m] == pytest.approx(v, abs=3.0) for m, v in scene["start_pose"].items()
                        if m != "joint_5")
     # insertion : le cube est dans la pince, et il y reste
     ik = GripperIK(monde)

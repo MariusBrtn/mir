@@ -8,6 +8,7 @@ import traceback
 from enum import Enum, auto
 from pathlib import Path
 from typing import Any, Callable
+import numpy as np
 from loguru import logger
 from PySide6.QtCore import Signal
 from mir_devices.mir_device import ObservablePropertyFloat
@@ -27,6 +28,23 @@ REGLAGES_MOTEUR = {
     "position_mode_velocity": ("Vitesse max (tr/min)", 1, 200),
     "torque_limit": ("Couple max (‰)", 0, 1000),
 }
+
+
+def _au_rythme_reel(monde) -> Callable[[float], float]:
+    """avancer(duree) pour lancer_essai : la physique avance pas à pas, et on attend que l'horloge la rattrape
+    (sans jamais attendre si le calcul prend du retard)."""
+    debut = time.perf_counter()
+    temps = 0.0
+
+    def avancer(duree: float) -> float:
+        nonlocal temps
+        fait = monde.advance(duree)
+        temps += fait
+        attente = debut + temps - time.perf_counter()
+        if attente > 0:
+            time.sleep(attente)
+        return fait
+    return avancer
 
 
 class EssaisVMAction(Enum):
@@ -64,6 +82,10 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         self._stop = False
         self.sollicitations = CommandesDisponibles()
         self.essais: list[Essai] = []
+        # en simulation, mesures de l'essai en cours (t, observation, consigne), pour les tracer pendant le mouvement
+        self._en_direct: list[tuple[float, dict[str, Any], float]] = []
+        # servos simulés dont l'essai a changé le PID : il revient au réglage par défaut en quittant les essais
+        self._pid_simules_modifies: set[str] = set()
         self.refresh_briques()
         self._essai_echoue.connect(lambda tb: self._dialogProvider.error("L'essai a échoué", tb))
 
@@ -117,8 +139,17 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         if self._robot is None or not actionneur:
             return []
         moteur = actionneur.split(".")[0]
+        # en simulation, la température est constante : rien à mesurer
         return [nom for nom, prop in self._robot.get_observables().items()
-                if isinstance(prop, ObservablePropertyFloat) and nom.split(".")[0] == moteur]
+                if isinstance(prop, ObservablePropertyFloat) and nom.split(".")[0] == moteur
+                and not (self.is_simulation() and nom.endswith(".temperature"))]
+
+    def plage_grandeur(self, nom: str) -> tuple[float, float] | None:
+        """Bornes d'une grandeur mesurée (pour tracer ses axes avant toute mesure)."""
+        prop = self._robot.get_observables().get(nom) if self._robot is not None else None
+        if isinstance(prop, ObservablePropertyFloat) and prop.min_value is not None and prop.max_value is not None:
+            return float(prop.min_value), float(prop.max_value)
+        return None
 
     def plage(self, actionneur: str) -> tuple[float, float] | None:
         if self._robot is None or actionneur not in self._robot.action_features:
@@ -126,7 +157,23 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         return self._robot.action_features[actionneur].get_range()
 
     def reglages(self, actionneur: str) -> dict[str, int]:
-        return self._motor_settings(actionneur.split(".")[0]) if actionneur else {}
+        """Réglages du moteur de l'actionneur. En simulation : le PID du servo simulé (le sien, pas celui de la
+        configuration, qui est celui du servo réel)."""
+        if not actionneur:
+            return {}
+        moteur = actionneur.split(".")[0]
+        monde = self.sim_world()
+        if monde is not None and moteur in monde.motors:
+            return dict(zip(("P", "I", "D"), (float(v) for v in monde.get_pid(moteur))))
+        return self._motor_settings(moteur)
+
+    def restaurer_pid_simules(self):
+        """En quittant les essais : les servos simulés reprennent leur PID par défaut (le seul utilisé ailleurs)."""
+        monde = self.sim_world()
+        if monde is not None:
+            for moteur in self._pid_simules_modifies & set(monde.motors):
+                monde.set_pid(moteur, monde.joints[moteur].pid)
+        self._pid_simules_modifies.clear()
 
     # ------------------------------------------------------------------ briques
     def refresh_briques(self):
@@ -146,7 +193,14 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
             self._dialogProvider.information("Essai impossible", "Arrêtez d'abord ce qui fait bouger le robot (Téléopération, Scripts ou Collecter des données).")
             return
         moteur = actionneur.split(".")[0]
-        if reglages and reglages != self.reglages(actionneur) and self._apply_motor_settings is not None:
+        monde = self.sim_world()
+        if monde is not None and moteur in monde.motors:
+            # simulation : seul le PID du servo simulé change, le temps des essais ; la configuration n'est pas touchée
+            pid = tuple(float((reglages or {}).get(k, v)) for k, v in zip(("P", "I", "D"), monde.get_pid(moteur)))
+            if pid != tuple(monde.get_pid(moteur)):
+                monde.set_pid(moteur, pid)
+                self._pid_simules_modifies.add(moteur)
+        elif reglages and reglages != self.reglages(actionneur) and self._apply_motor_settings is not None:
             # réglages modifiés : appliqués au moteur (et à la configuration) avant l'essai
             self._apply_motor_settings(moteur, reglages)
             if self._robot is None:
@@ -156,19 +210,46 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         except Exception as e:
             self._dialogProvider.exception(e, "Impossible de créer la sollicitation")
             return
-        if self.is_simulation():
-            # en simulation, on visualise le mouvement : les mesures se font sur le robot réel
-            grandeurs = [actionneur] if actionneur in self.grandeurs(actionneur) else []
+        # la consigne doit se calculer sur toute la durée, avant de démarrer quoi que ce soit (ex. période nulle)
+        try:
+            for t in np.linspace(0.0, float(sollicitation.duree), 11):
+                float(sollicitation.consigne(float(t)))
+        except ZeroDivisionError:
+            self._dialogProvider.information("Essai impossible", "Une durée ou une période de la sollicitation est "
+                                             "nulle : donnez-lui une valeur plus grande que 0.")
+            return
+        except Exception as e:
+            self._dialogProvider.exception(e, "La consigne de la sollicitation ne peut pas être calculée")
+            return
         conditions = {**self._conditions(), "reglages_moteur": self.reglages(actionneur), "grandeurs": grandeurs}
+        # en réel, rien n'est tracé pendant l'essai (l'affichage perturberait l'acquisition) ; en simulation, les
+        # mesures sont gardées au fil de l'essai pour être tracées pendant le mouvement
+        self._en_direct = []
+        progression = (lambda t, observation, consigne: self._en_direct.append((t, observation, consigne))) \
+            if self.is_simulation() else None
         self._stop = False
         self._running = True
         self._update_actions()
         self.busy_state_changed.emit(True)
-        robot = self._robot
-        self._worker.run(lambda: lancer_essai(robot, sollicitation, fps=fps, observations=grandeurs,
-                                              conditions=conditions,
-                                              arret=lambda: self._stop),
-                         self._on_termine, self._on_echec, self)
+        try:
+            avancer = None
+            if monde is not None:
+                if moteur in monde.motors and not monde.is_velocity_motor(moteur):
+                    # départ à la valeur initiale, immobile, quel que soit le PID (même s'il oscille)
+                    monde.place_motor(moteur, sollicitation.consigne(0.0))
+                # l'essai fait lui-même avancer la physique, un pas exact entre deux mesures (mesures régulières,
+                # toutes nouvelles) ; il garde le rythme du temps réel pour que le mouvement reste lisible dans la 3D
+                monde.stop_realtime()
+                self._monde_arrete = monde
+                avancer = _au_rythme_reel(monde)
+            robot = self._robot
+            self._worker.run(lambda: lancer_essai(robot, sollicitation, fps=fps, observations=grandeurs,
+                                                  conditions=conditions, progression=progression,
+                                                  arret=lambda: self._stop, avancer=avancer),
+                             self._on_termine, self._on_echec, self)
+        except Exception as e:
+            self._fin()         # jamais d'essai bloqué « en cours »
+            self._dialogProvider.exception(e, "L'essai n'a pas pu démarrer")
 
     def arreter(self):
         self._stop = True
@@ -183,7 +264,14 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
     def is_running(self) -> bool:
         return self._running
 
+    def mesures_en_direct(self) -> list[tuple[float, dict[str, Any], float]]:
+        """Mesures de l'essai en cours en simulation (vide en réel) : [(t, observation, consigne)]."""
+        return list(self._en_direct)
+
     def _fin(self):
+        monde, self._monde_arrete = getattr(self, "_monde_arrete", None), None
+        if monde is not None:
+            monde.start_realtime()          # la physique reprend au rythme de l'horloge
         if getattr(self, "_urgence", False) and self._robot is not None:
             self._robot.motors_emergency_stop()
         self._urgence = False
@@ -193,8 +281,6 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
 
     def _on_termine(self, essai: Essai):
         self._fin()
-        if essai.conditions.get("simulation"):
-            return      # pas de mesures en simulation : rien à enregistrer ni à analyser
         self.essais.append(essai)
         self.essais_changed.emit()
         self.essai_termine.emit(essai)
@@ -259,10 +345,19 @@ class EssaisViewModel(ViewModelBase[EssaisVMAction]):
         if self._enregistrer(essai, chemin):
             self.essais_changed.emit()
 
-    def retirer(self, index: int):
-        if 0 <= index < len(self.essais):
-            if self.essais[index].chemin is None and not self._dialogProvider.question_yes_no(
-                    "Retirer l'essai", "Cet essai n'est pas enregistré : il sera perdu.\r\nLe retirer quand même ?"):
-                return
-            del self.essais[index]
-            self.essais_changed.emit()
+    def retirer(self, indices: list[int]):
+        """Retire ces essais de la liste (les fichiers enregistrés restent sur le disque) ; une seule confirmation
+        si certains ne sont pas enregistrés."""
+        indices = sorted({i for i in indices if 0 <= i < len(self.essais)}, reverse=True)
+        if not indices:
+            return
+        perdus = sum(1 for i in indices if self.essais[i].chemin is None)
+        texte = ("Cet essai n'est pas enregistré : il sera perdu." if len(indices) == 1 else
+                 f"{perdus} essai{'s' if perdus > 1 else ''} sur {len(indices)} "
+                 f"{'ne sont pas enregistrés : ils seront perdus' if perdus > 1 else 'n’est pas enregistré : il sera perdu'}.")
+        if perdus and not self._dialogProvider.question_yes_no(
+                "Retirer les essais", f"{texte}\r\nRetirer quand même ?"):
+            return
+        for i in indices:
+            del self.essais[i]
+        self.essais_changed.emit()

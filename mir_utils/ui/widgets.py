@@ -1,7 +1,7 @@
 from typing import Any, Generic, TypeVar
 from abc import abstractmethod
 from PySide6.QtWidgets import (QWidget, QMainWindow, QDialog, QLabel, QHBoxLayout, QVBoxLayout, QLineEdit, QToolButton,
-                               QPushButton, QFrame, QScrollArea)
+                               QPushButton, QFrame, QScrollArea, QGroupBox)
 from PySide6.QtCore import QSettings, Qt, QSize, Signal
 from PySide6.QtGui import QKeyEvent, QIcon, QPixmap, QPainter, QColor, QFont, QFontDatabase
 from pathlib import Path
@@ -348,6 +348,65 @@ class Section(QFrame):
         self.body = QVBoxLayout()
         self.body.setSpacing(8)
         layout.addLayout(self.body)
+
+
+class CarteRepliable(QGroupBox):
+    """Carte des colonnes de réglages (QGroupBox, même style que les autres) qui se replie d'un clic sur son titre
+    (▾ ouverte, ▸ repliée) ; repliée, elle montre sur une ligne un résumé de son contenu. Le contenu va dans
+    carte.contenu (un QWidget, à doter d'un layout). cle : nom sous lequel l'état ouvert / replié est retenu."""
+    HAUTEUR_TITRE = 26          # zone cliquable en haut de la carte (le titre est dans sa marge haute)
+
+    def __init__(self, titre: str, ouverte: bool = True, cle: str = "", parent: QWidget | None = None):
+        super().__init__(parent)
+        self._titre = titre
+        self._resume = ""
+        self._cle = f"cartes/{cle}" if cle else ""
+        self._settings = QSettings("mir", "mir_utils_cartes")
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.contenu = QWidget()
+        layout.addWidget(self.contenu)
+        self._resume_label = QLabel()
+        self._resume_label.setObjectName("Muted")
+        self._resume_label.setFont(mono_font(12))
+        self._resume_label.setContentsMargins(12, 2, 12, 4)
+        layout.addWidget(self._resume_label)
+        self.setMouseTracking(True)
+        if self._cle:
+            ouverte = self._settings.value(self._cle, ouverte, type=bool)
+        self.set_ouverte(ouverte)
+
+    def est_ouverte(self) -> bool:
+        return not self.contenu.isHidden()
+
+    def set_ouverte(self, ouverte: bool):
+        self.contenu.setVisible(ouverte)
+        self._resume_label.setVisible(not ouverte)
+        if self._cle:
+            self._settings.setValue(self._cle, ouverte)
+        self._maj_titre()
+
+    def set_resume(self, resume: str):
+        """Résumé du contenu, affiché après le titre quand la carte est repliée."""
+        self._resume = resume
+        self._maj_titre()
+
+    def _maj_titre(self):
+        self.setTitle(f"{'▾' if self.est_ouverte() else '▸'}  {self._titre}")
+        self._resume_label.setText(self._resume or "Cliquer sur le titre pour déplier")
+
+    def _sur_le_titre(self, event) -> bool:
+        return event.position().y() <= self.HAUTEUR_TITRE
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self._sur_le_titre(event):
+            self.set_ouverte(not self.est_ouverte())
+            return
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        self.setCursor(Qt.CursorShape.PointingHandCursor if self._sur_le_titre(event) else Qt.CursorShape.ArrowCursor)
+        super().mouseMoveEvent(event)
 
 
 class MessageLabel(QLabel):

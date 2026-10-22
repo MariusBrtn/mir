@@ -35,10 +35,12 @@ def test_pose_et_vitesse_de_la_base(monde):
     monde.set_robot_pose(1.0, -0.5, 30)
     x, y, cap = monde.get_robot_pose()
     assert (x, y, cap) == pytest.approx((1.0, -0.5, 30), abs=1e-6)
-    monde.set_goal_velocities({m: 100 * (1 if "gauche" in m else -1) for m in monde.motors})
+    monde.set_goal_velocities({m: 30 * (1 if "gauche" in m else -1) for m in monde.motors})
     monde.step(500)
     avance, rotation = monde.get_robot_velocity()
-    assert avance == pytest.approx(0.47, abs=0.05)      # roue de 90 mm à 100 tr/min
+    roues = np.radians(np.mean([abs(v) for v in monde.get_velocities_deg_s().values()]))
+    assert avance == pytest.approx(roues * 0.045, rel=0.1)     # roue de 90 mm : v = ω × r
+    assert 0.08 < avance < 0.15                         # 30 tr/min demandés : 0,14 m/s moins l'écart statique du P
     assert abs(rotation) < 0.1
     x2, y2, _ = monde.get_robot_pose()
     assert np.degrees(np.arctan2(y2 - y, x2 - x)) == pytest.approx(30, abs=3)    # il avance selon son cap

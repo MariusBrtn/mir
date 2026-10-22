@@ -150,7 +150,7 @@ def test_flux_arrete(robot_simule):
 
 
 def test_en_continu_et_declencheur(robot_simule):
-    """En continu : Lidar → distance (10 Hz). Flux : Départ → avancer 10 s. Quand distance.devant < 60 : le flux est
+    """En continu : Lidar → distance (10 Hz). Flux : Départ → avancer 30 s. Quand distance.devant < 60 : le flux est
     interrompu et continue par Message → Fin."""
     robot = robot_simule("test_mobile")
     graphe = Graph.new()
@@ -158,7 +158,7 @@ def test_en_continu_et_declencheur(robot_simule):
     lidar, distance = lidar_et_distance(graphe)
     graphe.connect_main(continu.id, "suite", lidar.id)
     graphe.connect_main(lidar.id, "suite", distance.id)
-    action = avancer(graphe, robot, 10.0)
+    action = avancer(graphe, robot, 30.0)
     graphe.connect_main(graphe.start().id, "suite", action.id)
     quand = graphe.add_node(NODE_TRIGGER)
     quand.config["expression"] = "distance.devant < 60"
@@ -172,7 +172,7 @@ def test_en_continu_et_declencheur(robot_simule):
     debut = time.perf_counter()
     runner = FlowRunner(robot, graphe, on_event=evenements.append)
     assert runner.run() == "fin"
-    assert time.perf_counter() - debut < 8
+    assert time.perf_counter() - debut < 25         # bien avant la fin des 30 s d'avance
     assert [e.text for e in evenements if e.kind == "trigger"]                # le déclencheur a interrompu le flux
     assert 30 < runner.ctx.data["distance"]["devant"] < 60
 

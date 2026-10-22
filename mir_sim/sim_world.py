@@ -1,6 +1,10 @@
 """
 Monde simulé : modèle MuJoCo + émulation des servos STS3215.
 
+Servo simulé : un PID (le sien, voir SIM_PID_* de model_builder) calcule la tension du moteur à partir de l'écart
+consigne - mesure, en position (servo) ou en vitesse (roue). La seule saturation est celle de l'alimentation (±12 V).
+Le moteur à courant continu (inductance négligée) donne le couple : C = C_bloqué × (U / 12 V - ω / ω_à_vide).
+
 Deux façons de faire avancer la physique :
   - start_realtime() : un thread fait avancer la simu au rythme de l'horloge
     (téléopération, scripts existants via mirRobot qui ne font que lire/écrire)
@@ -16,6 +20,14 @@ import mujoco
 from loguru import logger
 from mir_sim.model_builder import BuiltModel, build_model
 
+TENSION_MAX = 12.0          # V, alimentation des servos : seule saturation de l'asservissement
+# gains du PID simulé par unité de « registre » P, I, D. Écart en ° (position) ou en tr/min (vitesse),
+# sortie en V. Ils ne sont pas calés sur le servo réel : mêmes registres, réponse différente.
+GAINS_POSITION = (1.0, 1.0, 0.01)           # V/°, V/(°.s), V/(°/s)
+GAINS_VITESSE = (0.01, 0.5, 0.0)            # V/(tr/min), V/(tr/min.s) ; pas de D : dériver une vitesse
+#   bruitée par les contacts au sol rend la boucle instable avec le pas de 2 ms (le registre D est ignoré pour une roue)
+RAD_S_TO_RPM = 60 / (2 * np.pi)
+
 
 class SimWorld:
     def __init__(self, built: BuiltModel):
@@ -28,14 +40,20 @@ class SimWorld:
         self._qpos_adr = {m: self.model.jnt_qposadr[self.model.joint(j.joint_name).id] for m, j in self.joints.items()}
         self._dof_adr = {m: self.model.jnt_dofadr[self.model.joint(j.joint_name).id] for m, j in self.joints.items()}
         self._act_id = {m: self.model.actuator(j.actuator_name).id for m, j in self.joints.items()}
-        # consigne finale demandée par l'utilisateur ; data.ctrl la rejoint à vitesse limitée (comme le servo réel)
+        # consigne du servo : position (rad) ou, pour une roue, vitesse (rad/s), dans le repère de la simulation
         self._goal = {m: 0.0 for m in self.motors}
-        self._max_vel_rad_s = {m: np.deg2rad(built.max_velocity_deg_s.get(m, 360.0)) for m in self.motors}
-        self._gain = {m: (self.model.actuator_gainprm[i].copy(), self.model.actuator_biasprm[i].copy())
-                      for m, i in self._act_id.items()}
         self._torque_enabled = {m: True for m in self.motors}
-        # moteurs asservis en vitesse (roues) : la consigne est une vitesse, rejointe aussitôt
+        # moteurs asservis en vitesse (roues)
         self._velocity = {m: j.velocity for m, j in self.joints.items()}
+        # PID : réglage (unités des registres) et gains, intégrale et écart précédent de chaque servo ; tension appliquée
+        self._pid: dict[str, tuple[float, float, float]] = {}
+        self._gains: dict[str, tuple[float, float, float]] = {}
+        self._integrale = {m: 0.0 for m in self.motors}
+        self._ecart_prec: dict[str, float | None] = {m: None for m in self.motors}
+        for m, j in self.joints.items():
+            self.set_pid(m, j.pid)
+        self._tension = {m: 0.0 for m in self.motors}
+        self._couple = {m: 0.0 for m in self.motors}
         # lidars : (site de mesure, corps qui le porte, directions des rayons dans le repère du site)
         self._lidars: dict[str, tuple[int, int, np.ndarray]] = {}
         for name, lidar in built.lidars.items():
@@ -69,13 +87,13 @@ class SimWorld:
         with self.lock:
             mujoco.mj_resetData(self.model, self.data)
             for m in self.motors:
+                self._reset_pid(m)
                 if self._velocity[m]:
-                    self.data.ctrl[self._act_id[m]] = self._goal[m] = 0.0     # roue à l'arrêt
+                    self._goal[m] = 0.0     # roue à l'arrêt
                     continue
                 q = self.joints[m].motor_to_sim_rad((motor_positions_deg or {}).get(m, 0.0))
                 q = self._clip_to_range(m, q)
                 self.data.qpos[self._qpos_adr[m]] = q
-                self.data.ctrl[self._act_id[m]] = q
                 self._goal[m] = q
             mujoco.mj_forward(self.model, self.data)
 
@@ -83,20 +101,57 @@ class SimWorld:
         with self.lock:
             dt = self.model.opt.timestep
             for _ in range(n):
-                self._update_servo_profiles(dt)
+                self._asservir(dt)
                 mujoco.mj_step(self.model, self.data)
 
-    def _update_servo_profiles(self, dt: float) -> None:
+    def advance(self, duration_s: float) -> float:
+        """Avance la physique d'un nombre entier de pas, au plus près de duration_s (au moins un pas) ; renvoie la
+        durée exacte. Pour un calcul pas à pas (essai, RL), le fil du temps réel doit être arrêté."""
+        n = max(1, round(duration_s / self.model.opt.timestep))
+        self.step(n)
+        return n * self.model.opt.timestep
+
+    def _asservir(self, dt: float) -> None:
+        """Un pas de chaque servo : PID sur l'écart -> tension (±12 V) -> couple du moteur à courant continu."""
         for m in self.motors:
             i = self._act_id[m]
+            vitesse = float(self.data.qvel[self._dof_adr[m]])
             if not self._torque_enabled[m]:
-                continue
-            if self._velocity[m]:
-                self.data.ctrl[i] = self._goal[m]
-                continue
-            delta = self._goal[m] - self.data.ctrl[i]
-            max_delta = self._max_vel_rad_s[m] * dt
-            self.data.ctrl[i] += float(np.clip(delta, -max_delta, max_delta))
+                tension = 0.0           # moteur débranché : il tourne librement
+                couple = 0.0
+            else:
+                if self._velocity[m]:
+                    ecart = (self._goal[m] - vitesse) * RAD_S_TO_RPM
+                else:
+                    ecart = float(np.rad2deg(self._goal[m] - self.data.qpos[self._qpos_adr[m]]))
+                kp, ki, kd = self._gains[m]
+                self._integrale[m] += ecart * dt
+                precedent = self._ecart_prec[m]
+                derivee = 0.0 if precedent is None else (ecart - precedent) / dt
+                self._ecart_prec[m] = ecart
+                tension = float(np.clip(kp * ecart + ki * self._integrale[m] + kd * derivee, -TENSION_MAX, TENSION_MAX))
+                joint = self.joints[m]
+                couple = joint.stall_torque * (tension / TENSION_MAX - vitesse / np.deg2rad(joint.no_load_speed_deg_s))
+            self._tension[m] = tension
+            self._couple[m] = couple
+            self.data.ctrl[i] = couple
+
+    def get_pid(self, motor: str) -> tuple[float, float, float]:
+        """Réglage P, I, D du servo simulé (mêmes unités que les registres du servo réel)."""
+        return self._pid[motor]
+
+    def set_pid(self, motor: str, pid: tuple[float, float, float]) -> None:
+        """Change le PID d'un servo simulé, sans reconstruire le modèle (le réglage par défaut revient au prochain
+        modèle construit). Le D d'une roue est ignoré (voir GAINS_VITESSE)."""
+        with self.lock:
+            unites = GAINS_VITESSE if self._velocity[motor] else GAINS_POSITION
+            self._pid[motor] = tuple(pid)
+            self._gains[motor] = tuple(r * g for r, g in zip(pid, unites))
+            self._reset_pid(motor)
+
+    def _reset_pid(self, motor: str) -> None:
+        self._integrale[motor] = 0.0
+        self._ecart_prec[motor] = None
 
     def _clip_to_range(self, motor: str, q: float) -> float:
         lo, hi = self.model.jnt_range[self.model.joint(self.joints[motor].joint_name).id]
@@ -166,13 +221,13 @@ class SimWorld:
                 self._goal[m] = self._clip_to_range(m, self.joints[m].motor_to_sim_rad(float(deg)))
 
     def set_goal_velocities(self, velocities_rpm: dict[str, float]) -> None:
-        """Consigne de vitesse des moteurs asservis en vitesse (roues), en tr/min, bornée à leur vitesse max."""
+        """Consigne de vitesse des moteurs asservis en vitesse (roues), en tr/min. Pas de borne : au-delà de sa
+        vitesse à vide, le moteur sature (12 V) et n'atteint pas la consigne."""
         with self.lock:
             for m, rpm in velocities_rpm.items():
                 if not self._velocity.get(m):
                     raise ValueError(f"{m} n'est pas asservi en vitesse")
-                vitesse = np.deg2rad(float(rpm) * 6) * self.joints[m].direction
-                self._goal[m] = float(np.clip(vitesse, -self._max_vel_rad_s[m], self._max_vel_rad_s[m]))
+                self._goal[m] = float(np.deg2rad(float(rpm) * 6) * self.joints[m].direction)
 
     def is_velocity_motor(self, motor: str) -> bool:
         return self._velocity.get(motor, False)
@@ -192,37 +247,39 @@ class SimWorld:
                     for m in (motors or self.motors)}
 
     def get_load_ratios(self, motors: list[str] | None = None) -> dict[str, float]:
-        """Effort actuel / effort max, entre -1 et 1."""
+        """Tension appliquée / tension max, entre -1 et 1 (la « charge » du STS3215 est son rapport cyclique)."""
         with self.lock:
-            result = {}
-            for m in (motors or self.motors):
-                i = self._act_id[m]
-                max_force = self.model.actuator_forcerange[i][1]
-                result[m] = float(self.data.actuator_force[i] / max_force) if max_force > 0 else 0.0
-            return result
+            return {m: self._tension[m] / TENSION_MAX for m in (motors or self.motors)}
+
+    def get_torque_ratios(self, motors: list[str] | None = None) -> dict[str, float]:
+        """Couple du moteur / couple rotor bloqué : le courant est proportionnel au couple."""
+        with self.lock:
+            return {m: self._couple[m] / self.joints[m].stall_torque for m in (motors or self.motors)}
 
     def set_torque_enabled(self, motors: list[str] | None, enabled: bool) -> None:
         with self.lock:
             for m in (motors or self.motors):
-                i = self._act_id[m]
                 self._torque_enabled[m] = enabled
-                gain, bias = self._gain[m]
+                self._reset_pid(m)
                 if enabled:
-                    q = 0.0 if self._velocity[m] else self.data.qpos[self._qpos_adr[m]]
-                    self.data.ctrl[i] = q
-                    self._goal[m] = q
-                    self.model.actuator_gainprm[i] = gain
-                    self.model.actuator_biasprm[i] = bias
-                else:
-                    self.model.actuator_gainprm[i] = 0
-                    self.model.actuator_biasprm[i] = 0
+                    self._goal[m] = 0.0 if self._velocity[m] else self.data.qpos[self._qpos_adr[m]]
+
+    def place_motor(self, motor: str, position_deg: float) -> None:
+        """Met un servo (asservi en position) à cette position, immobile, consigne comprise : un départ identique
+        quel que soit son réglage (avant un essai, par exemple, même avec un PID qui oscille)."""
+        with self.lock:
+            q = self._clip_to_range(motor, self.joints[motor].motor_to_sim_rad(float(position_deg)))
+            self.data.qpos[self._qpos_adr[motor]] = q
+            self.data.qvel[self._dof_adr[motor]] = 0.0
+            self._goal[motor] = q
+            self._reset_pid(motor)
+            mujoco.mj_forward(self.model, self.data)
 
     def hold_current_positions(self, motors: list[str] | None = None) -> None:
         with self.lock:
             for m in (motors or self.motors):
-                q = 0.0 if self._velocity[m] else self.data.qpos[self._qpos_adr[m]]    # roue : arrêt
-                self.data.ctrl[self._act_id[m]] = q
-                self._goal[m] = q
+                self._reset_pid(m)
+                self._goal[m] = 0.0 if self._velocity[m] else self.data.qpos[self._qpos_adr[m]]    # roue : arrêt
 
     def is_moving(self, motors: list[str] | None = None, threshold_deg_s: float = 1.0) -> bool:
         return any(abs(v) > threshold_deg_s for v in self.get_velocities_deg_s(motors).values())

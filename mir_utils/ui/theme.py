@@ -41,6 +41,13 @@ FLOW_DECIDE = "#7D5E7A"      # décider : prune
 FLOW_ACT = "#9A7B4F"         # agir : bronze
 FLOW_COMMUNICATE = "#B07D62"  # communiquer : sable rosé
 
+# courbes de mesure (Piloter → Essais) : graphes crème sur le fond de la fenêtre, grille sable ; une couleur par essai :
+# l'ardoise de la marque, puis les teintes assourdies des familles de MIR Flow, en alternant chaud et froid
+COURBES_FOND = WINDOW
+COURBES_GRAPHE = "#F7F1E6"
+COURBES_GRILLE = "#DCCFBB"
+COURBES = [SLATE, FLOW_COMMUNICATE, FLOW_DECIDE, FLOW_PERCEIVE, FLOW_ACT, FLOW_STEPS]
+
 # mode du robot : on ne doit jamais confondre robot réel et robot simulé
 REAL = "#B4472F"
 SIM = SLATE

@@ -812,7 +812,10 @@ class MainViewModel(ViewModelBase[MainVMAction]):
         return True
 
     def restore_essai_settings(self):
-        """En quittant les essais : les moteurs reprennent les réglages de MIR (registres réécrits)."""
+        """En quittant les essais : les moteurs reprennent les réglages de MIR (registres réécrits) ; les servos
+        simulés, leur PID par défaut."""
+        if not self._essais_view_model.is_running():
+            self._essais_view_model.restaurer_pid_simules()
         if not self._essai_originaux or self._essais_view_model.is_running():
             return
         if self._simulation:
