@@ -1,16 +1,16 @@
 """
-Enregistre les tutos vidéo de la formation : la vraie application MIR, pilotée par un scénario.
+Enregistre les tutos vidéo du site internet de MIR : la vraie application MIR, pilotée par un scénario.
 
 Un faux curseur clique les boutons, glisse les modules, remplit les fenêtres ; chaque image est capturée
-(voir enregistreur.py), puis ffmpeg en fait une vidéo MP4 dans formation/videos. Quand l'interface change,
+(voir enregistreur.py), puis ffmpeg en fait une vidéo MP4 dans site/videos. Quand l'interface change,
 il suffit de relancer le script pour mettre les vidéos à jour.
 
 Les robots sont pris dans un dossier temporaire qui imite une installation neuve (bras_4ddl_cam_V2 et test_mobile,
 comme l'installateur) : le dossier robots/ n'est pas modifié.
 
 Lancer depuis le dossier mir :
-    uv run python formation/tutos/enregistrer_tuto.py              # toutes les vidéos
-    uv run python formation/tutos/enregistrer_tuto.py decouverte   # seulement celles nommées
+    uv run python site/tutos/enregistrer_tuto.py              # toutes les vidéos
+    uv run python site/tutos/enregistrer_tuto.py decouverte   # seulement celles nommées
 """
 from __future__ import annotations
 import os

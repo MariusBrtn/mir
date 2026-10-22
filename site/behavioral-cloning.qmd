@@ -1,0 +1,12 @@
+---
+title: "Behavioral Cloning"
+subtitle: "Apprendre à un robot à imiter un opérateur, avec un bras simple à trois degrés de liberté et une pince"
+toc: false
+---
+
+::: {.callout-note}
+## En préparation
+Ce parcours est en cours d'écriture. On y découvrira le *Behavioral Cloning* avec un bras simple à trois degrés de
+liberté et une pince : un opérateur fait des démonstrations, MIR les enregistre, puis on entraîne un modèle qui pilote
+le robot à partir de ce qu'il observe.
+:::

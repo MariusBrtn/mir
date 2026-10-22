@@ -1,0 +1,42 @@
+project:
+  type: website
+  output-dir: _site
+  resources:
+    - CNAME          # nom de domaine du site (GitHub Pages)
+    - .nojekyll      # fichiers servis tels quels (pas de traitement Jekyll par GitHub)
+
+lang: fr
+
+website:
+  title: "MIR"
+  description: "MIR — Modular Intelligent Robot : une plateforme robotique modulaire pour découvrir la robotique et l'IA."
+  page-navigation: true
+  sidebar:
+    style: docked
+    title: "MIR"
+    subtitle: "Modular Intelligent Robot"
+    search: true
+    contents:
+      - href: index.qmd
+        text: Accueil
+      - section: "Prise en main"
+        contents:
+          - href: prise-en-main.qmd
+            text: Installer et découvrir MIR
+      - section: "Apprendre par imitation"
+        contents:
+          - href: behavioral-cloning.qmd
+            text: Behavioral Cloning
+    tools:
+      - icon: github
+        href: https://github.com/MariusBrtn/mir
+        text: Code source
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
+    toc-title: "Sur cette page"
+    number-sections: false
+    html-math-method: katex

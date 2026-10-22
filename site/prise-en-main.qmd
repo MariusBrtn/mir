@@ -1,0 +1,81 @@
+---
+title: "Installer et découvrir MIR"
+subtitle: "Le logiciel sur votre ordinateur, et un premier tour de l'application"
+---
+
+## Installer MIR
+
+MIR fonctionne sous **Windows**, **macOS** (processeur Apple : M1, M2…) et **Linux**. L'installation ne demande pas
+de droits d'administrateur, ni d'installer Python soi-même : l'outil [uv](https://docs.astral.sh/uv/) télécharge
+Python et les versions exactes de tout ce dont MIR a besoin (LeRobot, MuJoCo, PyTorch…). Il faut une connexion
+internet et environ **5 Go** d'espace libre.
+
+### Sur Mac : une seule commande
+
+Ouvrez l'application **Terminal** (Spotlight → « Terminal »), collez cette ligne puis appuyez sur Entrée :
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos/install_mir.sh | bash
+```
+
+La commande installe MIR dans votre dossier personnel (`~/MIR`) et crée l'application **MIR** dans le dossier
+**Applications**. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.
+
+### Sur Windows ou Linux
+
+1. **Installer uv** (une seule fois). Sous Windows, dans **PowerShell** :
+
+   ```powershell
+   powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+   ```
+
+   Sous Linux, dans un **Terminal** :
+
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+   Fermez puis rouvrez la fenêtre, pour que la commande `uv` soit trouvée.
+
+2. **Télécharger MIR** : sur [github.com/MariusBrtn/mir](https://github.com/MariusBrtn/mir), bouton vert **Code** →
+   **Download ZIP**, puis décompressez l'archive.
+
+3. **Installer**, dans le dossier de MIR (celui qui contient `pyproject.toml`) : `uv sync` (ou double-clic sur
+   `install.bat` sous Windows). Comptez une dizaine de minutes la première fois.
+
+4. **Lancer MIR**, depuis le même dossier : `uv run mir`.
+
+## Premier tour de l'application
+
+MIR s'ouvre sur l'étape **Configurer le robot**. Deux robots sont fournis pour essayer tout de suite :
+`bras_4ddl_cam_V2` (un bras avec une caméra) et `test_mobile` (un robot mobile avec un lidar).
+
+### Les étapes
+
+Elles sont en haut de la fenêtre, de gauche à droite dans l'ordre où on les suit.
+
+| Étape | Ce qu'on y fait |
+|---|---|
+| **Configurer le robot** | Concevoir la structure module par module, ouvrir un robot, construire le robot réel. |
+| **Piloter** | Faire bouger le robot, réel ou simulé. |
+| **Collecter des données** | Enregistrer des démonstrations d'une tâche. |
+| **Entraîner un modèle** | Apprendre, à partir des démonstrations, un modèle capable de refaire la tâche. |
+| **MIR Flow** | Enchaîner des tâches sous forme de graphe, avec de la vision ou un modèle de langage. |
+
+### Piloter le robot
+
+Le sélecteur **Réel / Simulé**, en haut à droite, choisit le robot. Sans robot branché, MIR utilise le robot simulé,
+dans une **scène** que l'on peut replacer à tout moment. Quatre façons de le piloter, une seule à la fois :
+
+- **Essais** : envoyer une consigne à un moteur (échelon, rampe, sinus, créneau) et tracer sa réponse ;
+- **Téléopération** : piloter à la main, au clavier ou avec un bras leader ;
+- **Scripts** : programmer le robot en Python ;
+- **IA** : laisser un modèle entraîné piloter le robot.
+
+L'**arrêt d'urgence**, toujours en haut à droite, arrête tout de suite ce qui fait bouger le robot.
+
+### Où sont rangés les fichiers
+
+Chaque robot a son dossier dans `robots/` : sa configuration (`robot.json`), ses essais, ses scripts, ses scènes,
+ses démonstrations (`datasets/`) et ses modèles entraînés (`modeles/`). Ce sont des fichiers ordinaires, que l'on
+peut copier, échanger ou ouvrir avec un autre logiciel.
