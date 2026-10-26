@@ -47,15 +47,18 @@ jobs:
 
       # dans le dépôt complet : les tests utilisent des exemples de robots/ que l'installation ne copie pas
       - name: Tests sous Windows
+        timeout-minutes: 30
         env:
           QT_QPA_PLATFORM: offscreen
           UV_PYTHON_PREFERENCE: only-managed
         run: |
+          $ErrorActionPreference = "Continue"     # sinon, sous PowerShell 5.1, la sortie d'erreur de pytest arrête tout
           $env:Path = "$HOME\.local\bin;$env:Path"
-          uv run pytest
+          uv run --with pytest-timeout pytest -v -p no:cacheprovider --timeout 300 2>&1 | Select-String -NotMatch "libx264"
           if ($LASTEXITCODE -ne 0) { throw "Tests en échec." }
 
       - name: Lancement par le raccourci (30 s)
+        if: ${{ !cancelled() }}            # même si des tests échouent
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
