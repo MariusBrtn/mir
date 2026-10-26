@@ -15,17 +15,7 @@
     "href": "./",
     "title": "MIR — Modular Intelligent Robot",
     "section": "",
-    "text": "Quelques configurations de MIR : bras 2 ddl, plateforme mobile avec bras 5 ddl et caméra, plateforme mobile avec lidar, plateforme mobile avec pince.",
-    "crumbs": [
-      "Accueil"
-    ]
-  },
-  {
-    "objectID": "index.html#la-plateforme-mir",
-    "href": "./#la-plateforme-mir",
-    "title": "MIR — Modular Intelligent Robot",
-    "section": "La plateforme MIR",
-    "text": "La plateforme MIR\nMIR est une plateforme robotique modulaire, open source, pensée pour l’enseignement, la recherche et l’expérimentation. Les mêmes modules matériels (servos, jonctions, coudes, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…\n\n\n\n\n\nUn module servo MIR.\n\n\n\n\n\n\n\n\nLes modules se branchent les uns sur les autres.\n\n\n\n\nLes robots pédagogiques sont souvent conçus pour un seul usage. MIR fait l’inverse : on fait évoluer le robot selon l’activité, en ajoutant ou en remplaçant des actionneurs et des capteurs, sans repartir de zéro. Une même plateforme couvre ainsi la cinématique, l’asservissement, la téléopération, la perception, la navigation et le robot learning.\n  Voir MIR en vidéo : un robot construit en quelques clics",
+    "text": "MIR est une plateforme robotique modulaire, open source, pensée pour l’enseignement et l’expérimentation. Des modules (servos, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…\nLes robots pédagogiques sont souvent conçus pour un seul usage. MIR fait l’inverse : on fait évoluer le robot selon l’activité, en ajoutant ou en remplaçant des actionneurs et des capteurs, sans repartir de zéro. Une même plateforme couvre ainsi la cinématique, l’asservissement, la téléopération, la perception, la navigation et le robot learning.\nVoir MIR en vidéo : un robot construit en quelques clics",
     "crumbs": [
       "Accueil"
     ]
@@ -35,7 +25,7 @@
     "href": "./#le-logiciel-mir",
     "title": "MIR — Modular Intelligent Robot",
     "section": "Le logiciel MIR",
-    "text": "Le logiciel MIR\nL’application MIR accompagne toute la vie d’un robot :\n\nle concevoir module par module, dans un éditeur 3D ;\nle construire, guidé pas à pas, chaque module étant détecté dès qu’on le branche ;\nle piloter, réel ou simulé (moteur physique MuJoCo) : essais d’asservissement, téléopération, scripts Python ;\nenregistrer des démonstrations et entraîner des modèles : behavioral cloning, politiques de LeRobot comme ACT, apprentissage par renforcement ;\nenchaîner des tâches avec MIR Flow, jusqu’à un modèle de langage qui décide quoi faire.\n\nUn robot est décrit une seule fois : la même description sert au robot réel et à son jumeau simulé. Tout ce qui se fait avec le robot réel peut se faire en simulation, sans matériel. MIR est compatible avec l’écosystème LeRobot de Hugging Face.",
+    "text": "Le logiciel MIR\nL’application MIR permet de :\n\nconcevoir et construire le robot module par module, dans un éditeur 3D ;\npiloter le robot réel ou simulé (moteur physique MuJoCo) : essais d’asservissement, téléopération, scripts Python personnalisé ;\nenregistrer des démonstrations et entraîner des modèles : behavioral cloning, politiques de LeRobot comme ACT, apprentissage par renforcement ;\nenchaîner des tâches avec MIR Flow, permettant de concevoir des tâches complexes de manière intuitive.\n\nUn robot est décrit une seule fois : la même description sert au robot réel et à son équivalent simulé. Tout ce qui se fait avec le robot réel peut se faire en simulation, sans matériel.\nMIR est compatible avec l’écosystème LeRobot de Hugging Face.",
     "crumbs": [
       "Accueil"
     ]
@@ -45,7 +35,7 @@
     "href": "./#ce-site",
     "title": "MIR — Modular Intelligent Robot",
     "section": "Ce site",
-    "text": "Ce site\nCe site propose une découverte progressive du robot learning par l’expérimentation. Les activités font émerger les notions à partir de situations concrètes : observer le comportement d’un robot, enregistrer ses actions, constituer un jeu de données, entraîner un modèle, puis confier le robot à ce modèle.\nLes parcours se suivent dans le menu de gauche :\n\nPrise en main : installer MIR et faire le tour de l’application ;\nApprendre par imitation : le Behavioral Cloning, avec un bras simple à trois degrés de liberté et une pince.\n\nTout se fait en simulation : un ordinateur suffit. Les manipulations dans l’application sont montrées dans de courtes vidéos.",
+    "text": "Ce site\nCe site propose une découverte progressive du robot learning par l’expérimentation. Les activités font émerger les notions à partir de situations concrètes : observer le comportement d’un robot, enregistrer ses actions, constituer un jeu de données, entraîner un modèle, puis confier le robot à ce modèle.\nLes parcours se suivent dans le menu de gauche, tout peut se faire en simulation : un ordinateur suffit.",
     "crumbs": [
       "Accueil"
     ]
@@ -83,11 +73,22 @@
     ]
   },
   {
-    "objectID": "prise-en-main/index.html#premier-tour-de-lapplication",
-    "href": "prise-en-main/#premier-tour-de-lapplication",
+    "objectID": "prise-en-main/index.html#ce-quon-fait-avec-mir",
+    "href": "prise-en-main/#ce-quon-fait-avec-mir",
     "title": "Installer et découvrir MIR",
-    "section": "Premier tour de l’application",
-    "text": "Premier tour de l’application\nMIR s’ouvre sur l’étape Configurer le robot. Deux robots sont fournis pour essayer tout de suite : bras_4ddl_cam_V2 (un bras avec une caméra) et test_mobile (un robot mobile avec un lidar).\n\nLes étapes\nElles sont en haut de la fenêtre, de gauche à droite dans l’ordre où on les suit.\n\n\n\n\n\n\n\nÉtape\nCe qu’on y fait\n\n\n\n\nConfigurer le robot\nConcevoir la structure module par module, ouvrir un robot, construire le robot réel.\n\n\nPiloter\nFaire bouger le robot, réel ou simulé.\n\n\nCollecter des données\nEnregistrer des démonstrations d’une tâche.\n\n\nEntraîner un modèle\nApprendre, à partir des démonstrations, un modèle capable de refaire la tâche.\n\n\nMIR Flow\nEnchaîner des tâches sous forme de graphe, avec de la vision ou un modèle de langage.\n\n\n\n\n\nPiloter le robot\nLe sélecteur Réel / Simulé, en haut à droite, choisit le robot. Sans robot branché, MIR utilise le robot simulé, dans une scène que l’on peut replacer à tout moment. Quatre façons de le piloter, une seule à la fois :\n\nEssais : envoyer une consigne à un moteur (échelon, rampe, sinus, créneau) et tracer sa réponse ;\nTéléopération : piloter à la main, au clavier ou avec un bras leader ;\nScripts : programmer le robot en Python ;\nIA : laisser un modèle entraîné piloter le robot.\n\nL’arrêt d’urgence, toujours en haut à droite, arrête tout de suite ce qui fait bouger le robot.\n\n\nOù sont rangés les fichiers\nChaque robot a son dossier dans robots/ : sa configuration (robot.json), ses essais, ses scripts, ses scènes, ses démonstrations (datasets/) et ses modèles entraînés (modeles/). Ce sont des fichiers ordinaires, que l’on peut copier, échanger ou ouvrir avec un autre logiciel.",
+    "section": "Ce qu’on fait avec MIR",
+    "text": "Ce qu’on fait avec MIR\nMIR s’ouvre sur l’étape Configurer le robot. Les étapes sont en haut de la fenêtre, de gauche à droite dans l’ordre où on les suit. Deux robots sont fournis pour essayer tout de suite : bras_4ddl_cam_V2, un bras avec une caméra, et test_mobile, un robot mobile avec un lidar. Sans robot branché, MIR pilote le robot simulé : le sélecteur Réel / Simulé, en haut à droite, choisit l’un ou l’autre. Avec le vrai robot, un bouton Arrêt d’urgence apparaît au même endroit et coupe tout de suite les moteurs.\n\nDécouvrir les bases de la robotique\nOn assemble un robot module par module : servos, jonctions, pince, caméra, roues… La même structure décrit le robot réel et sa simulation. On fait ensuite bouger ses articulations, on mesure comment un moteur répond à une consigne, et on programme le robot en Python.\n\n\n\n\n\n\nConcevoir la structure : le bras fourni, assemblé à partir des modules du catalogue.\n\n\n\n\n\n\n\nUn essai d’échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille.\n\n\n\n\n\n\n\nL’IA appliquée à la robotique\nOn commence par l’apprentissage par imitation le plus simple : le robot copie ce qu’un opérateur lui a montré (Behavioral Cloning). On va ensuite jusqu’aux modèles actuels, comme ACT ou les politiques de diffusion. On voit aussi l’apprentissage par renforcement, où le robot apprend seul, par essais et erreurs. Chaque méthode est découverte, puis appliquée dans MIR : on enregistre des démonstrations, on entraîne un modèle, et on le laisse piloter le robot.\n\n\n\n\n\n\nImitation : un modèle ACT, appris sur 50 démonstrations, va saisir le dé ; à droite, ce que voit sa caméra.\n\n\n\n\n\n\n\nRenforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar.\n\n\n\n\n\n\n\nAssembler des tâches complexes avec MIR Flow\nMIR Flow assemble des briques dans un graphe : mesures des capteurs, calculs en Python, compétences du robot (une consigne, un script ou un modèle entraîné), décisions, et même un modèle de langage qui choisit quoi faire. Chaque brique reste simple ; c’est leur assemblage qui donne un comportement riche.\n\n\n\nLe robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite).",
+    "crumbs": [
+      "Prise en main",
+      "Installer et découvrir MIR"
+    ]
+  },
+  {
+    "objectID": "prise-en-main/index.html#où-sont-rangés-les-fichiers",
+    "href": "prise-en-main/#où-sont-rangés-les-fichiers",
+    "title": "Installer et découvrir MIR",
+    "section": "Où sont rangés les fichiers",
+    "text": "Où sont rangés les fichiers\nChaque robot a son dossier dans robots/ : sa configuration (robot.json), ses essais, ses scripts, ses scènes, ses démonstrations (datasets/) et ses modèles entraînés (modeles/). Ce sont des fichiers ordinaires, que l’on peut copier, échanger ou ouvrir avec un autre logiciel.",
     "crumbs": [
       "Prise en main",
       "Installer et découvrir MIR"

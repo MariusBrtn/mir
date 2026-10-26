@@ -83,6 +83,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
 <link href="../site_libs/bootstrap/bootstrap-1bdbca75b362e6c5a8c09207907ff998.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-contrib/glightbox/glightbox.min.js"></script>
+<link href="../site_libs/quarto-contrib/glightbox/glightbox.min.css" rel="stylesheet">
+<link href="../site_libs/quarto-contrib/glightbox/lightbox.css" rel="stylesheet">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -207,12 +210,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#sur-mac-une-seule-commande" id="toc-sur-mac-une-seule-commande" class="nav-link" data-scroll-target="#sur-mac-une-seule-commande">Sur Mac : une seule commande</a></li>
   <li><a href="#sur-windows-ou-linux" id="toc-sur-windows-ou-linux" class="nav-link" data-scroll-target="#sur-windows-ou-linux">Sur Windows ou Linux</a></li>
   </ul></li>
-  <li><a href="#premier-tour-de-lapplication" id="toc-premier-tour-de-lapplication" class="nav-link" data-scroll-target="#premier-tour-de-lapplication">Premier tour de l’application</a>
+  <li><a href="#ce-quon-fait-avec-mir" id="toc-ce-quon-fait-avec-mir" class="nav-link" data-scroll-target="#ce-quon-fait-avec-mir">Ce qu’on fait avec MIR</a>
   <ul class="collapse">
-  <li><a href="#les-étapes" id="toc-les-étapes" class="nav-link" data-scroll-target="#les-étapes">Les étapes</a></li>
-  <li><a href="#piloter-le-robot" id="toc-piloter-le-robot" class="nav-link" data-scroll-target="#piloter-le-robot">Piloter le robot</a></li>
-  <li><a href="#où-sont-rangés-les-fichiers" id="toc-où-sont-rangés-les-fichiers" class="nav-link" data-scroll-target="#où-sont-rangés-les-fichiers">Où sont rangés les fichiers</a></li>
+  <li><a href="#découvrir-les-bases-de-la-robotique" id="toc-découvrir-les-bases-de-la-robotique" class="nav-link" data-scroll-target="#découvrir-les-bases-de-la-robotique">Découvrir les bases de la robotique</a></li>
+  <li><a href="#lia-appliquée-à-la-robotique" id="toc-lia-appliquée-à-la-robotique" class="nav-link" data-scroll-target="#lia-appliquée-à-la-robotique">L’IA appliquée à la robotique</a></li>
+  <li><a href="#assembler-des-tâches-complexes-avec-mir-flow" id="toc-assembler-des-tâches-complexes-avec-mir-flow" class="nav-link" data-scroll-target="#assembler-des-tâches-complexes-avec-mir-flow">Assembler des tâches complexes avec MIR Flow</a></li>
   </ul></li>
+  <li><a href="#où-sont-rangés-les-fichiers" id="toc-où-sont-rangés-les-fichiers" class="nav-link" data-scroll-target="#où-sont-rangés-les-fichiers">Où sont rangés les fichiers</a></li>
   </ul>
 </nav>
     </div>
@@ -222,7 +226,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../prise-en-main/">Prise en main</a></li><li class="breadcrumb-item"><a href="../prise-en-main/">Installer et découvrir MIR</a></li></ol></nav>
 <div class="quarto-title">
 <h1 class="title">Installer et découvrir MIR</h1>
-<p class="subtitle lead">Le logiciel sur votre ordinateur, et un premier tour de l’application</p>
+<p class="subtitle lead">Le logiciel sur votre ordinateur, et ce qu’on peut faire avec</p>
 </div>
 
 
@@ -262,64 +266,73 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </ol>
 </section>
 </section>
-<section id="premier-tour-de-lapplication" class="level2">
-<h2 class="anchored" data-anchor-id="premier-tour-de-lapplication">Premier tour de l’application</h2>
-<p>MIR s’ouvre sur l’étape <strong>Configurer le robot</strong>. Deux robots sont fournis pour essayer tout de suite : <code>bras_4ddl_cam_V2</code> (un bras avec une caméra) et <code>test_mobile</code> (un robot mobile avec un lidar).</p>
-<section id="les-étapes" class="level3">
-<h3 class="anchored" data-anchor-id="les-étapes">Les étapes</h3>
-<p>Elles sont en haut de la fenêtre, de gauche à droite dans l’ordre où on les suit.</p>
-<table class="caption-top table">
-<colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Étape</th>
-<th>Ce qu’on y fait</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><strong>Configurer le robot</strong></td>
-<td>Concevoir la structure module par module, ouvrir un robot, construire le robot réel.</td>
-</tr>
-<tr class="even">
-<td><strong>Piloter</strong></td>
-<td>Faire bouger le robot, réel ou simulé.</td>
-</tr>
-<tr class="odd">
-<td><strong>Collecter des données</strong></td>
-<td>Enregistrer des démonstrations d’une tâche.</td>
-</tr>
-<tr class="even">
-<td><strong>Entraîner un modèle</strong></td>
-<td>Apprendre, à partir des démonstrations, un modèle capable de refaire la tâche.</td>
-</tr>
-<tr class="odd">
-<td><strong>MIR Flow</strong></td>
-<td>Enchaîner des tâches sous forme de graphe, avec de la vision ou un modèle de langage.</td>
-</tr>
-</tbody>
-</table>
+<section id="ce-quon-fait-avec-mir" class="level2">
+<h2 class="anchored" data-anchor-id="ce-quon-fait-avec-mir">Ce qu’on fait avec MIR</h2>
+<p>MIR s’ouvre sur l’étape <strong>Configurer le robot</strong>. Les étapes sont en haut de la fenêtre, de gauche à droite dans l’ordre où on les suit. Deux robots sont fournis pour essayer tout de suite : <code>bras_4ddl_cam_V2</code>, un bras avec une caméra, et <code>test_mobile</code>, un robot mobile avec un lidar. Sans robot branché, MIR pilote le <strong>robot simulé</strong> : le sélecteur <strong>Réel / Simulé</strong>, en haut à droite, choisit l’un ou l’autre. Avec le vrai robot, un bouton <strong>Arrêt d’urgence</strong> apparaît au même endroit et coupe tout de suite les moteurs.</p>
+<section id="découvrir-les-bases-de-la-robotique" class="level3">
+<h3 class="anchored" data-anchor-id="découvrir-les-bases-de-la-robotique">Découvrir les bases de la robotique</h3>
+<p>On assemble un robot module par module : servos, jonctions, pince, caméra, roues… La même structure décrit le robot réel et sa simulation. On fait ensuite bouger ses articulations, on mesure comment un moteur répond à une consigne, et on programme le robot en Python.</p>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../images/appli/structure.png" class="lightbox" data-gallery="bases" title="Concevoir la structure : le bras fourni, assemblé à partir des modules du catalogue."><img src="../images/appli/structure.png" class="capture img-fluid figure-img" alt="Concevoir la structure : le bras fourni, assemblé à partir des modules du catalogue."></a></p>
+<figcaption>Concevoir la structure : le bras fourni, assemblé à partir des modules du catalogue.</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../images/appli/essai-echelon.png" class="lightbox" data-gallery="bases" title="Un essai d’échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille."><img src="../images/appli/essai-echelon.png" class="capture img-fluid figure-img" alt="Un essai d’échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille."></a></p>
+<figcaption>Un essai d’échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
 </section>
-<section id="piloter-le-robot" class="level3">
-<h3 class="anchored" data-anchor-id="piloter-le-robot">Piloter le robot</h3>
-<p>Le sélecteur <strong>Réel / Simulé</strong>, en haut à droite, choisit le robot. Sans robot branché, MIR utilise le robot simulé, dans une <strong>scène</strong> que l’on peut replacer à tout moment. Quatre façons de le piloter, une seule à la fois :</p>
-<ul>
-<li><strong>Essais</strong> : envoyer une consigne à un moteur (échelon, rampe, sinus, créneau) et tracer sa réponse ;</li>
-<li><strong>Téléopération</strong> : piloter à la main, au clavier ou avec un bras leader ;</li>
-<li><strong>Scripts</strong> : programmer le robot en Python ;</li>
-<li><strong>IA</strong> : laisser un modèle entraîné piloter le robot.</li>
-</ul>
-<p>L’<strong>arrêt d’urgence</strong>, toujours en haut à droite, arrête tout de suite ce qui fait bouger le robot.</p>
+<section id="lia-appliquée-à-la-robotique" class="level3">
+<h3 class="anchored" data-anchor-id="lia-appliquée-à-la-robotique">L’IA appliquée à la robotique</h3>
+<p>On commence par l’apprentissage par imitation le plus simple : le robot copie ce qu’un opérateur lui a montré (<em>Behavioral Cloning</em>). On va ensuite jusqu’aux modèles actuels, comme ACT ou les politiques de diffusion. On voit aussi l’apprentissage par renforcement, où le robot apprend seul, par essais et erreurs. Chaque méthode est découverte, puis appliquée dans MIR : on enregistre des démonstrations, on entraîne un modèle, et on le laisse piloter le robot.</p>
+<div class="quarto-layout-panel" data-layout-ncol="2">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../images/appli/imitation.png" class="lightbox" data-gallery="ia" title="Imitation : un modèle ACT, appris sur 50 démonstrations, va saisir le dé ; à droite, ce que voit sa caméra."><img src="../images/appli/imitation.png" class="capture img-fluid figure-img" alt="Imitation : un modèle ACT, appris sur 50 démonstrations, va saisir le dé ; à droite, ce que voit sa caméra."></a></p>
+<figcaption>Imitation : un modèle ACT, appris sur 50 démonstrations, va saisir le dé ; à droite, ce que voit sa caméra.</figcaption>
+</figure>
+</div>
+</div>
+<div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../images/appli/renforcement.png" class="lightbox" data-gallery="ia" title="Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar."><img src="../images/appli/renforcement.png" class="capture img-fluid figure-img" alt="Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar."></a></p>
+<figcaption>Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar.</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
 </section>
-<section id="où-sont-rangés-les-fichiers" class="level3">
-<h3 class="anchored" data-anchor-id="où-sont-rangés-les-fichiers">Où sont rangés les fichiers</h3>
+<section id="assembler-des-tâches-complexes-avec-mir-flow" class="level3">
+<h3 class="anchored" data-anchor-id="assembler-des-tâches-complexes-avec-mir-flow">Assembler des tâches complexes avec MIR Flow</h3>
+<p>MIR Flow assemble des briques dans un graphe : mesures des capteurs, calculs en Python, compétences du robot (une consigne, un script ou un modèle entraîné), décisions, et même un modèle de langage qui choisit quoi faire. Chaque brique reste simple ; c’est leur assemblage qui donne un comportement riche.</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><a href="../images/appli/mir-flow.png" class="lightbox" data-gallery="flow" title="Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite)."><img src="../images/appli/mir-flow.png" class="capture img-fluid figure-img" alt="Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite)."></a></p>
+<figcaption>Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite).</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="où-sont-rangés-les-fichiers" class="level2">
+<h2 class="anchored" data-anchor-id="où-sont-rangés-les-fichiers">Où sont rangés les fichiers</h2>
 <p>Chaque robot a son dossier dans <code>robots/</code> : sa configuration (<code>robot.json</code>), ses essais, ses scripts, ses scènes, ses démonstrations (<code>datasets/</code>) et ses modèles entraînés (<code>modeles/</code>). Ce sont des fichiers ordinaires, que l’on peut copier, échanger ou ouvrir avec un autre logiciel.</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->
@@ -736,6 +749,38 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </div>
 </nav>
 </div> <!-- /content -->
+<script>var lightboxQuarto = GLightbox({"closeEffect":"zoom","descPosition":"bottom","loop":false,"openEffect":"zoom","selector":".lightbox"});
+(function() {
+  let previousOnload = window.onload;
+  window.onload = () => {
+    if (previousOnload) {
+      previousOnload();
+    }
+    lightboxQuarto.on('slide_before_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      const href = trigger.getAttribute('href');
+      if (href !== null) {
+        const imgEl = window.document.querySelector(`a[href="${href}"] img`);
+        if (imgEl !== null) {
+          const srcAttr = imgEl.getAttribute("src");
+          if (srcAttr && srcAttr.startsWith("data:")) {
+            slideConfig.href = srcAttr;
+          }
+        }
+      } 
+    });
+  
+    lightboxQuarto.on('slide_after_load', (data) => {
+      const { slideIndex, slideNode, slideConfig, player, trigger } = data;
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(slideNode);
+      }
+    });
+  
+  };
+  
+})();
+          </script>
 
 
 

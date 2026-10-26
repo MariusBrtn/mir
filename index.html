@@ -185,15 +185,13 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
+<p><strong>MIR</strong> est une plateforme robotique <strong>modulaire</strong>, open source, pensée pour l’enseignement et l’expérimentation. Des modules (servos, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
 <p><img src="images/configurations.jpg" class="img-fluid figure-img"></p>
-<figcaption>Quelques configurations de MIR : bras 2 ddl, plateforme mobile avec bras 5 ddl et caméra, plateforme mobile avec lidar, plateforme mobile avec pince.</figcaption>
+<figcaption>Quelques configurations de MIR</figcaption>
 </figure>
 </div>
-<section id="la-plateforme-mir" class="level2">
-<h2 class="anchored" data-anchor-id="la-plateforme-mir">La plateforme MIR</h2>
-<p><strong>MIR</strong> est une plateforme robotique <strong>modulaire</strong>, open source, pensée pour l’enseignement, la recherche et l’expérimentation. Les mêmes modules matériels (servos, jonctions, coudes, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…</p>
 <div class="columns">
 <div class="column" style="width:48%;">
 <div class="quarto-figure quarto-figure-center">
@@ -215,28 +213,22 @@ ul.task-list li input[type="checkbox"] {
 </div>
 <p>Les robots pédagogiques sont souvent conçus pour un seul usage. MIR fait l’inverse : on fait évoluer le robot selon l’activité, en ajoutant ou en remplaçant des actionneurs et des capteurs, sans repartir de zéro. Une même plateforme couvre ainsi la cinématique, l’asservissement, la téléopération, la perception, la navigation et le <em>robot learning</em>.</p>
 <p><a href="https://youtube.com/shorts/KHZeTSOmVA4" class="video-presentation"> <img src="images/video_presentation.jpg" alt="Vidéo de présentation de MIR"> <span>Voir MIR en vidéo : un robot construit en quelques clics</span> </a></p>
-</section>
 <section id="le-logiciel-mir" class="level2">
 <h2 class="anchored" data-anchor-id="le-logiciel-mir">Le logiciel MIR</h2>
-<p>L’application MIR accompagne toute la vie d’un robot :</p>
+<p>L’application MIR permet de :</p>
 <ul>
-<li><strong>le concevoir</strong> module par module, dans un éditeur 3D ;</li>
-<li><strong>le construire</strong>, guidé pas à pas, chaque module étant détecté dès qu’on le branche ;</li>
-<li><strong>le piloter</strong>, réel ou <strong>simulé</strong> (moteur physique MuJoCo) : essais d’asservissement, téléopération, scripts Python ;</li>
+<li><strong>concevoir</strong> et <strong>construire</strong> le robot module par module, dans un éditeur 3D ;</li>
+<li><strong>piloter</strong> le robot réel ou <strong>simulé</strong> (moteur physique MuJoCo) : essais d’asservissement, téléopération, scripts Python personnalisé ;</li>
 <li><strong>enregistrer des démonstrations</strong> et <strong>entraîner des modèles</strong> : behavioral cloning, politiques de LeRobot comme ACT, apprentissage par renforcement ;</li>
-<li><strong>enchaîner des tâches</strong> avec MIR Flow, jusqu’à un modèle de langage qui décide quoi faire.</li>
+<li><strong>enchaîner des tâches</strong> avec MIR Flow, permettant de concevoir des tâches complexes de manière intuitive.</li>
 </ul>
-<p>Un robot est décrit une seule fois : la même description sert au robot réel et à son jumeau simulé. Tout ce qui se fait avec le robot réel peut se faire en simulation, sans matériel. MIR est compatible avec l’écosystème <a href="https://github.com/huggingface/lerobot">LeRobot</a> de Hugging Face.</p>
+<p>Un robot est décrit une seule fois : la même description sert au robot réel et à son équivalent simulé. Tout ce qui se fait avec le robot réel peut se faire en simulation, sans matériel.</p>
+<p>MIR est compatible avec l’écosystème <a href="https://github.com/huggingface/lerobot">LeRobot</a> de Hugging Face.</p>
 </section>
 <section id="ce-site" class="level2">
 <h2 class="anchored" data-anchor-id="ce-site">Ce site</h2>
 <p>Ce site propose une <strong>découverte progressive du robot learning par l’expérimentation</strong>. Les activités font émerger les notions à partir de situations concrètes : observer le comportement d’un robot, enregistrer ses actions, constituer un jeu de données, entraîner un modèle, puis confier le robot à ce modèle.</p>
-<p>Les parcours se suivent dans le menu de gauche :</p>
-<ol type="1">
-<li><strong><a href="./prise-en-main/">Prise en main</a></strong> : installer MIR et faire le tour de l’application ;</li>
-<li><strong><a href="./behavioral-cloning/">Apprendre par imitation</a></strong> : le <em>Behavioral Cloning</em>, avec un bras simple à trois degrés de liberté et une pince.</li>
-</ol>
-<p>Tout se fait en simulation : un ordinateur suffit. Les manipulations dans l’application sont montrées dans de courtes vidéos.</p>
+<p>Les parcours se suivent dans le menu de gauche, tout peut se faire en simulation : un ordinateur suffit.</p>
 </section>
 <section id="le-projet" class="level2">
 <h2 class="anchored" data-anchor-id="le-projet">Le projet</h2>
