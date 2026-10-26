@@ -57,7 +57,8 @@ class FlowView(QWidget, ViewBase[FlowViewModel, FlowVMAction]):
         self._timer_3d = QTimer(self)
         self._timer_3d.setInterval(33)
         self._timer_3d.timeout.connect(self._viewport.update)
-        self._update_account()
+        # compte OpenAI : affiché à la première ouverture de l'onglet (lire le trousseau au démarrage ferait demander
+        # le mot de passe de session à tous les élèves, même sans MIR Flow)
         self._on_graph_loaded()
         self._on_robot_changed()
 
@@ -444,6 +445,7 @@ class FlowView(QWidget, ViewBase[FlowViewModel, FlowVMAction]):
 
     def showEvent(self, event):
         super().showEvent(event)
+        self._update_account()
         self._refresh_inspector_context(refresh=True)       # politiques entraînées entre-temps
 
     # ------------------------------------------------------------------ discussion
@@ -557,8 +559,8 @@ class FlowView(QWidget, ViewBase[FlowViewModel, FlowVMAction]):
         self._update_buttons()
 
     def _update_buttons(self):
-        if not hasattr(self, "btn_envoyer"):
-            return
+        if not hasattr(self, "btn_envoyer") or not self.isVisible():
+            return                      # mis à jour à l'ouverture de l'onglet
         vm = self._view_model
         busy = vm.is_running()
         self.btn_envoyer.setEnabled(not busy and vm.has_robot() and vm.has_api_key())

@@ -11,26 +11,27 @@ ACCOUNT = "openai_api_key"
 ENV_VAR = "OPENAI_API_KEY"
 
 
-def get_api_key() -> str | None:
+def read_api_key() -> tuple[str | None, str | None]:
+    """(clé, source) en une seule lecture du trousseau ; la source vaut « environment », « keychain » ou None.
+    Sur macOS, chaque lecture peut faire demander le mot de passe de session : l'appeler le moins souvent possible."""
     key = os.environ.get(ENV_VAR)
     if key:
-        return key
+        return key, "environment"
     try:
         import keyring
-        return keyring.get_password(SERVICE, ACCOUNT)
+        key = keyring.get_password(SERVICE, ACCOUNT)
     except Exception:
-        return None
+        return None, None
+    return (key, "keychain") if key else (None, None)
+
+
+def get_api_key() -> str | None:
+    return read_api_key()[0]
 
 
 def key_source() -> str | None:
     """« environment », « keychain » ou None (pas de clé)."""
-    if os.environ.get(ENV_VAR):
-        return "environment"
-    try:
-        import keyring
-        return "keychain" if keyring.get_password(SERVICE, ACCOUNT) else None
-    except Exception:
-        return None
+    return read_api_key()[1]
 
 
 def save_api_key(key: str) -> None:

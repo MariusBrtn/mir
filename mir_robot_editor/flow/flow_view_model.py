@@ -48,6 +48,7 @@ class FlowViewModel(ViewModelBase[FlowVMAction]):
         self.chat_llm_id: str | None = None          # le LLM avec qui on discute (None : le premier)
         self._worker = BackgroundWorker()
         self._en_cours = False
+        self._account: tuple[str | None, str | None] | None = None     # (clé, source), lu à la première demande
         self._fin.connect(self._on_fin)
         self.last_io: dict[str, dict] = {}       # id du nœud -> son dernier passage (entree, sortie, port, time)
         self.event.connect(self._on_event)
@@ -166,18 +167,29 @@ class FlowViewModel(ViewModelBase[FlowVMAction]):
         return problems
 
     # ------------------------------------------------------------------ compte OpenAI
+    # le trousseau n'est lu qu'une fois, et seulement quand MIR Flow en a besoin : sur macOS, chaque lecture peut
+    # faire demander le mot de passe de session
+    def _api_key(self) -> str | None:
+        if self._account is None:
+            self._account = credentials.read_api_key()
+        return self._account[0]
+
+    def _key_source(self) -> str | None:
+        self._api_key()
+        return self._account[1]
+
     def has_api_key(self) -> bool:
-        return credentials.get_api_key() is not None
+        return self._api_key() is not None
 
     def account_text(self) -> str:
-        source = credentials.key_source()
+        source = self._key_source()
         if source is None:
             return "Pas de compte OpenAI"
         where = "variable OPENAI_API_KEY" if source == "environment" else "trousseau du système"
-        return f"Clé {credentials.masked(credentials.get_api_key())} ({where})"
+        return f"Clé {credentials.masked(self._api_key())} ({where})"
 
     def key_from_environment(self) -> bool:
-        return credentials.key_source() == "environment"
+        return self._key_source() == "environment"
 
     def save_api_key(self, key: str) -> str | None:
         """Vérifie la clé auprès d'OpenAI puis la range dans le trousseau. None si c'est fait, sinon l'erreur."""
@@ -190,12 +202,14 @@ class FlowViewModel(ViewModelBase[FlowVMAction]):
                 credentials.save_api_key(key)
             except Exception as e:
                 return f"Impossible d'enregistrer la clé dans le trousseau : {e}"
+            self._account = None
             self._agent = None
             self.account_changed.emit()
         return error
 
     def delete_api_key(self):
         credentials.delete_api_key()
+        self._account = None
         self._agent = None
         self.account_changed.emit()
 
@@ -219,7 +233,7 @@ class FlowViewModel(ViewModelBase[FlowVMAction]):
         if self._other_busy():
             self._dialogProvider.information("MIR Flow", "Arrêtez d'abord le mouvement en cours.")
             return False
-        key = credentials.get_api_key()
+        key = self._api_key()
         if key is None:
             self._dialogProvider.information("MIR Flow", "Connectez d'abord votre compte OpenAI (bouton « Compte »).")
             return False
@@ -268,7 +282,7 @@ class FlowViewModel(ViewModelBase[FlowVMAction]):
         if (self.graph.start() is None and not has_trigger) or problems:
             self._dialogProvider.information("MIR Flow", " ".join(problems) or "Ajoutez un nœud Départ.")
             return False
-        self._runner = FlowRunner(self._robot, self.graph, self._dossier_robot, credentials.get_api_key(),
+        self._runner = FlowRunner(self._robot, self.graph, self._dossier_robot, self._api_key(),
                                   on_event=self.event.emit)
         self._en_cours = True
         self.busy_state_changed.emit(True)
