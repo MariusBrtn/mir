@@ -31,12 +31,14 @@ jobs:
           }
           Get-ChildItem "$HOME\MIR\robots"
 
-      - name: Tests
+      # dans le dépôt complet : les tests utilisent des exemples de robots/ que l'installation ne copie pas
+      - name: Tests sous Windows
         env:
           QT_QPA_PLATFORM: offscreen
+          UV_PYTHON_PREFERENCE: only-managed
         run: |
           $env:Path = "$HOME\.local\bin;$env:Path"
-          uv run --directory "$HOME\MIR" pytest
+          uv run pytest
           if ($LASTEXITCODE -ne 0) { throw "Tests en échec." }
 
       - name: Lancement par le raccourci (30 s)
