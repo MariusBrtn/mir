@@ -1422,6 +1422,7 @@ source = { editable = "mir_robot_editor" }
 dependencies = [
     { name = "loguru" },
     { name = "mir-devices" },
+    { name = "mir-esp-deploy" },
     { name = "mir-flow" },
     { name = "mir-robot" },
     { name = "mir-sim" },
@@ -1435,6 +1436,7 @@ dependencies = [
 requires-dist = [
     { name = "loguru" },
     { name = "mir-devices", editable = "mir_devices" },
+    { name = "mir-esp-deploy", editable = "mir_esp_deploy" },
     { name = "mir-flow", editable = "mir_flow" },
     { name = "mir-robot", editable = "mir_robot" },
     { name = "mir-sim", editable = "mir_sim" },
