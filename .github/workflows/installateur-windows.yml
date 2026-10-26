@@ -1,0 +1,53 @@
+# Essaie l'installateur Windows sur une machine Windows de GitHub, à chaque modification de l'installateur (ou à la
+# main : onglet Actions du dépôt → « Installateur Windows » → Run workflow). Le code est celui du commit essayé.
+name: Installateur Windows
+
+on:
+  push:
+    paths:
+      - "installer/windows/**"
+      - ".github/workflows/installateur-windows.yml"
+  workflow_dispatch:
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: powershell          # Windows PowerShell 5.1, celui des PC des élèves
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Installation (comme « irm ... | iex »)
+        run: |
+          $env:MIR_SOURCE = "$PWD"
+          $env:MIR_NO_OPEN = "1"
+          Get-Content -Raw -Encoding UTF8 installer\windows\install_mir.ps1 | Invoke-Expression
+          if (-not (Test-Path "$HOME\MIR\.venv\Scripts\pythonw.exe")) { throw "MIR n'est pas installé." }
+          foreach ($dossier in "Programs", "Desktop") {
+            $lnk = Join-Path ([Environment]::GetFolderPath($dossier)) "MIR.lnk"
+            if (-not (Test-Path $lnk)) { throw "Raccourci absent : $lnk" }
+          }
+          Get-ChildItem "$HOME\MIR\robots"
+
+      - name: Tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $env:Path = "$HOME\.local\bin;$env:Path"
+          uv run --directory "$HOME\MIR" pytest
+          if ($LASTEXITCODE -ne 0) { throw "Tests en échec." }
+
+      - name: Lancement par le raccourci (30 s)
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          $lnk = (New-Object -ComObject WScript.Shell).CreateShortcut((Join-Path ([Environment]::GetFolderPath("Programs")) "MIR.lnk"))
+          $mir = Start-Process $lnk.TargetPath -ArgumentList $lnk.Arguments -WorkingDirectory $lnk.WorkingDirectory -PassThru
+          Start-Sleep 30
+          $log = Get-Content "$HOME\MIR\logs\application.log" -Raw -ErrorAction SilentlyContinue
+          Write-Host $log
+          if ($mir.HasExited) { throw "MIR s'est arrêté (code $($mir.ExitCode))." }
+          if ($log -match "Traceback") { throw "Erreur au lancement de MIR." }
+          Stop-Process $mir
