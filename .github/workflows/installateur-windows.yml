@@ -31,6 +31,20 @@ jobs:
           }
           Get-ChildItem "$HOME\MIR\robots"
 
+      # la machine de GitHub n'a pas de carte graphique : OpenGL logiciel (Mesa) à côté du Python de uv, pour la
+      # caméra simulée de MuJoCo (inutile sur un vrai PC)
+      - name: OpenGL logiciel (Mesa)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $env:Path = "$HOME\.local\bin;$env:Path"
+          gh release download 26.2.4 -R pal1000/mesa-dist-win -p "mesa3d-*-release-msvc.7z" -D $env:RUNNER_TEMP
+          7z x "$env:RUNNER_TEMP\mesa3d-26.2.4-release-msvc.7z" "-o$env:RUNNER_TEMP\mesa" | Out-Null
+          Get-ChildItem (uv python dir) -Directory -Filter "cpython-3.12*" | ForEach-Object {
+            Copy-Item "$env:RUNNER_TEMP\mesa\x64\*.dll" $_.FullName
+            Write-Host "Mesa copié dans $($_.FullName)"
+          }
+
       # dans le dépôt complet : les tests utilisent des exemples de robots/ que l'installation ne copie pas
       - name: Tests sous Windows
         env:
