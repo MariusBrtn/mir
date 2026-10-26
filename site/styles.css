@@ -69,3 +69,11 @@ a { color: var(--slate); }
 p code, li code, td code { color: var(--sand-dark) !important; background: var(--panel) !important; }
 #TOC .nav-link.active, #TOC a.active { color: var(--ink) !important; border-left-color: var(--sand) !important; }
 #TOC a { color: var(--muted); }
+
+/* --- Captures d'écran de l'application --- */
+img.capture {
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(20, 20, 23, 0.07);
+}
+.figure-caption, figcaption { color: var(--muted); font-size: 0.85rem; }

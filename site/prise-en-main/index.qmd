@@ -4,7 +4,8 @@ aliases:
   - ../installation.html
   - ../decouverte.html
 title: "Installer et découvrir MIR"
-subtitle: "Le logiciel sur votre ordinateur, et un premier tour de l'application"
+subtitle: "Le logiciel sur votre ordinateur, et ce qu'on peut faire avec"
+lightbox: true
 ---
 
 ## Installer MIR
@@ -49,36 +50,49 @@ La commande installe MIR dans votre dossier personnel (`~/MIR`) et crée l'appli
 
 4. **Lancer MIR**, depuis le même dossier : `uv run mir`.
 
-## Premier tour de l'application
+## Ce qu'on fait avec MIR
 
-MIR s'ouvre sur l'étape **Configurer le robot**. Deux robots sont fournis pour essayer tout de suite :
-`bras_4ddl_cam_V2` (un bras avec une caméra) et `test_mobile` (un robot mobile avec un lidar).
+MIR s'ouvre sur l'étape **Configurer le robot**. Les étapes sont en haut de la fenêtre, de gauche à droite dans
+l'ordre où on les suit. Deux robots sont fournis pour essayer tout de suite : `bras_4ddl_cam_V2`, un bras avec une
+caméra, et `test_mobile`, un robot mobile avec un lidar. Sans robot branché, MIR pilote le **robot simulé** :
+le sélecteur **Réel / Simulé**, en haut à droite, choisit l'un ou l'autre. Avec le vrai robot, un bouton
+**Arrêt d'urgence** apparaît au même endroit et coupe tout de suite les moteurs.
 
-### Les étapes
+### Découvrir les bases de la robotique
 
-Elles sont en haut de la fenêtre, de gauche à droite dans l'ordre où on les suit.
+On assemble un robot module par module : servos, jonctions, pince, caméra, roues… La même structure décrit le robot
+réel et sa simulation. On fait ensuite bouger ses articulations, on mesure comment un moteur répond à une consigne,
+et on programme le robot en Python.
 
-| Étape | Ce qu'on y fait |
-|---|---|
-| **Configurer le robot** | Concevoir la structure module par module, ouvrir un robot, construire le robot réel. |
-| **Piloter** | Faire bouger le robot, réel ou simulé. |
-| **Collecter des données** | Enregistrer des démonstrations d'une tâche. |
-| **Entraîner un modèle** | Apprendre, à partir des démonstrations, un modèle capable de refaire la tâche. |
-| **MIR Flow** | Enchaîner des tâches sous forme de graphe, avec de la vision ou un modèle de langage. |
+::: {layout-ncol=2}
+![Concevoir la structure : le bras fourni, assemblé à partir des modules du catalogue.](../images/appli/structure.png){.capture group="bases"}
 
-### Piloter le robot
+![Un essai d'échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille.](../images/appli/essai-echelon.png){.capture group="bases"}
+:::
 
-Le sélecteur **Réel / Simulé**, en haut à droite, choisit le robot. Sans robot branché, MIR utilise le robot simulé,
-dans une **scène** que l'on peut replacer à tout moment. Quatre façons de le piloter, une seule à la fois :
+### L'IA appliquée à la robotique
 
-- **Essais** : envoyer une consigne à un moteur (échelon, rampe, sinus, créneau) et tracer sa réponse ;
-- **Téléopération** : piloter à la main, au clavier ou avec un bras leader ;
-- **Scripts** : programmer le robot en Python ;
-- **IA** : laisser un modèle entraîné piloter le robot.
+On commence par l'apprentissage par imitation le plus simple : le robot copie ce qu'un opérateur lui a montré
+(*Behavioral Cloning*). On va ensuite jusqu'aux modèles actuels, comme ACT ou les politiques de diffusion. On voit
+aussi l'apprentissage par renforcement, où le robot apprend seul, par essais et erreurs. Chaque méthode est
+découverte, puis appliquée dans MIR : on enregistre des démonstrations, on entraîne un modèle, et on le laisse
+piloter le robot.
 
-L'**arrêt d'urgence**, toujours en haut à droite, arrête tout de suite ce qui fait bouger le robot.
+::: {layout-ncol=2}
+![Imitation : un modèle ACT, appris sur 50 démonstrations, va saisir le dé ; à droite, ce que voit sa caméra.](../images/appli/imitation.png){.capture group="ia"}
 
-### Où sont rangés les fichiers
+![Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar.](../images/appli/renforcement.png){.capture group="ia"}
+:::
+
+### Assembler des tâches complexes avec MIR Flow
+
+MIR Flow assemble des briques dans un graphe : mesures des capteurs, calculs en Python, compétences du robot
+(une consigne, un script ou un modèle entraîné), décisions, et même un modèle de langage qui choisit quoi faire.
+Chaque brique reste simple ; c'est leur assemblage qui donne un comportement riche.
+
+![Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite).](../images/appli/mir-flow.png){.capture group="flow"}
+
+## Où sont rangés les fichiers
 
 Chaque robot a son dossier dans `robots/` : sa configuration (`robot.json`), ses essais, ses scripts, ses scènes,
 ses démonstrations (`datasets/`) et ses modèles entraînés (`modeles/`). Ce sont des fichiers ordinaires, que l'on

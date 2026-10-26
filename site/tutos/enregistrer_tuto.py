@@ -415,6 +415,7 @@ def main() -> None:
                 tuto.filmer(nom, scenario)
             elif any(n in demandes for n in list(SCENARIOS)[list(SCENARIOS).index(nom) + 1:]):
                 tuto.filmer(nom, scenario, video=False)
+        shutil.rmtree(robots, ignore_errors=True)    # os._exit saute le nettoyage du dossier temporaire
         os._exit(0)       # pas de fermeture de la fenêtre (elle demanderait d'enregistrer)
 
 

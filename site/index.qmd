@@ -4,14 +4,13 @@ subtitle: "Une plateforme robotique modulaire et ouverte, pour découvrir la rob
 toc: false
 ---
 
-![Quelques configurations de MIR : bras 2 ddl, plateforme mobile avec bras 5 ddl et caméra, plateforme mobile avec lidar, plateforme mobile avec pince.](images/configurations.jpg)
 
-## La plateforme MIR
-
-**MIR** est une plateforme robotique **modulaire**, open source, pensée pour l'enseignement, la recherche et
-l'expérimentation. Les mêmes modules matériels (servos, jonctions, coudes, pince, roues, caméra, lidar…) se
+**MIR** est une plateforme robotique **modulaire**, open source, pensée pour l'enseignement et
+l'expérimentation. Des modules (servos, pince, roues, caméra, lidar…) se
 combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et
 logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…
+
+![Quelques configurations de MIR](images/configurations.jpg)
 
 ::: {.columns}
 ::: {.column width="48%"}
@@ -35,18 +34,19 @@ couvre ainsi la cinématique, l'asservissement, la téléopération, la percepti
 
 ## Le logiciel MIR
 
-L'application MIR accompagne toute la vie d'un robot :
+L'application MIR permet de :
 
-- **le concevoir** module par module, dans un éditeur 3D ;
-- **le construire**, guidé pas à pas, chaque module étant détecté dès qu'on le branche ;
-- **le piloter**, réel ou **simulé** (moteur physique MuJoCo) : essais d'asservissement, téléopération, scripts
-  Python ;
+- **concevoir** et **construire** le robot module par module, dans un éditeur 3D ;
+- **piloter** le robot réel ou **simulé** (moteur physique MuJoCo) : essais d'asservissement, téléopération, scripts
+  Python personnalisé ;
 - **enregistrer des démonstrations** et **entraîner des modèles** : behavioral cloning, politiques de LeRobot comme
   ACT, apprentissage par renforcement ;
-- **enchaîner des tâches** avec MIR Flow, jusqu'à un modèle de langage qui décide quoi faire.
+- **enchaîner des tâches** avec MIR Flow, permettant de concevoir des tâches complexes de manière intuitive.
 
-Un robot est décrit une seule fois : la même description sert au robot réel et à son jumeau simulé. Tout ce qui se
-fait avec le robot réel peut se faire en simulation, sans matériel. MIR est compatible avec l'écosystème
+Un robot est décrit une seule fois : la même description sert au robot réel et à son équivalent simulé. Tout ce qui se
+fait avec le robot réel peut se faire en simulation, sans matériel. 
+
+MIR est compatible avec l'écosystème
 [LeRobot](https://github.com/huggingface/lerobot) de Hugging Face.
 
 ## Ce site
@@ -55,14 +55,7 @@ Ce site propose une **découverte progressive du robot learning par l'expérimen
 les notions à partir de situations concrètes : observer le comportement d'un robot, enregistrer ses actions,
 constituer un jeu de données, entraîner un modèle, puis confier le robot à ce modèle.
 
-Les parcours se suivent dans le menu de gauche :
-
-1. **[Prise en main](prise-en-main/index.qmd)** : installer MIR et faire le tour de l'application ;
-2. **[Apprendre par imitation](behavioral-cloning/index.qmd)** : le *Behavioral Cloning*, avec un bras simple à trois
-   degrés de liberté et une pince.
-
-Tout se fait en simulation : un ordinateur suffit. Les manipulations dans l'application sont montrées dans de
-courtes vidéos.
+Les parcours se suivent dans le menu de gauche, tout peut se faire en simulation : un ordinateur suffit.
 
 ## Le projet
 
