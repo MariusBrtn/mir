@@ -15,7 +15,7 @@
     "href": "./",
     "title": "MIR — Modular Intelligent Robot",
     "section": "",
-    "text": "MIR est une plateforme robotique modulaire, open source, pensée pour l’enseignement et l’expérimentation. Des modules (servos, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…\nLes robots pédagogiques sont souvent conçus pour un seul usage. MIR fait l’inverse : on fait évoluer le robot selon l’activité, en ajoutant ou en remplaçant des actionneurs et des capteurs, sans repartir de zéro. Une même plateforme couvre ainsi la cinématique, l’asservissement, la téléopération, la perception, la navigation et le robot learning.\nVoir MIR en vidéo : un robot construit en quelques clics",
+    "text": "MIR est une plateforme robotique modulaire, open source, pour découvrir la robotique et l’intelligence artificielle. Des modules (servos, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…\nVoir MIR en vidéo : un robot construit en quelques clics",
     "crumbs": [
       "Accueil"
     ]
@@ -25,7 +25,7 @@
     "href": "./#le-logiciel-mir",
     "title": "MIR — Modular Intelligent Robot",
     "section": "Le logiciel MIR",
-    "text": "Le logiciel MIR\nL’application MIR permet de :\n\nconcevoir et construire le robot module par module, dans un éditeur 3D ;\npiloter le robot réel ou simulé (moteur physique MuJoCo) : essais d’asservissement, téléopération, scripts Python personnalisé ;\nenregistrer des démonstrations et entraîner des modèles : behavioral cloning, politiques de LeRobot comme ACT, apprentissage par renforcement ;\nenchaîner des tâches avec MIR Flow, permettant de concevoir des tâches complexes de manière intuitive.\n\nUn robot est décrit une seule fois : la même description sert au robot réel et à son équivalent simulé. Tout ce qui se fait avec le robot réel peut se faire en simulation, sans matériel.\nMIR est compatible avec l’écosystème LeRobot de Hugging Face.",
+    "text": "Le logiciel MIR\nMIR, c’est aussi une application, qui permet de :\n\nconcevoir et construire le robot module par module, dans un éditeur 3D ;\npiloter le robot réel ou simulé (moteur physique MuJoCo) : essais d’asservissement, téléopération, scripts Python personnalisé ;\nenregistrer des démonstrations et entraîner des modèles : behavioral cloning, politiques de LeRobot comme ACT, apprentissage par renforcement ;\nenchaîner des tâches avec MIR Flow, permettant de concevoir des tâches complexes de manière intuitive.\n\nUn robot est décrit une seule fois : la même description sert au robot réel et à son équivalent simulé. Tout ce qui se fait avec le robot réel peut se faire en simulation, sans matériel.\nMIR est compatible avec l’écosystème LeRobot de Hugging Face.",
     "crumbs": [
       "Accueil"
     ]
