@@ -5,7 +5,7 @@ toc: false
 
 **MIR** est une plateforme robotique **modulaire**, open source, pour découvrir la robotique et l'intelligence artificielle. Des modules (servos, pince, roues, caméra, lidar…) se combinent pour construire des robots très différents, tout en partageant la même architecture matérielle et logicielle : un bras robotisé, une plateforme mobile avec lidar, un quadrupède…
 
-![Quelques configurations de MIR](images/configurations.jpg)
+![](images/configurations.jpg)
 
 <a href="https://youtube.com/shorts/KHZeTSOmVA4" class="video-presentation"> <img src="images/video_presentation.jpg" alt="Vidéo de présentation de MIR"/> Voir MIR en vidéo : un robot construit en quelques clics </a>
 
