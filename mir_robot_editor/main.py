@@ -78,6 +78,8 @@ def main():
     app = QtWidgets.QApplication.instance()
     if app is None:
         app = QtWidgets.QApplication(sys.argv)
+    # Linux : la fenêtre est celle de l'entrée mir.desktop du menu (icône de MIR dans la barre des tâches)
+    app.setDesktopFileName("mir")
     apply_theme(app)
     habillage.installer()
     # boutons standard de Qt (Annuler, Oui, Non...) en français, comme le reste de MIR
