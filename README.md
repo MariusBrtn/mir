@@ -4,6 +4,8 @@ Modular Intelligent Robot
 
 > **MIR** is an open-source modular robotics platform for education, research and experimentation.
 
+**Website, tutorials and course: [mir-edu.fr](https://mir-edu.fr)** (in French only for now)
+
 
 <p align="center">
   <a href="https://youtube.com/shorts/KHZeTSOmVA4">
