@@ -280,7 +280,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="ce-quon-fait-avec-mir" class="level2">
 <h2 class="anchored" data-anchor-id="ce-quon-fait-avec-mir">Ce qu’on fait avec MIR</h2>
-<p>MIR s’ouvre sur l’étape <strong>Configurer le robot</strong>. Les étapes sont en haut de la fenêtre, de gauche à droite dans l’ordre où on les suit. Deux robots sont fournis pour essayer tout de suite : <code>bras_4ddl_cam_V2</code>, un bras avec une caméra, et <code>test_mobile</code>, un robot mobile avec un lidar. Sans robot branché, MIR pilote le <strong>robot simulé</strong> : le sélecteur <strong>Réel / Simulé</strong>, en haut à droite, choisit l’un ou l’autre. Avec le vrai robot, un bouton <strong>Arrêt d’urgence</strong> apparaît au même endroit et coupe tout de suite les moteurs.</p>
+<p>MIR s’ouvre sur l’étape <strong>Configurer le robot</strong>. Les étapes sont en haut de la fenêtre, de gauche à droite dans l’ordre où on les suit. Sans robot branché, MIR pilote le <strong>robot simulé</strong> : le sélecteur <strong>Réel / Simulé</strong>, en haut à droite, choisit l’un ou l’autre. Avec le vrai robot, un bouton <strong>Arrêt d’urgence</strong> apparaît au même endroit et coupe tout de suite les moteurs.</p>
 <section id="découvrir-les-bases-de-la-robotique" class="level3">
 <h3 class="anchored" data-anchor-id="découvrir-les-bases-de-la-robotique">Découvrir les bases de la robotique</h3>
 <p>On assemble un robot module par module : servos, jonctions, pince, caméra, roues… La même structure décrit le robot réel et sa simulation. On fait ensuite bouger ses articulations, on mesure comment un moteur répond à une consigne, et on programme le robot en Python.</p>
@@ -297,8 +297,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="../images/appli/essai-echelon.png" class="lightbox" data-gallery="bases" title="Un essai d’échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille."><img src="../images/appli/essai-echelon.png" class="capture img-fluid figure-img" alt="Un essai d’échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille."></a></p>
-<figcaption>Un essai d’échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille.</figcaption>
+<p><a href="../images/appli/essai-echelon.png" class="lightbox" data-gallery="bases" title="Un essai d’échelon sur une articulation avec différents réglages de correcteur."><img src="../images/appli/essai-echelon.png" class="capture img-fluid figure-img" alt="Un essai d’échelon sur une articulation avec différents réglages de correcteur."></a></p>
+<figcaption>Un essai d’échelon sur une articulation avec différents réglages de correcteur.</figcaption>
 </figure>
 </div>
 </div>
@@ -307,7 +307,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="lia-appliquée-à-la-robotique" class="level3">
 <h3 class="anchored" data-anchor-id="lia-appliquée-à-la-robotique">L’IA appliquée à la robotique</h3>
-<p>On commence par l’apprentissage par imitation le plus simple : le robot copie ce qu’un opérateur lui a montré (<em>Behavioral Cloning</em>). On va ensuite jusqu’aux modèles actuels, comme ACT ou les politiques de diffusion. On voit aussi l’apprentissage par renforcement, où le robot apprend seul, par essais et erreurs. Chaque méthode est découverte, puis appliquée dans MIR : on enregistre des démonstrations, on entraîne un modèle, et on le laisse piloter le robot.</p>
+<p>On peut commencer par l’apprentissage par imitation le plus simple : le robot copie ce qu’un opérateur lui a montré (<em>Behavioral Cloning</em>). On va ensuite jusqu’aux modèles actuels, comme ACT ou les politiques de diffusion. Il est également possible de faire de l’apprentissage par renforcement, où le robot apprend seul, par essais et erreurs.</p>
 <div class="quarto-layout-panel" data-layout-ncol="2">
 <div class="quarto-layout-row">
 <div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
@@ -321,8 +321,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="quarto-layout-cell" style="flex-basis: 50.0%;justify-content: flex-start;">
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="../images/appli/renforcement.png" class="lightbox" data-gallery="ia" title="Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar."><img src="../images/appli/renforcement.png" class="capture img-fluid figure-img" alt="Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar."></a></p>
-<figcaption>Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar.</figcaption>
+<p><a href="../images/appli/renforcement.png" class="lightbox" data-gallery="ia" title="Apprentissage par renforcement : le robot mobile équipé d’un lidar a appris à explorer un terrain encombré sans heurter les obstacles."><img src="../images/appli/renforcement.png" class="capture img-fluid figure-img" alt="Apprentissage par renforcement : le robot mobile équipé d’un lidar a appris à explorer un terrain encombré sans heurter les obstacles."></a></p>
+<figcaption>Apprentissage par renforcement : le robot mobile équipé d’un lidar a appris à explorer un terrain encombré sans heurter les obstacles.</figcaption>
 </figure>
 </div>
 </div>
@@ -331,11 +331,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="assembler-des-tâches-complexes-avec-mir-flow" class="level3">
 <h3 class="anchored" data-anchor-id="assembler-des-tâches-complexes-avec-mir-flow">Assembler des tâches complexes avec MIR Flow</h3>
-<p>MIR Flow assemble des briques dans un graphe : mesures des capteurs, calculs en Python, compétences du robot (une consigne, un script ou un modèle entraîné), décisions, et même un modèle de langage qui choisit quoi faire. Chaque brique reste simple ; c’est leur assemblage qui donne un comportement riche.</p>
+<p>MIR Flow permet d’assembles des briques dans un graphe : mesures des capteurs, scripts Python, modèles entraînés, et même un noeud LLM afin de contrôler le robot. L’assemblage des briques permet de construire des comportements complexes.</p>
 <div class="quarto-figure quarto-figure-center">
 <figure class="figure">
-<p><a href="../images/appli/mir-flow.png" class="lightbox" data-gallery="flow" title="Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite)."><img src="../images/appli/mir-flow.png" class="capture img-fluid figure-img" alt="Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite)."></a></p>
-<figcaption>Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite).</figcaption>
+<p><a href="../images/appli/mir-flow.png" class="lightbox" data-gallery="flow" title="Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques permet de cartographier la zone (en bas à droite)."><img src="../images/appli/mir-flow.png" class="capture img-fluid figure-img" alt="Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques permet de cartographier la zone (en bas à droite)."></a></p>
+<figcaption>Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques permet de cartographier la zone (en bas à droite).</figcaption>
 </figure>
 </div>
 </section>
