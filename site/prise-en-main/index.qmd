@@ -22,18 +22,33 @@ curl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos
 
 La commande installe MIR dans votre dossier personnel (`~/MIR`) et crée l'application **MIR** dans le dossier **Applications**. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.
 
-### Sur Windows ou Linux
+### Sur Linux : une seule commande
 
-1.  **Installer uv** (une seule fois). Sous Windows, dans **PowerShell** :
+Ouvrez un **Terminal**, collez cette ligne puis appuyez sur Entrée :
+
+``` bash
+curl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/install_mir.sh | bash
+```
+
+Si `curl` n'est pas installé (c'est le cas d'Ubuntu au départ), utilisez plutôt :
+
+``` bash
+wget -qO- https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/install_mir.sh | bash
+```
+
+La commande installe MIR dans votre dossier personnel (`~/MIR`), l'ajoute au menu des applications et sur le Bureau. Sur un PC Intel ou AMD, prévoyez plutôt **12 Go** libres : PyTorch y est fourni avec CUDA, pour les cartes graphiques NVIDIA. Vers la fin, l'installateur pose deux questions, auxquelles on répond par Entrée (oui) puis avec son mot de passe, qui ne s'affiche pas quand on le tape :
+
+-   installer la bibliothèque `libxcb-cursor0`, sans laquelle la fenêtre de MIR peut ne pas s'ouvrir ;
+-   ajouter votre compte au groupe `dialout`, qui a le droit d'utiliser le port série du robot réel. Fermez ensuite la session et reconnectez-vous.
+
+Sans mot de passe administrateur, répondez `n` : MIR fonctionne en simulation, et l'installateur affiche les commandes à faire taper par un administrateur. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.
+
+### Sur Windows
+
+1.  **Installer uv** (une seule fois). Dans **PowerShell** :
 
     ``` powershell
     powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-    ```
-
-    Sous Linux, dans un **Terminal** :
-
-    ``` bash
-    curl -LsSf https://astral.sh/uv/install.sh | sh
     ```
 
     Fermez puis rouvrez la fenêtre, pour que la commande `uv` soit trouvée.
