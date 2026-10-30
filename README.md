@@ -81,6 +81,32 @@ Spotlight, and drag it to the Dock to keep it. It starts with two simulated
 robots: `bras_4ddl_cam_V2` (4-DOF arm with a camera) and `test_mobile` (mobile robot with a lidar). Run the same line
 again to update MIR: the `robots/` folder (your work) is never touched. Intel Macs are not supported (PyTorch no longer exists for them).
 
+### Quick install on Linux
+
+Open a **Terminal**, paste this line and press Enter:
+
+```bash
+curl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/install_mir.sh | bash
+```
+
+If `curl` is missing (as on a fresh Ubuntu), use `wget` instead:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/install_mir.sh | bash
+```
+
+It installs uv, downloads MIR into your home folder (`~/MIR`), installs its packages and adds **MIR** to the
+applications menu and to the desktop, with the same two simulated robots. On an Intel / AMD PC, plan for about
+**12 GB** of free space: PyTorch for Linux comes with CUDA (NVIDIA graphics cards). Near the end, the installer offers
+two optional steps, which need your password (`sudo`):
+- install `libxcb-cursor0`, a library Qt needs to open MIR's window on Ubuntu / Debian;
+- add your account to the `dialout` group, allowed to use the serial port of a real robot (log out and back in
+  afterwards).
+
+Answer `n` if you have no administrator rights: MIR works in simulation, and the installer prints the commands for an
+administrator. The log is in `~/MIR/logs/application.log`. Run the same line again to update MIR (your `robots/` folder
+is never touched). To install elsewhere, put `MIR_DIR=/path/to/MIR` before `bash`, and use it again for each update.
+
 The steps below do the same by hand, on Windows, macOS and Linux.
 
 ### 1. Install uv (once)
