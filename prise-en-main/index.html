@@ -208,7 +208,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <li><a href="#installer-mir" id="toc-installer-mir" class="nav-link active" data-scroll-target="#installer-mir">Installer MIR</a>
   <ul class="collapse">
   <li><a href="#sur-mac-une-seule-commande" id="toc-sur-mac-une-seule-commande" class="nav-link" data-scroll-target="#sur-mac-une-seule-commande">Sur Mac : une seule commande</a></li>
-  <li><a href="#sur-windows-ou-linux" id="toc-sur-windows-ou-linux" class="nav-link" data-scroll-target="#sur-windows-ou-linux">Sur Windows ou Linux</a></li>
+  <li><a href="#sur-linux-une-seule-commande" id="toc-sur-linux-une-seule-commande" class="nav-link" data-scroll-target="#sur-linux-une-seule-commande">Sur Linux : une seule commande</a></li>
+  <li><a href="#sur-windows" id="toc-sur-windows" class="nav-link" data-scroll-target="#sur-windows">Sur Windows</a></li>
   </ul></li>
   <li><a href="#ce-quon-fait-avec-mir" id="toc-ce-quon-fait-avec-mir" class="nav-link" data-scroll-target="#ce-quon-fait-avec-mir">Ce qu’on fait avec MIR</a>
   <ul class="collapse">
@@ -252,13 +253,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-LsSf</span> https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos/install_mir.sh <span class="kw">|</span> <span class="fu">bash</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
 <p>La commande installe MIR dans votre dossier personnel (<code>~/MIR</code>) et crée l’application <strong>MIR</strong> dans le dossier <strong>Applications</strong>. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.</p>
 </section>
-<section id="sur-windows-ou-linux" class="level3">
-<h3 class="anchored" data-anchor-id="sur-windows-ou-linux">Sur Windows ou Linux</h3>
+<section id="sur-linux-une-seule-commande" class="level3">
+<h3 class="anchored" data-anchor-id="sur-linux-une-seule-commande">Sur Linux : une seule commande</h3>
+<p>Ouvrez un <strong>Terminal</strong>, collez cette ligne puis appuyez sur Entrée :</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-LsSf</span> https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/install_mir.sh <span class="kw">|</span> <span class="fu">bash</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Si <code>curl</code> n’est pas installé (c’est le cas d’Ubuntu au départ), utilisez plutôt :</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> <span class="at">-qO-</span> https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/install_mir.sh <span class="kw">|</span> <span class="fu">bash</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
+<p>La commande installe MIR dans votre dossier personnel (<code>~/MIR</code>), l’ajoute au menu des applications et sur le Bureau. Sur un PC Intel ou AMD, prévoyez plutôt <strong>12 Go</strong> libres : PyTorch y est fourni avec CUDA, pour les cartes graphiques NVIDIA. Vers la fin, l’installateur pose deux questions, auxquelles on répond par Entrée (oui) puis avec son mot de passe, qui ne s’affiche pas quand on le tape :</p>
+<ul>
+<li>installer la bibliothèque <code>libxcb-cursor0</code>, sans laquelle la fenêtre de MIR peut ne pas s’ouvrir ;</li>
+<li>ajouter votre compte au groupe <code>dialout</code>, qui a le droit d’utiliser le port série du robot réel. Fermez ensuite la session et reconnectez-vous.</li>
+</ul>
+<p>Sans mot de passe administrateur, répondez <code>n</code> : MIR fonctionne en simulation, et l’installateur affiche les commandes à faire taper par un administrateur. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.</p>
+</section>
+<section id="sur-windows" class="level3">
+<h3 class="anchored" data-anchor-id="sur-windows">Sur Windows</h3>
 <ol type="1">
-<li><p><strong>Installer uv</strong> (une seule fois). Sous Windows, dans <strong>PowerShell</strong> :</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode powershell code-with-copy"><code class="sourceCode powershell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>powershell <span class="op">-</span>ExecutionPolicy ByPass <span class="op">-</span>c <span class="st">"irm https://astral.sh/uv/install.ps1 | iex"</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Sous Linux, dans un <strong>Terminal</strong> :</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-LsSf</span> https://astral.sh/uv/install.sh <span class="kw">|</span> <span class="fu">sh</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
+<li><p><strong>Installer uv</strong> (une seule fois). Dans <strong>PowerShell</strong> :</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode powershell code-with-copy"><code class="sourceCode powershell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>powershell <span class="op">-</span>ExecutionPolicy ByPass <span class="op">-</span>c <span class="st">"irm https://astral.sh/uv/install.ps1 | iex"</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Fermez puis rouvrez la fenêtre, pour que la commande <code>uv</code> soit trouvée.</p></li>
 <li><p><strong>Télécharger MIR</strong> : sur <a href="https://github.com/MariusBrtn/mir">github.com/MariusBrtn/mir</a>, bouton vert <strong>Code</strong> → <strong>Download ZIP</strong>, puis décompressez l’archive.</p></li>
 <li><p><strong>Installer</strong>, dans le dossier de MIR (celui qui contient <code>pyproject.toml</code>) : <code>uv sync</code> (ou double-clic sur <code>install.bat</code> sous Windows). Comptez une dizaine de minutes la première fois.</p></li>
