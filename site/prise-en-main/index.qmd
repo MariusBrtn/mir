@@ -38,8 +38,8 @@ wget -qO- https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/
 
 La commande installe MIR dans votre dossier personnel (`~/MIR`), l'ajoute au menu des applications et sur le Bureau. Sur un PC Intel ou AMD, prévoyez plutôt **12 Go** libres : PyTorch y est fourni avec CUDA, pour les cartes graphiques NVIDIA. Vers la fin, l'installateur pose deux questions, auxquelles on répond par Entrée (oui) puis avec son mot de passe, qui ne s'affiche pas quand on le tape :
 
--   installer la bibliothèque `libxcb-cursor0`, sans laquelle la fenêtre de MIR peut ne pas s'ouvrir ;
--   ajouter votre compte au groupe `dialout`, qui a le droit d'utiliser le port série du robot réel. Fermez ensuite la session et reconnectez-vous.
+- installer la bibliothèque `libxcb-cursor0`, sans laquelle la fenêtre de MIR peut ne pas s'ouvrir ;
+- ajouter votre compte au groupe `dialout`, qui a le droit d'utiliser le port série du robot réel. Fermez ensuite la session et reconnectez-vous.
 
 Sans mot de passe administrateur, répondez `n` : MIR fonctionne en simulation, et l'installateur affiche les commandes à faire taper par un administrateur. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.
 
@@ -61,7 +61,7 @@ Sans mot de passe administrateur, répondez `n` : MIR fonctionne en simulation, 
 
 ## Ce qu'on fait avec MIR
 
-MIR s'ouvre sur l'étape **Configurer le robot**. Les étapes sont en haut de la fenêtre, de gauche à droite dans l'ordre où on les suit. Deux robots sont fournis pour essayer tout de suite : `bras_4ddl_cam_V2`, un bras avec une caméra, et `test_mobile`, un robot mobile avec un lidar. Sans robot branché, MIR pilote le **robot simulé** : le sélecteur **Réel / Simulé**, en haut à droite, choisit l'un ou l'autre. Avec le vrai robot, un bouton **Arrêt d'urgence** apparaît au même endroit et coupe tout de suite les moteurs.
+MIR s'ouvre sur l'étape **Configurer le robot**. Les étapes sont en haut de la fenêtre, de gauche à droite dans l'ordre où on les suit. Sans robot branché, MIR pilote le **robot simulé** : le sélecteur **Réel / Simulé**, en haut à droite, choisit l'un ou l'autre. Avec le vrai robot, un bouton **Arrêt d'urgence** apparaît au même endroit et coupe tout de suite les moteurs.
 
 ### Découvrir les bases de la robotique
 
@@ -70,24 +70,24 @@ On assemble un robot module par module : servos, jonctions, pince, caméra, roue
 ::: {layout-ncol="2"}
 ![Concevoir la structure : le bras fourni, assemblé à partir des modules du catalogue.](../images/appli/structure.png){.capture group="bases"}
 
-![Un essai d'échelon sur une articulation : avec le terme dérivé (D = 60) puis sans (D = 0), la réponse dépasse la consigne et oscille.](../images/appli/essai-echelon.png){.capture group="bases"}
+![Un essai d'échelon sur une articulation avec différents réglages de correcteur.](../images/appli/essai-echelon.png){.capture group="bases"}
 :::
 
 ### L'IA appliquée à la robotique
 
-On commence par l'apprentissage par imitation le plus simple : le robot copie ce qu'un opérateur lui a montré (*Behavioral Cloning*). On va ensuite jusqu'aux modèles actuels, comme ACT ou les politiques de diffusion. On voit aussi l'apprentissage par renforcement, où le robot apprend seul, par essais et erreurs. Chaque méthode est découverte, puis appliquée dans MIR : on enregistre des démonstrations, on entraîne un modèle, et on le laisse piloter le robot.
+On peut commencer par l'apprentissage par imitation le plus simple : le robot copie ce qu'un opérateur lui a montré (*Behavioral Cloning*). On va ensuite jusqu'aux modèles actuels, comme ACT ou les politiques de diffusion. Il est également possible de faire de l'apprentissage par renforcement, où le robot apprend seul, par essais et erreurs.
 
 ::: {layout-ncol="2"}
 ![Imitation : un modèle ACT, appris sur 50 démonstrations, va saisir le dé ; à droite, ce que voit sa caméra.](../images/appli/imitation.png){.capture group="ia"}
 
-![Renforcement : le robot mobile a appris à explorer une rue encombrée sans heurter les obstacles, avec son seul lidar.](../images/appli/renforcement.png){.capture group="ia"}
+![Apprentissage par renforcement : le robot mobile équipé d'un lidar a appris à explorer un terrain encombré sans heurter les obstacles.](../images/appli/renforcement.png){.capture group="ia"}
 :::
 
 ### Assembler des tâches complexes avec MIR Flow
 
-MIR Flow assemble des briques dans un graphe : mesures des capteurs, calculs en Python, compétences du robot (une consigne, un script ou un modèle entraîné), décisions, et même un modèle de langage qui choisit quoi faire. Chaque brique reste simple ; c'est leur assemblage qui donne un comportement riche.
+MIR Flow permet d'assembles des briques dans un graphe : mesures des capteurs, scripts Python, modèles entraînés, et même un noeud LLM afin de contrôler le robot. L'assemblage des briques permet de construire des comportements complexes.
 
-![Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques suit sa position et dessine la carte des lieux avec le lidar (en bas à droite).](../images/appli/mir-flow.png){.capture group="flow"}
+![Le robot mobile explore la rue grâce à son modèle appris par renforcement ; en même temps, une chaîne de briques permet de cartographier la zone (en bas à droite).](../images/appli/mir-flow.png){.capture group="flow"}
 
 ## Où sont rangés les fichiers
 
