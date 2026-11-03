@@ -63,13 +63,28 @@ on the real robot or in simulation.
 
 ## Installation
 
-MIR runs on **Windows**, **macOS** and **Linux**. No administrator rights are needed, and you don't have to install
+MIR runs on **Windows** (10 or 11, 64-bit), **macOS** (Apple Silicon) and **Linux** (64-bit). On each system, a single
+command installs it. No administrator rights are needed, and you don't have to install
 Python yourself: the [uv](https://docs.astral.sh/uv/) tool downloads Python 3.12 and the exact versions of every
 package MIR needs (LeRobot, MuJoCo, PyTorch...).
 
 You need an internet connection and about **5 GB** of free disk space. The first installation takes around 10 minutes.
 
-### Quick install on macOS (Apple Silicon)
+### Windows
+
+Open **PowerShell** (Start menu → type "PowerShell"), paste this line and press Enter:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/windows/install_mir.ps1 | iex"
+```
+
+It installs uv, downloads MIR into your user folder (`%USERPROFILE%\MIR`), installs its packages and creates a **MIR**
+shortcut in the Start menu and on the desktop. It starts with two simulated robots: `bras_4ddl_cam_V2` (4-DOF arm with
+a camera) and `test_mobile` (mobile robot with a lidar). The log is in `%USERPROFILE%\MIR\logs\application.log`. Run
+the same line again to update MIR: the `robots\` folder (your work) is never touched. Windows 7 and 8 are not
+supported (Python 3.12, Qt 6 and PyTorch need Windows 10 or later).
+
+### macOS
 
 Open the **Terminal** app (Spotlight → type "Terminal"), paste this line and press Enter:
 
@@ -79,11 +94,9 @@ curl -LsSf https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos
 
 It installs uv, downloads MIR into your home folder (`~/MIR`), installs its packages and creates the **MIR** app in
 the **Applications** folder (or in `~/Applications` if your account may not write there). Find it with Launchpad or
-Spotlight, and drag it to the Dock to keep it. It starts with two simulated
-robots: `bras_4ddl_cam_V2` (4-DOF arm with a camera) and `test_mobile` (mobile robot with a lidar). Run the same line
-again to update MIR: the `robots/` folder (your work) is never touched. Intel Macs are not supported (PyTorch no longer exists for them).
+Spotlight, and drag it to the Dock to keep it. It starts with the same two simulated robots. Run the same line again to update MIR: the `robots/` folder (your work) is never touched. Intel Macs are not supported (PyTorch no longer exists for them).
 
-### Quick install on Linux
+### Linux
 
 Open a **Terminal**, paste this line and press Enter:
 
@@ -109,9 +122,11 @@ Answer `n` if you have no administrator rights: MIR works in simulation, and the
 administrator. The log is in `~/MIR/logs/application.log`. Run the same line again to update MIR (your `robots/` folder
 is never touched). To install elsewhere, put `MIR_DIR=/path/to/MIR` before `bash`, and use it again for each update.
 
-The steps below do the same by hand, on Windows, macOS and Linux.
+### Manual installation
 
-### 1. Install uv (once)
+The steps below do the same by hand, on Windows, macOS and Linux (useful to work on MIR's code).
+
+#### 1. Install uv (once)
 
 - **Windows**: open **PowerShell** (Start menu → type "PowerShell") and paste:
   ```powershell
@@ -124,7 +139,7 @@ The steps below do the same by hand, on Windows, macOS and Linux.
 
 Then **close and reopen** the PowerShell / Terminal window, so that the `uv` command is found.
 
-### 2. Download MIR
+#### 2. Download MIR
 
 Either:
 - **without git**: on this page, click the green **Code** button → **Download ZIP**, and unzip it where you like;
@@ -133,7 +148,7 @@ Either:
   git clone https://github.com/MariusBrtn/mir.git
   ```
 
-### 3. Install MIR
+#### 3. Install MIR
 
 Open PowerShell / Terminal **in the MIR folder** (`mir`, or `mir-main` if you downloaded the ZIP: the folder containing
 `pyproject.toml`) and run:
@@ -145,7 +160,7 @@ uv sync
 You can also double-click **`install.bat`** (Windows) or run **`./install.sh`** (macOS / Linux).
 This creates a `.venv` folder containing everything MIR needs; nothing is installed elsewhere on your computer.
 
-### 4. Start MIR
+#### 4. Start MIR
 
 From the same folder:
 
