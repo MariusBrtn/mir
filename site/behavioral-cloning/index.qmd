@@ -2,13 +2,61 @@
 aliases:
   - ../behavioral-cloning.html
 title: "Behavioral Cloning"
-subtitle: "Apprendre à un robot à imiter un opérateur, avec un bras simple à trois degrés de liberté et une pince"
-toc: false
+subtitle: "Apprendre à un robot à imiter un opérateur, avec un bras à trois articulations et une pince"
 ---
 
+Ce tuto se fait entièrement dans MIR, avec le robot simulé : aucun matériel n'est nécessaire. On y construit pas à pas
+tout ce qu'il faut pour apprendre à un robot par imitation :
+
+1.  **concevoir le bras** que l'on va utiliser ;
+2.  découvrir ses **observations** et ses **actions** ;
+3.  mesurer la réponse d'une articulation à un **échelon** ;
+4.  **commander** le bras avec un petit script Python ;
+5.  lui **apprendre par imitation** : faire des démonstrations, entraîner un modèle, puis le laisser piloter le bras.
+
+## 1. Concevoir le bras
+
+Un robot MIR est un assemblage de modules : servos, jonctions, pince, caméra… Avant de le faire bouger, on décrit
+donc le robot en choisissant ses modules et la façon dont ils sont branchés les uns sur les autres. C'est sa
+**structure**.
+
+Le bras de ce tuto est composé :
+
+-   d'un **socle**, posé sur la table ;
+-   de **trois servos** : le premier fait tourner tout le bras autour de l'axe vertical, le deuxième (l'épaule) et le
+    troisième (le coude) le lèvent et le plient ;
+-   d'une **jonction** entre l'épaule et le coude, pour allonger le bras ;
+-   d'une **pince** au bout, qui a elle aussi son servo.
+
+Le bras a donc **quatre moteurs**, que MIR nomme `joint_1` à `joint_4` : `joint_4` est celui de la pince.
+
+<div class="tuto">
+<video controls preload="metadata" poster="../videos/bc-structure.jpg" src="../videos/bc-structure.mp4"></video>
+</div>
+
+Dans l'étape **Configurer le robot**, choisissez **Concevoir la structure**, puis glissez chaque module de la liste
+de gauche sur une pastille du robot. Une fois le bras terminé, cliquez sur **Valider** et enregistrez le robot sous
+le nom `bras_3ddl_pince`.
+
+::: {.callout-tip}
+## Quelques gestes utiles dans l'éditeur
+
+-   **Tourner la vue** : glisser dans la vue 3D ; **zoomer** : molette.
+-   Une pastille est cachée ? Tournez la vue jusqu'à la voir.
+-   Un module est branché dans le mauvais sens : sélectionnez-le, puis touche **R**.
+-   Les pastilles sont vertes et plus rien ne se sélectionne : MIR attend que vous cliquiez sur une pastille pour
+    brancher le module choisi. Touche **Échap** pour annuler.
+:::
+
+::: {.callout-important}
+## À retenir
+
+La structure décrit le robot une seule fois. MIR s'en sert pour tout le reste : le robot simulé, le guide de montage
+du vrai robot, et la liste de ce que l'on peut mesurer et commander sur chaque moteur (`joint_1.position`…). Sans robot
+branché, c'est le robot simulé qui est piloté.
+:::
+
 ::: {.callout-note}
-## En préparation
-Ce parcours est en cours d'écriture. On y découvrira le *Behavioral Cloning* avec un bras simple à trois degrés de
-liberté et une pince : un opérateur fait des démonstrations, MIR les enregistre, puis on entraîne un modèle qui pilote
-le robot à partir de ce qu'il observe.
+## La suite est en préparation
+Observations et actions, essais d'échelons, commande par script, puis apprentissage par imitation.
 :::

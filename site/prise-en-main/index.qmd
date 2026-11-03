@@ -10,7 +10,7 @@ lightbox: true
 
 ## Installer MIR
 
-MIR fonctionne sous **Windows**, **macOS** (processeur Apple : M1, M2…) et **Linux**. L'installation ne demande pas de droits d'administrateur, ni d'installer Python soi-même : l'outil [uv](https://docs.astral.sh/uv/) télécharge Python et les versions exactes de tout ce dont MIR a besoin (LeRobot, MuJoCo, PyTorch…). Il faut une connexion internet et environ **5 Go** d'espace libre.
+MIR fonctionne sous **Windows** (10 ou 11), **macOS** (processeur Apple : M1, M2…) et **Linux**. L'installation ne demande pas de droits d'administrateur, ni d'installer Python soi-même : l'outil [uv](https://docs.astral.sh/uv/) télécharge Python et les versions exactes de tout ce dont MIR a besoin (LeRobot, MuJoCo, PyTorch…). Il faut une connexion internet et environ **5 Go** d'espace libre.
 
 ### Sur Mac : une seule commande
 
@@ -43,21 +43,15 @@ La commande installe MIR dans votre dossier personnel (`~/MIR`), l'ajoute au men
 
 Sans mot de passe administrateur, répondez `n` : MIR fonctionne en simulation, et l'installateur affiche les commandes à faire taper par un administrateur. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.
 
-### Sur Windows
+### Sur Windows : une seule commande
 
-1.  **Installer uv** (une seule fois). Dans **PowerShell** :
+Ouvrez **PowerShell** (menu Démarrer → « PowerShell »), collez cette ligne puis appuyez sur Entrée :
 
-    ``` powershell
-    powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-    ```
+``` powershell
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/windows/install_mir.ps1 | iex"
+```
 
-    Fermez puis rouvrez la fenêtre, pour que la commande `uv` soit trouvée.
-
-2.  **Télécharger MIR** : sur [github.com/MariusBrtn/mir](https://github.com/MariusBrtn/mir), bouton vert **Code** → **Download ZIP**, puis décompressez l'archive.
-
-3.  **Installer**, dans le dossier de MIR (celui qui contient `pyproject.toml`) : `uv sync` (ou double-clic sur `install.bat` sous Windows). Comptez une dizaine de minutes la première fois.
-
-4.  **Lancer MIR**, depuis le même dossier : `uv run mir`.
+La commande installe MIR dans votre dossier personnel (`%USERPROFILE%\MIR`) et crée le raccourci **MIR** dans le menu Démarrer et sur le Bureau. Il faut **Windows 10 ou 11, en 64 bits** : MIR ne fonctionne pas sous Windows 7. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.
 
 ## Ce qu'on fait avec MIR
 

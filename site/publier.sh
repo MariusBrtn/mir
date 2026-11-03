@@ -5,7 +5,7 @@
 # 1. fabrique le site (quarto render → _site/) ;
 # 2. l'envoie sur la branche gh-pages de GitHub, que mir-edu.fr affiche (en ligne une minute plus tard) ;
 # 3. enregistre aussi les pages (.qmd, images) sur GitHub, branche main.
-# Les vidéos (*.mp4, dossier videos/) ne sont pas mises en ligne.
+# Seules les vidéos utilisées par une page sont mises en ligne (voir _videos.py).
 set -euo pipefail
 cd "$(dirname "$0")"
 export PATH="$HOME/.local/bin:$PATH"            # quarto et uv, installés par uv tool
@@ -26,7 +26,7 @@ temp=$(mktemp -d)
 trap 'git -C "$racine" worktree remove --force "$temp/pages" 2>/dev/null; rm -rf "$temp"' EXIT
 git fetch -q "$DEPOT" gh-pages || echec "GitHub ne répond pas : vérifiez la connexion internet."
 git worktree add -q --detach "$temp/pages" "$DEPOT/gh-pages"
-rsync -a --delete --exclude .git --exclude '*.mp4' _site/ "$temp/pages/"
+rsync -a --delete --exclude .git _site/ "$temp/pages/"
 git -C "$temp/pages" add -A
 if git -C "$temp/pages" diff --cached --quiet; then
     echo "Le site en ligne est déjà à jour."

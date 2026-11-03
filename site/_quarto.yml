@@ -1,7 +1,9 @@
 project:
   type: website
   output-dir: _site
-  post-render: _liens_propres.py     # liens « dossier/ » plutôt que « dossier/index.html »
+  post-render:
+    - _liens_propres.py     # liens « dossier/ » plutôt que « dossier/index.html »
+    - _videos.py            # copie les vidéos utilisées par les pages (et seulement elles)
   resources:
     - CNAME          # nom de domaine du site (GitHub Pages)
     - .nojekyll      # fichiers servis tels quels (pas de traitement Jekyll par GitHub)

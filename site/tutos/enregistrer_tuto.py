@@ -42,6 +42,9 @@ SORTIE = Path(__file__).resolve().parent.parent / "videos"
 ROBOTS_SOURCE = Path(mir_robot_module.DOSSIER_ROBOTS)
 ROBOTS_INSTALLES = ("bras_4ddl_cam_V2", "test_mobile")     # robots d'une installation neuve (installateur)
 NOM_BRAS = "bras_4ddl_pince"
+NOM_BRAS_BC = "bras_3ddl_pince"         # parcours Behavioral Cloning
+# point de vue de la construction du bras 3 ddl : lookat, distance, azimut, élévation
+CAMERA_BC = ((0.0, 0.05, 0.12), 0.46, -135.0, -25.0)
 
 SCRIPT_ANALYSE = '''"""
 Analyse d'un échelon : temps de réponse à 5 %
@@ -230,6 +233,69 @@ def bras_structure(t: Tuto, e: Enregistreur) -> None:
     e.attendre(2.5)
 
 
+def bc_structure(t: Tuto, e: Enregistreur) -> None:
+    """Parcours Behavioral Cloning : concevoir le bras 3 ddl + pince, pas à pas, puis l'enregistrer.
+
+    Chaque geste suit le même rythme : la légende d'abord (le temps de la lire), puis le geste à vitesse
+    constante, puis une pause sur le résultat."""
+    f = t.fenetre
+    lire, geste, voir = 1.2, 1.0, 0.8           # secondes : lire la légende, faire le geste, voir le résultat
+
+    def legende(texte: str) -> None:
+        e.legende = texte
+        e.attendre(lire)
+
+    legende("Aucun robot ouvert : on conçoit un nouveau robot")
+    legende("Étape « Configurer le robot » → Concevoir la structure")
+    e.cliquer(t.carte(f._structure_action), geste)
+
+    def editeur(vm):
+        vue = StructureEditorView(None, vm)
+        vue.resize(1200, 740)
+        e.ouvrir(vue)
+        e.vue = vue
+        # cadré dès le départ sur le bras terminé : pas de zoom qui saute entre deux modules ; la vue ne tourne
+        # que si une pastille est cachée (aucun point de vue fixe ne les montre toutes)
+        camera = vue._viewport._camera
+        camera.lookat[:], camera.distance, camera.azimuth, camera.elevation = CAMERA_BC
+        vue._viewport._camera_moved_by_user = True
+        vue._viewport.update()
+        e.attendre(0.5)
+        legende("À gauche, les modules ; au centre, le robot en 3D")
+        legende("Le socle est déjà posé : c'est le module de départ")
+        etapes = [   # (élément de la liste, pastille, branché par, légende)
+            ("new:mir_servo", "socle.dessus", "rotor", "1er servo, sur le dessus du socle : il fera tourner le bras"),
+            ("new:mir_servo", "{}.stator", "rotor", "2e servo, sur le premier : l'épaule"),
+            ("block:mir_jonction", "{}.stator", "face_a", "Une jonction, pour allonger le bras"),
+            ("new:mir_servo", "{}.face_b", "stator", "3e servo, au bout de la jonction : le coude"),
+            ("new:mir_pince", "{}.rotor", "stator", "Et la pince, au bout du bras"),
+        ]
+        precedent = ""
+        for cle, pastille, connecteur, texte in etapes:
+            legende(texte)
+            module = e.glisser(cle, pastille.format(precedent), geste)
+            e.attendre(voir)
+            if vm.modules[module]["connector"] != connecteur:
+                legende("Il n'est pas dans le bon sens : touche R pour le brancher par son autre face")
+                e.brancher_par(module, connecteur, geste)
+                e.attendre(voir)
+            precedent = module
+        vm._select(None)
+        e.legende = "Le bras : 3 articulations et une pince, soit 4 moteurs"
+        e.tourner_camera(360, 6.0)
+        e.attendre(voir)
+        legende("Valider la structure")
+        e.reponses = [("Configuration modifiée", True), ("Enregistrer le robot", NOM_BRAS_BC)]
+        e.valider_structure()
+        e.fenetres.remove(vue)
+        e.vue = None
+        e.legende = "Enregistrer le robot sous un nom"
+
+    t.vm.execute_structure_editor(editeur)
+    e.legende = f"Le robot « {NOM_BRAS_BC} » est prêt, en simulation"
+    e.attendre(3.0)
+
+
 def bras_echelon(t: Tuto, e: Enregistreur) -> None:
     """Piloter → Essais, en simulé : deux échelons sur joint_2 (réglage par défaut, puis sans D), courbes superposées."""
     f = t.fenetre
@@ -378,9 +444,12 @@ SCENARIOS = {
     "bras-4ddl-echelon": bras_echelon,
     "bras-4ddl-analyse": bras_analyse,
     "mir-en-action": mir_en_action,
+    "bc-structure": bc_structure,
 }
 # scénarios qui utilisent les exemples complets (datasets, modèles) : copie de tout le dossier robots/
 AVEC_EXEMPLES = {"mir-en-action"}
+# scénarios qui partent d'une appli neuve, sans jouer les précédents
+INDEPENDANTS = {"bc-structure"}
 
 
 def main() -> None:
@@ -413,7 +482,7 @@ def main() -> None:
                 continue
             if nom in demandes:
                 tuto.filmer(nom, scenario)
-            elif any(n in demandes for n in list(SCENARIOS)[list(SCENARIOS).index(nom) + 1:]):
+            elif any(n in demandes and n not in INDEPENDANTS for n in list(SCENARIOS)[list(SCENARIOS).index(nom) + 1:]):
                 tuto.filmer(nom, scenario, video=False)
         shutil.rmtree(robots, ignore_errors=True)    # os._exit saute le nettoyage du dossier temporaire
         os._exit(0)       # pas de fermeture de la fenêtre (elle demanderait d'enregistrer)
