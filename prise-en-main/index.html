@@ -207,9 +207,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#installer-mir" id="toc-installer-mir" class="nav-link active" data-scroll-target="#installer-mir">Installer MIR</a>
   <ul class="collapse">
-  <li><a href="#sur-mac-une-seule-commande" id="toc-sur-mac-une-seule-commande" class="nav-link" data-scroll-target="#sur-mac-une-seule-commande">Sur Mac : une seule commande</a></li>
-  <li><a href="#sur-linux-une-seule-commande" id="toc-sur-linux-une-seule-commande" class="nav-link" data-scroll-target="#sur-linux-une-seule-commande">Sur Linux : une seule commande</a></li>
-  <li><a href="#sur-windows-une-seule-commande" id="toc-sur-windows-une-seule-commande" class="nav-link" data-scroll-target="#sur-windows-une-seule-commande">Sur Windows : une seule commande</a></li>
+  <li><a href="#sur-mac" id="toc-sur-mac" class="nav-link" data-scroll-target="#sur-mac">Sur Mac</a></li>
+  <li><a href="#sur-linux" id="toc-sur-linux" class="nav-link" data-scroll-target="#sur-linux">Sur Linux</a></li>
+  <li><a href="#sur-windows" id="toc-sur-windows" class="nav-link" data-scroll-target="#sur-windows">Sur Windows</a></li>
   </ul></li>
   <li><a href="#ce-quon-fait-avec-mir" id="toc-ce-quon-fait-avec-mir" class="nav-link" data-scroll-target="#ce-quon-fait-avec-mir">Ce qu’on fait avec MIR</a>
   <ul class="collapse">
@@ -246,15 +246,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="installer-mir" class="level2">
 <h2 class="anchored" data-anchor-id="installer-mir">Installer MIR</h2>
-<p>MIR fonctionne sous <strong>Windows</strong> (10 ou 11), <strong>macOS</strong> (processeur Apple : M1, M2…) et <strong>Linux</strong>. L’installation ne demande pas de droits d’administrateur, ni d’installer Python soi-même : l’outil <a href="https://docs.astral.sh/uv/">uv</a> télécharge Python et les versions exactes de tout ce dont MIR a besoin (LeRobot, MuJoCo, PyTorch…). Il faut une connexion internet et environ <strong>5 Go</strong> d’espace libre.</p>
-<section id="sur-mac-une-seule-commande" class="level3">
-<h3 class="anchored" data-anchor-id="sur-mac-une-seule-commande">Sur Mac : une seule commande</h3>
+<p>MIR fonctionne sous <strong>Windows</strong> (10 ou 11), <strong>macOS</strong> (processeur Apple : M1, M2…) et <strong>Linux</strong>. L’installation tient en une seule commande. Elle ne demande pas de droits d’administrateur, ni d’installer Python soi-même : l’outil <a href="https://docs.astral.sh/uv/">uv</a> télécharge Python et les versions exactes de tout ce dont MIR a besoin (LeRobot, MuJoCo, PyTorch…). Il faut une connexion internet et environ <strong>5 Go</strong> d’espace libre.</p>
+<section id="sur-mac" class="level3">
+<h3 class="anchored" data-anchor-id="sur-mac">Sur Mac</h3>
 <p>Ouvrez l’application <strong>Terminal</strong> (Spotlight → « Terminal »), collez cette ligne puis appuyez sur Entrée :</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-LsSf</span> https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/macos/install_mir.sh <span class="kw">|</span> <span class="fu">bash</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
 <p>La commande installe MIR dans votre dossier personnel (<code>~/MIR</code>) et crée l’application <strong>MIR</strong> dans le dossier <strong>Applications</strong>. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.</p>
 </section>
-<section id="sur-linux-une-seule-commande" class="level3">
-<h3 class="anchored" data-anchor-id="sur-linux-une-seule-commande">Sur Linux : une seule commande</h3>
+<section id="sur-linux" class="level3">
+<h3 class="anchored" data-anchor-id="sur-linux">Sur Linux</h3>
 <p>Ouvrez un <strong>Terminal</strong>, collez cette ligne puis appuyez sur Entrée :</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-LsSf</span> https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/linux/install_mir.sh <span class="kw">|</span> <span class="fu">bash</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Si <code>curl</code> n’est pas installé (c’est le cas d’Ubuntu au départ), utilisez plutôt :</p>
@@ -266,8 +266,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </ul>
 <p>Sans mot de passe administrateur, répondez <code>n</code> : MIR fonctionne en simulation, et l’installateur affiche les commandes à faire taper par un administrateur. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.</p>
 </section>
-<section id="sur-windows-une-seule-commande" class="level3">
-<h3 class="anchored" data-anchor-id="sur-windows-une-seule-commande">Sur Windows : une seule commande</h3>
+<section id="sur-windows" class="level3">
+<h3 class="anchored" data-anchor-id="sur-windows">Sur Windows</h3>
 <p>Ouvrez <strong>PowerShell</strong> (menu Démarrer → « PowerShell »), collez cette ligne puis appuyez sur Entrée :</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode powershell code-with-copy"><code class="sourceCode powershell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>powershell <span class="op">-</span>ExecutionPolicy ByPass <span class="op">-</span>c <span class="st">"irm https://raw.githubusercontent.com/MariusBrtn/mir/main/installer/windows/install_mir.ps1 | iex"</span></span></code></pre></div><button title="Copier vers le presse-papier" class="code-copy-button"><i class="bi"></i></button></div>
 <p>La commande installe MIR dans votre dossier personnel (<code>%USERPROFILE%\MIR</code>) et crée le raccourci <strong>MIR</strong> dans le menu Démarrer et sur le Bureau. Il faut <strong>Windows 10 ou 11, en 64 bits</strong> : MIR ne fonctionne pas sous Windows 7. Pour mettre MIR à jour, relancez la même commande : vos robots ne sont pas touchés.</p>
