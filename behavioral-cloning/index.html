@@ -79,7 +79,7 @@ ul.task-list li input[type="checkbox"] {
 <link rel="stylesheet" href="../styles.css">
 </head>
 
-<body class="nav-sidebar docked fullcontent quarto-light">
+<body class="nav-sidebar docked quarto-light">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top">
@@ -161,14 +161,22 @@ ul.task-list li input[type="checkbox"] {
 </nav>
 <div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
-    
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Sur cette page</h2>
+   
+  <ul>
+  <li><a href="#concevoir-le-bras" id="toc-concevoir-le-bras" class="nav-link active" data-scroll-target="#concevoir-le-bras">1. Concevoir le bras</a></li>
+  </ul>
+</nav>
+    </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../behavioral-cloning/">Apprendre par imitation</a></li><li class="breadcrumb-item"><a href="../behavioral-cloning/">Behavioral Cloning</a></li></ol></nav>
 <div class="quarto-title">
 <h1 class="title">Behavioral Cloning</h1>
-<p class="subtitle lead">Apprendre à un robot à imiter un opérateur, avec un bras simple à trois degrés de liberté et une pince</p>
+<p class="subtitle lead">Apprendre à un robot à imiter un opérateur, avec un bras à trois articulations et une pince</p>
 </div>
 
 
@@ -185,21 +193,77 @@ ul.task-list li input[type="checkbox"] {
 </header>
 
 
+<p>Ce tuto se fait entièrement dans MIR, avec le robot simulé : aucun matériel n’est nécessaire. On y construit pas à pas tout ce qu’il faut pour apprendre à un robot par imitation :</p>
+<ol type="1">
+<li><strong>concevoir le bras</strong> que l’on va utiliser ;</li>
+<li>découvrir ses <strong>observations</strong> et ses <strong>actions</strong> ;</li>
+<li>mesurer la réponse d’une articulation à un <strong>échelon</strong> ;</li>
+<li><strong>commander</strong> le bras avec un petit script Python ;</li>
+<li>lui <strong>apprendre par imitation</strong> : faire des démonstrations, entraîner un modèle, puis le laisser piloter le bras.</li>
+</ol>
+<section id="concevoir-le-bras" class="level2">
+<h2 class="anchored" data-anchor-id="concevoir-le-bras">1. Concevoir le bras</h2>
+<p>Un robot MIR est un assemblage de modules : servos, jonctions, pince, caméra… Avant de le faire bouger, on décrit donc le robot en choisissant ses modules et la façon dont ils sont branchés les uns sur les autres. C’est sa <strong>structure</strong>.</p>
+<p>Le bras de ce tuto est composé :</p>
+<ul>
+<li>d’un <strong>socle</strong>, posé sur la table ;</li>
+<li>de <strong>trois servos</strong> : le premier fait tourner tout le bras autour de l’axe vertical, le deuxième (l’épaule) et le troisième (le coude) le lèvent et le plient ;</li>
+<li>d’une <strong>jonction</strong> entre l’épaule et le coude, pour allonger le bras ;</li>
+<li>d’une <strong>pince</strong> au bout, qui a elle aussi son servo.</li>
+</ul>
+<p>Le bras a donc <strong>quatre moteurs</strong>, que MIR nomme <code>joint_1</code> à <code>joint_4</code> : <code>joint_4</code> est celui de la pince.</p>
+<div class="tuto">
+<video controls="" preload="metadata" poster="../videos/bc-structure.jpg" src="../videos/bc-structure.mp4">
+</video>
+</div>
+<p>Dans l’étape <strong>Configurer le robot</strong>, choisissez <strong>Concevoir la structure</strong>, puis glissez chaque module de la liste de gauche sur une pastille du robot. Une fois le bras terminé, cliquez sur <strong>Valider</strong> et enregistrez le robot sous le nom <code>bras_3ddl_pince</code>.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Astuce</span>Quelques gestes utiles dans l’éditeur
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li><strong>Tourner la vue</strong> : glisser dans la vue 3D ; <strong>zoomer</strong> : molette.</li>
+<li>Une pastille est cachée ? Tournez la vue jusqu’à la voir.</li>
+<li>Un module est branché dans le mauvais sens : sélectionnez-le, puis touche <strong>R</strong>.</li>
+<li>Les pastilles sont vertes et plus rien ne se sélectionne : MIR attend que vous cliquiez sur une pastille pour brancher le module choisi. Touche <strong>Échap</strong> pour annuler.</li>
+</ul>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>À retenir
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>La structure décrit le robot une seule fois. MIR s’en sert pour tout le reste : le robot simulé, le guide de montage du vrai robot, et la liste de ce que l’on peut mesurer et commander sur chaque moteur (<code>joint_1.position</code>…). Sans robot branché, c’est le robot simulé qui est piloté.</p>
+</div>
+</div>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>En préparation
+<span class="screen-reader-only">Note</span>La suite est en préparation
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>Ce parcours est en cours d’écriture. On y découvrira le <em>Behavioral Cloning</em> avec un bras simple à trois degrés de liberté et une pince : un opérateur fait des démonstrations, MIR les enregistre, puis on entraîne un modèle qui pilote le robot à partir de ce qu’il observe.</p>
+<p>Observations et actions, essais d’échelons, commande par script, puis apprentissage par imitation.</p>
 </div>
 </div>
 
 
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
