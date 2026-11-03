@@ -27,7 +27,8 @@ trap 'git -C "$racine" worktree remove --force "$temp/pages" 2>/dev/null; rm -rf
 git fetch -q "$DEPOT" gh-pages || echec "GitHub ne répond pas : vérifiez la connexion internet."
 git worktree add -q --detach "$temp/pages" "$DEPOT/gh-pages"
 rsync -a --delete --exclude .git _site/ "$temp/pages/"
-git -C "$temp/pages" add -A
+# --force : tout le site fabriqué, même les vidéos (.mp4), que .git/info/exclude écarte des sources
+git -C "$temp/pages" add -A --force .
 if git -C "$temp/pages" diff --cached --quiet; then
     echo "Le site en ligne est déjà à jour."
 else
